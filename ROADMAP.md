@@ -20,14 +20,18 @@ model and the two-logical-calendar configuration from day one. Verified
 against Google (the known backend) in both configurations: coinciding
 calendars and separate availability/store.
 
-*Exit: automated test suite runs the full flow — list, book, conflict,
-cancel — against a real backend; CI builds both halves.*
+*Exit: met 2026-08-01 — `worker/test/flow.live.test.ts` runs the full
+flow against a real backend in both configurations, and CI builds and
+typechecks both halves. Verified against Nextcloud rather than Google;
+the Google service-account path is implemented but not yet exercised
+end to end, which M2 picks up.*
 
 ## M2 — Backend verification
 
 Radicale and Nextcloud verified by the same suite against real
-instances, Radicale self-hosted. Document the Proton path (store
-elsewhere + ICS view + CalDAV client for painting `OPEN`).
+instances, Radicale self-hosted; Nextcloud is already green from M1.
+Google likewise, best-effort. Document the Proton path (store elsewhere
++ ICS view + CalDAV client for painting `OPEN`).
 
 *Exit: test suite green on two backends; "any CalDAV server" claims
 removed or substantiated.*

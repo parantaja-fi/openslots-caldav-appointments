@@ -88,6 +88,14 @@ async function getSlots(request: Request, env: Env, cors: Record<string, string>
   if (!THUMBPRINT.test(thumbprint)) {
     return problem(400, "Bad Request", "X-Session-Thumbprint is not a JWK thumbprint.", cors);
   }
+  if (env.BOOKING_RL) {
+    const { success } = await env.BOOKING_RL.limit({
+      key: request.headers.get("CF-Connecting-IP") ?? "unknown",
+    });
+    if (!success) {
+      return problem(429, "Too Many Requests", "Too many requests; try again shortly.", cors);
+    }
+  }
   const grant = await issueCreateGrant(env, thumbprint, slots.map(s => s.slot_start));
   return json({ slots, grant }, cors);
 }

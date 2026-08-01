@@ -21,3 +21,11 @@ GRANT_TTL_SECS     = "1800"
 PROOF_MAX_AGE_SECS = "60"
 
 ALLOWED_ORIGINS = "http://localhost:5173"
+
+# Per-IP limit on grant issuance — the choke point, since a booking needs a
+# grant. Unbound under `wrangler dev` and in the test pool, hence optional in
+# the code.
+[[ratelimits]]
+name         = "BOOKING_RL"
+namespace_id = "1"
+simple       = { limit = 20, period = 60 }

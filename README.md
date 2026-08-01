@@ -25,8 +25,32 @@ Three parts:
 
 ## Status
 
-Design phase. No code in this repository yet; the design is distilled
-from three completed spikes (see `LEARNINGS.md` in the spike repository).
+M1 met: the Worker API and the SPA are built, and an automated suite runs
+the whole flow — list, book, lose a race, cancel — against a real CalDAV
+backend, with the two logical calendars both separate and coinciding.
+Next is M2, the same suite against Radicale and Nextcloud.
+
+## Development
+
+Two npm packages, `worker/` and `frontend/`, each with `dev`, `build` and
+`typecheck`.
+
+```sh
+cd worker && npm ci && npm run keygen   # a SIGNING_KEY_JWK for .dev.vars
+cp .dev.vars.example .dev.vars          # then fill in, see the comments
+npm test                                # unit tests plus live CalDAV tests
+npm test -- --project unit              # what CI runs: no backend needed
+```
+
+The live tests write to whatever calendars `.dev.vars` names, so point
+them at dedicated test calendars.
+
+Optional local pre-release check, needing a browser and the same
+credentials — deliberately not part of CI:
+
+```sh
+cd frontend && npm run e2e
+```
 
 ## Documentation
 
