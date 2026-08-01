@@ -5,11 +5,13 @@
 
 ## M0 — Decisions
 
-Settle the open decisions in `SCOPE.md` §6: email delivery mechanism,
-cancellation-link semantics. (Backends decided: Radicale + Nextcloud,
-Google retained best-effort.)
+All settled 2026-08-01: backends Radicale + Nextcloud, Google retained
+best-effort; email via the Brevo transactional HTTP API behind a
+`sendEmail()` seam (`ARCHITECTURE.md` §6); cancellation via a stateless
+bearer token in the emailed link, valid until slot start
+(`ARCHITECTURE.md` §5); licence MIT.
 
-*Exit: each decision recorded.*
+*Exit: met — each decision recorded.*
 
 ## M1 — Core rebuild
 
@@ -61,3 +63,7 @@ M0–M4 done, acceptance test passed.
   CI job per backend once the M2 suite exists.
 - Per-slot Durable Object lock, if real traffic ever makes the
   check-after-insert race window matter (`ARCHITECTURE.md` §5).
+- SMTP submission to the operator's own mailbox as an alternative email
+  transport (rejected for 1.0 — `ARCHITECTURE.md` §6).
+- Configurable minimum cancellation notice (cancellation token expiring
+  N hours before slot start instead of at it).

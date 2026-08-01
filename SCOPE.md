@@ -60,9 +60,10 @@ Carried forward as constraints, not open questions — rationale in
   is booking-domain-shaped (`slots`, `bookings`), never a calendar proxy.
 - **Security = capability grants as plain signed JWTs.** Per-slot,
   short-lived create-grants issued with the slot list (the grant doubles as
-  the availability proof); a delete-grant issued per booking, expiring at
-  slot start + grace. ES256, sessions identified by browser-held
-  non-extractable keys. No UCAN, no DIDs, no server-side session state.
+  the availability proof); a bearer cancellation token issued per booking,
+  carried by the emailed cancellation link, expiring at slot start. ES256,
+  sessions identified by browser-held non-extractable keys. No UCAN, no
+  DIDs, no server-side session state.
 - **Minimal dependencies, TypeScript strict throughout.** FullCalendar on
   the frontend, `ical.js` + `jose` (or raw Web Crypto) on the Worker;
   nothing else without a fight.
@@ -118,11 +119,6 @@ stays clean enough that n8n/Windmill can consume it; we do not become them.
 
 ## 6. Open decisions to settle first
 
-1. **Email delivery mechanism** — the only genuinely new infrastructure in
-   1.0. Candidates: an SMTP relay the operator configures (their own
-   mailbox provider), or an API service free tier. Constraint: must not
-   undermine "independent"; the operator brings their own sender.
-2. **Cancellation-link design** — the emailed link must embed or retrieve
-   the delete capability; decide token-in-URL semantics (lifetime,
-   single-use) before the security section of the architecture doc is
-   written.
+None remaining. Email, backends, and cancellation-link semantics were
+settled 2026-08-01; the decisions are recorded in `ARCHITECTURE.md`
+(§5, §6) and `ROADMAP.md` M0.
