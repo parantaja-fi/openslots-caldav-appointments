@@ -51,8 +51,8 @@ Google deviations (URL-encoded calendar ID, mandatory `Depth: 1`, ignored
 
 Three endpoints, booking-domain-shaped:
 
-- `GET /v1/slots` — computed open slots for a window, each with its
-  create-grant (§5).
+- `GET /v1/slots` — computed open slots for a window, with one create-grant
+  covering the returned list (§5).
 - `POST /v1/bookings` — book a slot; requires the slot's create-grant.
 - `DELETE /v1/bookings/:uid` — cancel; requires the booking's
   cancellation token (§5).
@@ -62,11 +62,33 @@ and prefixed by role (`slot_start`, not `start`).
 
 ## 4. Slot computation
 
-Partition the window's events into `OPEN` (availability calendar only) and
-blocking (everything else, both calendars); walk a cursor through each
-`OPEN` event in `SLOT_MINUTES` steps; emit sub-slots not overlapped by any
-blocking event. Configurable: slot length, booking horizon, minimum
-notice.
+1. **Availability.** Take the window's `OPEN` events from the availability
+   calendar and normalise them to their **union**: sort by start, merge any
+   pair that overlaps or abuts. Overlapping `OPEN` events must not yield
+   duplicate or differently-phased slots.
+2. **Seams.** Where two `OPEN` events merely *abut*, emit a zero-length
+   **phantom blocking event** at the join. A booking must not span a seam the
+   practitioner painted: an overlap is evidence of intended continuous
+   availability, mere abutment is two separately-painted sessions. The
+   phantom needs no special case below — under the strict inequalities in
+   step 4 a zero-length interval at `t` blocks exactly the slots with
+   `cursor < t < slotEnd`, and neither the slot ending at `t` nor the one
+   starting at `t`.
+3. **Blocking.** Every non-`OPEN` event in *either* calendar blocks, plus the
+   phantoms. When the two roles resolve to one calendar this is one query.
+4. **Emission.** Clamp the union to `[now + minimum notice, now + horizon]`,
+   then walk a cursor from each merged interval's start in `SLOT_MINUTES`
+   steps. Emit `[cursor, cursor + SLOT_MINUTES)` when it fits inside the
+   interval and no blocking event `b` satisfies
+   `b.start < slotEnd && b.end > cursor`.
+
+Consequently a blocking event *partially* overlapping an `OPEN` interval
+removes exactly the sub-slots it touches and leaves the rest bookable —
+identical treatment to an existing booking. Touching at an endpoint does not
+block. A trailing remainder shorter than `SLOT_MINUTES` is discarded. Slot
+phase is anchored to each merged interval's start, not to the clock hour.
+
+Configurable: slot length, booking horizon, minimum notice.
 
 ## 5. Security
 
@@ -76,10 +98,16 @@ No UCAN, no DIDs, no server-side session state.
 - **Sessions**: non-extractable P-256 key pair generated in the browser,
   held in IndexedDB. Create-grants are bound to the session's public key
   (`aud` = JWK thumbprint); requests are signed by the session key.
-- **Create-grant = availability proof.** Issued per open slot with the
-  slot list, short-lived (30 min). Possession proves the slot was open
-  when listed, so the booking path re-checks only for conflicting
-  bookings, never for `OPEN` events.
+- **Create-grant = availability proof.** *One* grant is issued with the slot
+  list, enumerating the open slot starts in a `slots` claim, short-lived
+  (30 min). Possession proves those slots were open when listed, so the
+  booking path re-checks only for conflicting bookings, never for `OPEN`
+  events. An explicit enumeration is not the time-window wildcard that would
+  lose this property and need a compensating availability check. One grant
+  rather than one per slot because per-slot issuance does not fit the budget:
+  80 ES256 signatures cost ≈ 3.8 ms of the 10 ms free-tier CPU allowance and
+  ≈ 450 bytes each on the wire, so a month's slots would exceed both. The
+  response is bounded by a `MAX_SLOTS` guard that asks for a narrower window.
 - **Cancellation token** issued on successful booking: a bearer ES256 JWT
   naming the booking UID, expiring at slot start. Deliberately *not*
   session-bound — it is delivered in the confirmation email, and
@@ -105,6 +133,17 @@ No UCAN, no DIDs, no server-side session state.
   outstanding create-grants and emailed cancellation links; accepted
   (create-grants live 30 minutes, and the practitioner can always cancel
   from their own client).
+
+**Wire format.** `GET /v1/slots` carries the session's JWK thumbprint in
+`X-Session-Thumbprint`. `POST /v1/bookings` carries the create-grant in
+`Authorization: Bearer` and a session proof in `X-Session-Proof` — an ES256
+JWT signed by the session key, header `{ alg, jwk }`, payload `{ iat }`; the
+Worker verifies it against the embedded JWK, checks `iat` freshness, and
+checks that the JWK's RFC 7638 thumbprint equals the grant's `aud`. The proof
+binds no method or URI: exactly one endpoint is proof-gated, so there is
+nowhere to replay a proof to. `DELETE /v1/bookings/:uid` carries the
+cancellation token in `Authorization: Bearer` and needs no proof, being a
+bearer capability by design.
 
 ## 6. Email
 
