@@ -1,6 +1,8 @@
 import { env, exports } from "cloudflare:workers";
+import { decodeJwt } from "jose";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { at, clear, futureWindow, paint, writable } from "./fixture";
+import { newSession } from "./session";
 
 const worker = exports.default;
 const availability = writable(env.AVAILABILITY_CALENDAR_URL);
@@ -34,4 +36,19 @@ it("computes slots from a real backend, blocked by a booking in the store", asyn
 it("honours the minimum notice", async () => {
   const soon = new Date().toISOString();
   expect(await listSlots(soon, at(soon, 60))).toEqual([]);
+});
+
+it("grants exactly the slots it listed, to the session that asked", async () => {
+  const session = await newSession();
+  const response = await worker.fetch(new Request(
+    `https://api.test/v1/slots?window_start=${start}&window_end=${end}`,
+    { headers: { "X-Session-Thumbprint": session.thumbprint } },
+  ));
+  expect(response.status).toBe(200);
+
+  const body = await response.json() as { slots: { slot_start: string }[]; grant: string };
+  const claims = decodeJwt(body.grant);
+  expect(claims.slots).toEqual(body.slots.map(slot => slot.slot_start));
+  expect(claims.aud).toBe(session.thumbprint);
+  expect(claims.cap).toBe("booking/create");
 });

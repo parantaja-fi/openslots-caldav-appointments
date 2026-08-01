@@ -1,9 +1,12 @@
 import { reportEvents } from "./caldav";
 import { calendars, checkEnv, type Env } from "./config";
+import { issueCreateGrant } from "./grants";
 import { problem } from "./problem";
 import { computeSlots } from "./slots";
 
 const UTC_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+/** Base64url SHA-256, per RFC 7638. */
+const THUMBPRINT = /^[A-Za-z0-9_-]{43}$/;
 
 function corsHeaders(request: Request, env: Env): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
@@ -70,7 +73,16 @@ async function getSlots(request: Request, env: Env, cors: Record<string, string>
     return problem(400, "Bad Request",
       `The window holds more than ${env.MAX_SLOTS} slots; request a narrower one.`, cors);
   }
-  return json({ slots }, cors);
+
+  // A caller that identifies its session gets the grant that lets it book;
+  // one that just wants to see the calendar need not have a session at all.
+  const thumbprint = request.headers.get("X-Session-Thumbprint");
+  if (!thumbprint) return json({ slots }, cors);
+  if (!THUMBPRINT.test(thumbprint)) {
+    return problem(400, "Bad Request", "X-Session-Thumbprint is not a JWK thumbprint.", cors);
+  }
+  const grant = await issueCreateGrant(env, thumbprint, slots.map(s => s.slot_start));
+  return json({ slots, grant }, cors);
 }
 
 export default {

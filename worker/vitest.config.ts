@@ -18,6 +18,14 @@ export default defineConfig({
               AVAILABILITY_PASSWORD: "unit",
               BOOKING_STORE_USERNAME: "unit",
               BOOKING_STORE_PASSWORD: "unit",
+              // Throwaway, and public by construction: it signs nothing real.
+              SIGNING_KEY_JWK: JSON.stringify({
+                kty: "EC",
+                crv: "P-256",
+                x: "Hq9mBzkBgqzLfMcOnwYoBSZ4B6LIVO8JuLcKDUnr44w",
+                y: "qIxEjT-ATm6LUtr4WVNhV-as-1TmDfWmHp91D8_sPec",
+                d: "NRdKOKBhFF9iyrB75zdIVZKk9Lf3JE2z6Fo6gRv1NfY",
+              }),
             },
           },
         })],

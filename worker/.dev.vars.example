@@ -12,6 +12,10 @@ BOOKING_STORE_PASSWORD = ""
 # ID must be URL-encoded inside the calendar URL in wrangler.toml.
 # GOOGLE_SERVICE_ACCOUNT_JSON = '{"type":"service_account",...}'
 
+# Grant-signing key: a private P-256 JWK on one line, from `npm run keygen`.
+# Rotating it invalidates outstanding create-grants and cancellation links.
+SIGNING_KEY_JWK = '{"kty":"EC","crv":"P-256","x":"...","y":"...","d":"..."}'
+
 # Write credentials for the *test fixture* only, which paints the OPEN events
 # the live tests need. Separate from the Worker's own credentials on purpose:
 # the availability role must stay read-only.

@@ -15,6 +15,7 @@ export interface Env {
   BOOKING_STORE_USERNAME?: string;
   BOOKING_STORE_PASSWORD?: string;
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
+  SIGNING_KEY_JWK: string;
 }
 
 /** One of the two logical calendars: a URL plus a way to authenticate to it. */
@@ -102,5 +103,6 @@ export function checkEnv(env: Env): string | null {
   if (!env.BOOKING_STORE_USERNAME && !env.GOOGLE_SERVICE_ACCOUNT_JSON) {
     return "booking store has neither BOOKING_STORE_USERNAME nor GOOGLE_SERVICE_ACCOUNT_JSON";
   }
+  if (!env.SIGNING_KEY_JWK) return "SIGNING_KEY_JWK is not set; run `npm run keygen`";
   return null;
 }
