@@ -1,6 +1,12 @@
-import { reportEvents } from "./caldav";
+import { buildVEvent, deleteEvent, putEvent, reportEvents } from "./caldav";
 import { calendars, checkEnv, type Env } from "./config";
-import { issueCreateGrant } from "./grants";
+import {
+  GrantError,
+  issueCancellationToken,
+  issueCreateGrant,
+  verifyCreateGrant,
+  verifySessionProof,
+} from "./grants";
 import { problem } from "./problem";
 import { computeSlots } from "./slots";
 
@@ -85,6 +91,85 @@ async function getSlots(request: Request, env: Env, cors: Record<string, string>
   return json({ slots, grant }, cors);
 }
 
+interface BookingRequest {
+  slot_start?: unknown;
+  attendee?: { name?: unknown; email?: unknown };
+  notes?: unknown;
+}
+
+async function postBooking(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+  let body: BookingRequest;
+  try {
+    body = await request.json() as BookingRequest;
+  } catch {
+    return problem(400, "Bad Request", "The request body is not valid JSON.", cors);
+  }
+
+  const slotStart = body.slot_start;
+  if (typeof slotStart !== "string" || !parseUtcIso(slotStart)) {
+    return problem(400, "Bad Request", "slot_start must be a UTC ISO 8601 datetime.", cors);
+  }
+  const name = typeof body.attendee?.name === "string" ? body.attendee.name.trim() : "";
+  if (!name || name.length > 200) {
+    return problem(400, "Bad Request", "attendee.name must be 1–200 characters.", cors);
+  }
+  const notes = body.notes ?? "";
+  if (typeof notes !== "string" || notes.length > 1000) {
+    return problem(400, "Bad Request", "notes must be a string of at most 1000 characters.", cors);
+  }
+
+  const grant = request.headers.get("Authorization")?.match(/^Bearer (.+)$/)?.[1];
+  const proof = request.headers.get("X-Session-Proof");
+  if (!grant || !proof) {
+    return problem(401, "Unauthorized",
+      "A create-grant and a session proof are required to book.", cors);
+  }
+  try {
+    // The proof says which session is calling; the grant says that session was
+    // offered this slot. Together they replace re-reading the OPEN events.
+    await verifyCreateGrant(env, grant, slotStart, await verifySessionProof(env, proof));
+  } catch (e) {
+    if (!(e instanceof GrantError)) throw e;
+    return problem(e.status, e.status === 401 ? "Unauthorized" : "Forbidden", e.message, cors);
+  }
+
+  const start = new Date(slotStart).toISOString();
+  const end = new Date(Date.parse(start) + Number(env.SLOT_MINUTES) * 60_000).toISOString();
+  const uid = crypto.randomUUID();
+  const { store } = calendars(env);
+
+  try {
+    await putEvent(store, uid, buildVEvent(uid, start, end, name, notes));
+  } catch (e) {
+    console.error("CalDAV PUT failed:", e);
+    return problem(502, "Bad Gateway", "The booking could not be stored.", cors);
+  }
+
+  // CalDAV has no conditional insert, so detect the race afterwards: anyone
+  // else's non-OPEN event in this slot means we lost it, and ours must go.
+  try {
+    const events = await reportEvents(store, start, end);
+    const conflict = events.some(event =>
+      event.uid !== uid && event.summary !== "OPEN" &&
+      event.start < end && event.end > start);
+    if (conflict) {
+      await deleteEvent(store, uid);
+      return problem(409, "Conflict", "The slot was taken while you were booking it.", cors);
+    }
+  } catch (e) {
+    console.error("Conflict check failed:", e);
+    await deleteEvent(store, uid).catch(() => {});
+    return problem(502, "Bad Gateway", "The booking could not be confirmed.", cors);
+  }
+
+  return json({
+    uid,
+    slot_start: start,
+    slot_end: end,
+    cancellation_token: await issueCancellationToken(env, uid, start),
+  }, cors);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(request, env);
@@ -104,6 +189,12 @@ export default {
         return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
       }
       return getSlots(request, env, cors);
+    }
+    if (path === "/v1/bookings") {
+      if (request.method !== "POST") {
+        return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
+      }
+      return postBooking(request, env, cors);
     }
     return problem(404, "Not Found", `No route for ${path}.`, cors);
   },
