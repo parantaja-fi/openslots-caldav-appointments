@@ -40,11 +40,19 @@ Carried forward as constraints, not open questions — rationale in
 
 - **CalDAV is the sole persistence layer.** No database. Bookings are
   events; availability is `OPEN` events; cancellation deletes an event.
-- **Store/surface split.** The system reads and writes one designated
-  CalDAV calendar — *the booking store*. The practitioner interacts with
-  the store through any standard CalDAV client, and providers without
+- **Two logical calendars: availability and booking store.** The system
+  reads `OPEN` events from an *availability calendar* it never writes,
+  and reads and writes booking events in a *booking store*. These are
+  roles, not necessarily distinct calendars: both may point at the same
+  backend calendar (one calendar holding OPEN and booked events), or the
+  practitioner may keep OPEN slots in a separate calendar — for instance
+  one the system holds only read credentials for, which narrows what a
+  compromised deployment could touch.
+- **Store/surface split.** Both logical calendars are CalDAV; the booking
+  store is the only place the system writes. The practitioner interacts
+  with either through any standard CalDAV client, and providers without
   CalDAV (notably Proton) are supported as read-only viewing surfaces via
-  ICS subscription, never as the store. The store may be the
+  ICS subscription, never as the store. The store may live on the
   practitioner's existing provider (Google, Fastmail, Nextcloud, …) or a
   small self-hosted server (Radicale, Baïkal).
 - **Three-part topology**: static SPA (free static hosting) + small
@@ -94,7 +102,8 @@ Operator experience (the actual 1.0 substance):
 
 ## 5. Out of scope for 1.0
 
-- Multi-practitioner or multi-calendar scheduling.
+- Multi-practitioner scheduling, or aggregating availability across more
+  calendars than the two roles in §3.
 - Payments, deposits, or pricing.
 - Customer accounts, PassKeys, or any cross-device identity (the emailed
   cancellation link covers the real need).
