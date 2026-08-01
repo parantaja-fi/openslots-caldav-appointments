@@ -1,0 +1,19 @@
+# Copy to .dev.vars (gitignored) and fill in. In production these are
+# `wrangler secret put` values; the calendar URLs live in wrangler.toml.
+
+# CalDAV credentials, per logical calendar role. A username selects HTTP
+# Basic; leave both unset to use GOOGLE_SERVICE_ACCOUNT_JSON instead.
+AVAILABILITY_USERNAME  = "booking"
+AVAILABILITY_PASSWORD  = ""
+BOOKING_STORE_USERNAME = "booking"
+BOOKING_STORE_PASSWORD = ""
+
+# Google: the whole service-account JSON on one line. Note that the calendar
+# ID must be URL-encoded inside the calendar URL in wrangler.toml.
+# GOOGLE_SERVICE_ACCOUNT_JSON = '{"type":"service_account",...}'
+
+# Write credentials for the *test fixture* only, which paints the OPEN events
+# the live tests need. Separate from the Worker's own credentials on purpose:
+# the availability role must stay read-only.
+TEST_WRITE_USERNAME = "booking"
+TEST_WRITE_PASSWORD = ""
