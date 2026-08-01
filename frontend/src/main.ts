@@ -1,6 +1,9 @@
-import { WORKER_URL } from "./config";
+import { showBookingForm } from "./booking";
+import { initCalendar } from "./calendar";
 
 const el = document.getElementById("calendar");
 if (!el) throw new Error("No #calendar element found");
 
-el.textContent = `Worker API: ${WORKER_URL}`;
+const { calendar, refreshSlots } = initCalendar(el, slot => {
+  showBookingForm(slot, calendar, refreshSlots);
+});
