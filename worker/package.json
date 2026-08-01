@@ -1,0 +1,22 @@
+{
+  "name": "booking-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ical.js": "^2.1.0",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260730.1",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "wrangler": "^4.84.1"
+  }
+}

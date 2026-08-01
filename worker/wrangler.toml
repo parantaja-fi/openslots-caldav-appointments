@@ -1,0 +1,23 @@
+name = "booking-worker"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Operational configuration. Credentials and keys are secrets, never vars:
+#   AVAILABILITY_USERNAME / AVAILABILITY_PASSWORD   CalDAV Basic auth, read-only role
+#   BOOKING_STORE_USERNAME / BOOKING_STORE_PASSWORD CalDAV Basic auth, read/write role
+#   GOOGLE_SERVICE_ACCOUNT_JSON                     used for a role that has no username
+#   SIGNING_KEY_JWK                                 private P-256 JWK, `npm run keygen`
+[vars]
+# Pointing both at the same calendar is the single-calendar setup.
+AVAILABILITY_CALENDAR_URL = "http://localhost:5232/booking/availability-test/"
+BOOKING_STORE_URL         = "http://localhost:5232/booking/bookings-test/"
+
+SLOT_MINUTES         = "30"
+BOOKING_HORIZON_DAYS = "60"
+MIN_NOTICE_MINUTES   = "120"
+MAX_SLOTS            = "500"
+
+GRANT_TTL_SECS     = "1800"
+PROOF_MAX_AGE_SECS = "60"
+
+ALLOWED_ORIGINS = "http://localhost:5173"
