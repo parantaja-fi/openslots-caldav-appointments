@@ -4,6 +4,7 @@ import {
   GrantError,
   issueCancellationToken,
   issueCreateGrant,
+  verifyCancellationToken,
   verifyCreateGrant,
   verifySessionProof,
 } from "./grants";
@@ -91,6 +92,15 @@ async function getSlots(request: Request, env: Env, cors: Record<string, string>
   return json({ slots, grant }, cors);
 }
 
+function rejected(e: unknown, cors: Record<string, string>): Response {
+  if (!(e instanceof GrantError)) throw e;
+  return problem(e.status, e.status === 401 ? "Unauthorized" : "Forbidden", e.message, cors);
+}
+
+function bearer(request: Request): string | undefined {
+  return request.headers.get("Authorization")?.match(/^Bearer (.+)$/)?.[1];
+}
+
 interface BookingRequest {
   slot_start?: unknown;
   attendee?: { name?: unknown; email?: unknown };
@@ -118,7 +128,7 @@ async function postBooking(request: Request, env: Env, cors: Record<string, stri
     return problem(400, "Bad Request", "notes must be a string of at most 1000 characters.", cors);
   }
 
-  const grant = request.headers.get("Authorization")?.match(/^Bearer (.+)$/)?.[1];
+  const grant = bearer(request);
   const proof = request.headers.get("X-Session-Proof");
   if (!grant || !proof) {
     return problem(401, "Unauthorized",
@@ -129,8 +139,7 @@ async function postBooking(request: Request, env: Env, cors: Record<string, stri
     // offered this slot. Together they replace re-reading the OPEN events.
     await verifyCreateGrant(env, grant, slotStart, await verifySessionProof(env, proof));
   } catch (e) {
-    if (!(e instanceof GrantError)) throw e;
-    return problem(e.status, e.status === 401 ? "Unauthorized" : "Forbidden", e.message, cors);
+    return rejected(e, cors);
   }
 
   const start = new Date(slotStart).toISOString();
@@ -170,6 +179,38 @@ async function postBooking(request: Request, env: Env, cors: Record<string, stri
   }, cors);
 }
 
+async function deleteBooking(
+  request: Request,
+  env: Env,
+  uid: string,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const token = bearer(request);
+  if (!token) {
+    return problem(401, "Unauthorized", "A cancellation token is required.", cors);
+  }
+
+  let named: string;
+  try {
+    named = await verifyCancellationToken(env, token);
+  } catch (e) {
+    return rejected(e, cors);
+  }
+  if (named !== uid) {
+    return problem(403, "Forbidden", "The token cancels a different booking.", cors);
+  }
+
+  try {
+    // Idempotent: a token holder who cancels twice has still got what they
+    // asked for, and the second call must not look like a failure.
+    await deleteEvent(calendars(env).store, uid);
+  } catch (e) {
+    console.error("CalDAV DELETE failed:", e);
+    return problem(502, "Bad Gateway", "The booking could not be cancelled.", cors);
+  }
+  return new Response(null, { status: 204, headers: cors });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(request, env);
@@ -195,6 +236,13 @@ export default {
         return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
       }
       return postBooking(request, env, cors);
+    }
+    const booking = path.match(/^\/v1\/bookings\/([^/]+)$/);
+    if (booking?.[1]) {
+      if (request.method !== "DELETE") {
+        return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
+      }
+      return deleteBooking(request, env, decodeURIComponent(booking[1]), cors);
     }
     return problem(404, "Not Found", `No route for ${path}.`, cors);
   },
