@@ -25,7 +25,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       # Only the tests that need no backend; the live suite runs locally.
-      - run: npm test -- --exclude 'test/**/*.live.test.ts'
+      - run: npm test -- --project unit
 
   frontend:
     runs-on: ubuntu-latest
