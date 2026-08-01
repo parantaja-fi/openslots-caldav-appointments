@@ -82,11 +82,11 @@ Functional:
 
 Backends and verification:
 
-6. **At least two verified backends, one of them self-hostable** —
-   candidates: Nextcloud, Radicale, Baïkal, Fastmail, Google. "Verified"
-   means an automated test suite runs the full booking flow against a real
-   instance. The spikes verified only Google; "any CalDAV server" is
-   currently an unsubstantiated claim.
+6. **Two verified backends: Radicale (self-hosted) and Nextcloud**, with
+   Google retained best-effort from the spikes (reusing the spike
+   credentials). "Verified" means an automated test suite runs the full
+   booking flow against a real instance. The spikes verified only Google;
+   "any CalDAV server" is currently an unsubstantiated claim.
 7. A documented Proton path: booking store elsewhere + ICS subscription
    for viewing + a standard CalDAV client for painting availability.
 
@@ -122,10 +122,7 @@ stays clean enough that n8n/Windmill can consume it; we do not become them.
    1.0. Candidates: an SMTP relay the operator configures (their own
    mailbox provider), or an API service free tier. Constraint: must not
    undermine "independent"; the operator brings their own sender.
-2. **First two verified backends** — proposal: Radicale (self-hosted,
-   simplest) and Nextcloud (most common among the target audience), with
-   Google retained best-effort from the spike.
-3. **Cancellation-link design** — the emailed link must embed or retrieve
+2. **Cancellation-link design** — the emailed link must embed or retrieve
    the delete capability; decide token-in-URL semantics (lifetime,
    single-use) before the security section of the architecture doc is
    written.

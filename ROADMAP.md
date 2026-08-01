@@ -6,8 +6,8 @@
 ## M0 — Decisions
 
 Settle the open decisions in `SCOPE.md` §6: email delivery mechanism,
-the two verified backends (proposal: Radicale + Nextcloud, Google retained
-best-effort), cancellation-link semantics.
+cancellation-link semantics. (Backends decided: Radicale + Nextcloud,
+Google retained best-effort.)
 
 *Exit: each decision recorded.*
 
@@ -23,8 +23,8 @@ cancel — against a real backend; CI builds both halves.*
 
 ## M2 — Backend verification
 
-The two chosen backends verified by the same suite against real
-instances, at least one self-hosted. Document the Proton path (store
+Radicale and Nextcloud verified by the same suite against real
+instances, Radicale self-hosted. Document the Proton path (store
 elsewhere + ICS view + CalDAV client for painting `OPEN`).
 
 *Exit: test suite green on two backends; "any CalDAV server" claims
