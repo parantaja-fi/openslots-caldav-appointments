@@ -7,9 +7,9 @@
 
 Settle the open decisions in `SCOPE.md` §6: email delivery mechanism,
 the two verified backends (proposal: Radicale + Nextcloud, Google retained
-best-effort), cancellation-link semantics, repo licence.
+best-effort), cancellation-link semantics.
 
-*Exit: each decision recorded; licence chosen before first push.*
+*Exit: each decision recorded.*
 
 ## M1 — Core rebuild
 
@@ -51,3 +51,13 @@ author deploys from the documentation alone and takes a real booking.*
 ## 1.0
 
 M0–M4 done, acceptance test passed.
+
+## Later
+
+- ICS URL as an availability source (enables Proton)
+- Reminder email before the appointment — reuses the M3 delivery
+  mechanism and the booking's own data; nothing new needed.
+- Further verified backends (Baïkal, Fastmail, …) — marginal cost is one
+  CI job per backend once the M2 suite exists.
+- Per-slot Durable Object lock, if real traffic ever makes the
+  check-after-insert race window matter (`ARCHITECTURE.md` §5).

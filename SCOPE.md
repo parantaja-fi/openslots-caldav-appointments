@@ -129,5 +129,3 @@ stays clean enough that n8n/Windmill can consume it; we do not become them.
    the delete capability; decide token-in-URL semantics (lifetime,
    single-use) before the security section of the architecture doc is
    written.
-4. **Repo licence** — decide before first push; affects contributions and
-   any future hosted offering.

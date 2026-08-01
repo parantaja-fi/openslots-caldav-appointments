@@ -38,4 +38,4 @@ from three completed spikes (see `LEARNINGS.md` in the spike repository).
 
 ## Licence
 
-Not yet decided (tracked in [SCOPE.md](SCOPE.md) §6).
+MIT
