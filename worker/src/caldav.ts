@@ -85,8 +85,8 @@ const ENTITIES: Record<string, string> = {
 };
 
 /**
- * The calendar data is XML text, and expanded occurrences come back with their
- * CRLFs as `&#13;`, so nothing can be parsed as ICS until this has run.
+ * The calendar data is XML text, and some backends return its CRLFs as `&#13;`,
+ * so nothing can be parsed as ICS until this has run.
  */
 function unescapeXml(text: string): string {
   return text.replace(/&(#\d+|#x[0-9a-fA-F]+|[a-z]+);/g, (whole, ref: string) => {
@@ -96,18 +96,75 @@ function unescapeXml(text: string): string {
   });
 }
 
-function parseIcs(ics: string): CalendarEvent[] {
-  return new ICAL.Component(ICAL.parse(ics))
-    .getAllSubcomponents("vevent")
-    .map(vevent => {
-      const event = new ICAL.Event(vevent);
-      return {
-        uid: event.uid,
-        summary: event.summary,
-        start: event.startDate.toJSDate().toISOString(),
-        end: event.endDate.toJSDate().toISOString(),
-      };
-    });
+/**
+ * Occurrences are iterated from the event's own `DTSTART`, which may be years
+ * before the window, so the bound is on iterations rather than on results.
+ * Ten thousand covers a daily recurrence running for twenty-seven years; a
+ * rule needing more is malformed, and failing loudly beats quietly returning a
+ * truncated availability — the very failure this expansion exists to avoid.
+ */
+const MAX_ITERATIONS = 10_000;
+
+function toEvent(uid: string, summary: string, start: ICAL.Time, end: ICAL.Time): CalendarEvent {
+  return {
+    uid,
+    summary,
+    start: start.toJSDate().toISOString(),
+    end: end.toJSDate().toISOString(),
+  };
+}
+
+/**
+ * A `TZID` resolves only against a registered zone; unregistered, `ICAL.Time`
+ * treats the value as floating, which in a Worker means UTC and puts a
+ * Helsinki event three hours out. The registry is isolate-global and outlives
+ * the request, which is harmless: a `TZID` names one zone.
+ */
+function registerTimezones(calendar: ICAL.Component): void {
+  for (const vtimezone of calendar.getAllSubcomponents("vtimezone")) {
+    const tzid = vtimezone.getFirstPropertyValue("tzid");
+    if (typeof tzid === "string" && !ICAL.TimezoneService.has(tzid)) {
+      ICAL.TimezoneService.register(vtimezone);
+    }
+  }
+}
+
+/** The events of one VCALENDAR that overlap `[from, to)`, recurrences expanded. */
+export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
+  const calendar = new ICAL.Component(ICAL.parse(ics));
+  registerTimezones(calendar);
+
+  const events: CalendarEvent[] = [];
+  for (const vevent of calendar.getAllSubcomponents("vevent")) {
+    // Overrides are reached through their master, which ICAL.Event relates by
+    // walking the VCALENDAR itself.
+    if (vevent.hasProperty("recurrence-id")) continue;
+
+    const event = new ICAL.Event(vevent);
+    if (!event.isRecurring()) {
+      events.push(toEvent(event.uid, event.summary, event.startDate, event.endDate));
+      continue;
+    }
+
+    // Iteration starts at DTSTART, never at the window: ICAL.Event.iterator()
+    // re-anchors the rule on whatever time it is given, which would move a
+    // weekly event onto a different weekday.
+    const iterator = event.iterator();
+    let iterations = 0;
+    for (let next = iterator.next(); next; next = iterator.next()) {
+      if (++iterations > MAX_ITERATIONS) {
+        throw new Error(`Recurrence of ${event.uid} exceeds ${MAX_ITERATIONS} occurrences`);
+      }
+      const { item, startDate, endDate } = event.getOccurrenceDetails(next);
+      if (startDate.toJSDate() >= to) break;
+      if (endDate.toJSDate() <= from) continue;
+      // How an occurrence deleted through an override, rather than through
+      // EXDATE, is recorded. EXDATE the expansion already honours.
+      if (item.component.getFirstPropertyValue("status") === "CANCELLED") continue;
+      events.push(toEvent(event.uid, item.summary, startDate, endDate));
+    }
+  }
+  return events;
 }
 
 export async function reportEvents(
@@ -115,15 +172,19 @@ export async function reportEvents(
   start: string,
   end: string,
 ): Promise<CalendarEvent[]> {
-  const range = `start="${toCalDAVDate(new Date(start).toISOString())}" ` +
-    `end="${toCalDAVDate(new Date(end).toISOString())}"`;
-  // The server must already expand recurrences to evaluate the time-range
-  // filter, so <c:expand> asks it to return what it computed: every occurrence
-  // arrives as its own VEVENT with a real DTSTART (RFC 4791 §9.6.5).
+  const from = new Date(start);
+  const to = new Date(end);
+  const range = `start="${toCalDAVDate(from.toISOString())}" ` +
+    `end="${toCalDAVDate(to.toISOString())}"`;
+  // The filter alone: every backend evaluates the time-range against
+  // occurrences, so a recurring master starting before the window still
+  // arrives. Asking for <c:expand> as well would be pointless — google-caldav
+  // ignores it and returns the unexpanded master anyway, without saying so —
+  // and eventsIn() expands regardless.
   const body =
     `<?xml version="1.0" encoding="UTF-8"?>\r\n` +
     `<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">\r\n` +
-    `  <d:prop><d:getetag/><c:calendar-data><c:expand ${range}/></c:calendar-data></d:prop>\r\n` +
+    `  <d:prop><d:getetag/><c:calendar-data/></d:prop>\r\n` +
     `  <c:filter>\r\n` +
     `    <c:comp-filter name="VCALENDAR">\r\n` +
     `      <c:comp-filter name="VEVENT">\r\n` +
@@ -151,7 +212,7 @@ export async function reportEvents(
   const re = /<[^:>\s]+:calendar-data[^>]*>([\s\S]*?)<\/[^:>\s]+:calendar-data>/g;
   for (const match of xml.matchAll(re)) {
     const ics = match[1]?.trim();
-    if (ics) events.push(...parseIcs(unescapeXml(ics)));
+    if (ics) events.push(...eventsIn(unescapeXml(ics), from, to));
   }
   return events;
 }
