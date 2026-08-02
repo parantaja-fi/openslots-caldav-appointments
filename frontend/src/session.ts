@@ -36,16 +36,28 @@ function transact<T>(
   });
 }
 
-async function keyPair(): Promise<CryptoKeyPair> {
+/**
+ * One key pair per tab. The get-then-put below cannot be a single IndexedDB
+ * transaction — a transaction closes before `generateKey` resolves — so it is
+ * the promise that is shared: concurrent callers must not each generate a pair
+ * and leave the thumbprint and the proof signed by different keys.
+ */
+let pair: Promise<CryptoKeyPair> | null = null;
+
+function keyPair(): Promise<CryptoKeyPair> {
+  return pair ??= loadKeyPair();
+}
+
+async function loadKeyPair(): Promise<CryptoKeyPair> {
   const db = await openDb();
   const stored = await transact<CryptoKeyPair | undefined>(db, "readonly", s => s.get(KEY));
   if (stored) return stored;
 
-  const pair = await crypto.subtle.generateKey(
+  const generated = await crypto.subtle.generateKey(
     { name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"],
   );
-  await transact(db, "readwrite", s => s.put(pair, KEY));
-  return pair;
+  await transact(db, "readwrite", s => s.put(generated, KEY));
+  return generated;
 }
 
 function b64url(bytes: ArrayBuffer): string {
