@@ -9,7 +9,7 @@ import {
   verifySessionProof,
 } from "./grants";
 import { problem } from "./problem";
-import { computeSlots } from "./slots";
+import { bookingUid, computeSlots, isOpen } from "./slots";
 
 const UTC_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 /** Base64url SHA-256, per RFC 7638. */
@@ -150,7 +150,7 @@ async function postBooking(
 
   const start = new Date(slotStart).toISOString();
   const end = new Date(Date.parse(start) + cfg.slotMs).toISOString();
-  const uid = crypto.randomUUID();
+  const uid = bookingUid();
   const { store } = cfg.calendars;
 
   try {
@@ -165,7 +165,7 @@ async function postBooking(
   try {
     const events = await reportEvents(store, start, end);
     const conflict = events.some(event =>
-      event.uid !== uid && event.summary !== "OPEN" &&
+      event.uid !== uid && !isOpen(event) &&
       event.start < end && event.end > start);
     if (conflict) {
       await deleteEvent(store, uid);

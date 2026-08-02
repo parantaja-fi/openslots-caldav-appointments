@@ -26,7 +26,11 @@ The system uses **two logical calendars**, configured independently:
   credentials suffice; the system never writes to this calendar.
 - **Booking store** — read/write. Bookings are created here as VEVENTs
   (`PUT {calendarUrl}/{uid}.ics`) and cancelled by `DELETE` of the same
-  resource. This is the only place the system writes.
+  resource. This is the only place the system writes. Their uids are
+  `booking-<compact UTC timestamp>-<uuid>`, which marks the events the
+  system wrote — nothing else about a VEVENT is attendee-independent, the
+  `SUMMARY` being the attendee's name — and orders them by creation time
+  (§5 arbitrates on that order).
 
 The two roles may resolve to the **same backend calendar** — one calendar
 holding both `OPEN` and booked events, the original single-calendar
@@ -35,11 +39,13 @@ separate, e.g. when the practitioner keeps `OPEN` slots in a calendar the
 tool must not modify. Code always addresses the two roles; whether they
 coincide is configuration.
 
-**Slot rule:** `OPEN` events are recognised only in the availability
-calendar. Every other event, in either logical calendar, blocks. With
-coinciding calendars this is exactly the spike behaviour; with separate
-calendars, bookings in the store block, and any stray non-`OPEN` events in
-the availability calendar block too.
+**Slot rule:** availability is an `OPEN` event in the availability
+calendar that the system did not write. Every other event, in either
+logical calendar, blocks — including a booking whose attendee happens to
+be called `OPEN`, which the uid distinguishes. With coinciding calendars
+this is exactly the spike behaviour; with separate calendars, bookings in
+the store block, and any stray non-`OPEN` events in the availability
+calendar block too.
 
 CalDAV usage is deliberately narrow: `REPORT` (calendar-query with
 time-range filter, `Depth: 1`), `PUT`, `DELETE`, `GET` of a single event.
@@ -62,8 +68,8 @@ and prefixed by role (`slot_start`, not `start`).
 
 ## 4. Slot computation
 
-1. **Availability.** Take the window's `OPEN` events from the availability
-   calendar and normalise them to their **union**: sort by start, merge any
+1. **Availability.** Take the window's availability events (§2) from the
+   availability calendar and normalise them to their **union**: sort by start, merge any
    pair that overlaps or abuts. Overlapping `OPEN` events must not yield
    duplicate or differently-phased slots.
 2. **Seams.** Where two `OPEN` events merely *abut*, emit a zero-length
@@ -74,8 +80,8 @@ and prefixed by role (`slot_start`, not `start`).
    step 4 a zero-length interval at `t` blocks exactly the slots with
    `cursor < t < slotEnd`, and neither the slot ending at `t` nor the one
    starting at `t`.
-3. **Blocking.** Every non-`OPEN` event in *either* calendar blocks, plus the
-   phantoms. When the two roles resolve to one calendar this is one query.
+3. **Blocking.** Every event in *either* calendar that is not availability
+   blocks, plus the phantoms. When the two roles resolve to one calendar this is one query.
 4. **Emission.** Clamp the union to `[now + minimum notice, now + horizon]`,
    then walk a cursor from each merged interval's start in `SLOT_MINUTES`
    steps. Emit `[cursor, cursor + SLOT_MINUTES)` when it fits inside the

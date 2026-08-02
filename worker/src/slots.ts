@@ -1,6 +1,25 @@
 import type { CalendarEvent } from "./caldav";
 
-export const OPEN = "OPEN";
+const OPEN = "OPEN";
+const BOOKING = "booking-";
+
+/** Marks our own writes, and orders them by creation time to the millisecond. */
+export function bookingUid(): string {
+  return BOOKING + new Date().toISOString().replace(/[-:.]/g, "") + "-" + crypto.randomUUID();
+}
+
+export function isBooking(uid: string): boolean {
+  return uid.startsWith(BOOKING);
+}
+
+/**
+ * Availability is an OPEN event we did not write. The attendee's name is a
+ * booking's SUMMARY, so without the uid an attendee called `OPEN` would
+ * synthesise availability wherever the two roles resolve to one calendar.
+ */
+export function isOpen(event: CalendarEvent): boolean {
+  return event.summary === OPEN && !isBooking(event.uid);
+}
 
 export interface Slot {
   slot_start: string; // ISO 8601, UTC
@@ -50,9 +69,9 @@ export function computeSlots(
   from: Date,
   to: Date,
 ): Slot[] {
-  const { open, seams } = union(availability.filter(e => e.summary === OPEN));
+  const { open, seams } = union(availability.filter(isOpen));
   const blocking = [
-    ...intervals(availability.filter(e => e.summary !== OPEN)),
+    ...intervals(availability.filter(e => !isOpen(e))),
     ...intervals(store),
     ...seams,
   ];

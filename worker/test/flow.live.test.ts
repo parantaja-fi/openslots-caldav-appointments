@@ -38,7 +38,12 @@ describe.each(Object.entries(configurations))("%s", (_name, config) => {
     return { slots: body.slots.map(slot => slot.slot_start), grant: body.grant };
   }
 
-  function book(grant: string, proof: string, slotStart: string): Promise<Response> {
+  function book(
+    grant: string,
+    proof: string,
+    slotStart: string,
+    name = "Alice",
+  ): Promise<Response> {
     return worker.fetch(new Request("https://api.test/v1/bookings", {
       method: "POST",
       headers: {
@@ -46,7 +51,7 @@ describe.each(Object.entries(configurations))("%s", (_name, config) => {
         Authorization: `Bearer ${grant}`,
         "X-Session-Proof": proof,
       },
-      body: JSON.stringify({ slot_start: slotStart, attendee: { name: "Alice" } }),
+      body: JSON.stringify({ slot_start: slotStart, attendee: { name } }),
     }), config);
   }
 
@@ -88,5 +93,18 @@ describe.each(Object.entries(configurations))("%s", (_name, config) => {
     // The cancelled slot is offered again; the rival's is still taken.
     expect((await list(session.thumbprint)).slots)
       .toEqual([listed.slots[0]!, listed.slots[2]!, listed.slots[3]!]);
+  });
+
+  // The attendee's name is the event SUMMARY, so an attendee called OPEN would
+  // read back as availability were the sentinel not qualified by the uid.
+  it("keeps a booking made by an attendee called OPEN out of availability", async () => {
+    await paint(availability, "OPEN", at(start, 60), at(start, 120));
+    const session = await newSession();
+
+    const listed = await list(session.thumbprint);
+    const response = await book(listed.grant, await session.proof(), listed.slots[0]!, "OPEN");
+    expect(response.status).toBe(200);
+
+    expect((await list(session.thumbprint)).slots).toEqual(listed.slots.slice(1));
   });
 });

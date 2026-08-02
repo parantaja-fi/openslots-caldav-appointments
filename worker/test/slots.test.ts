@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "../src/caldav";
-import { computeSlots } from "../src/slots";
+import { bookingUid, computeSlots } from "../src/slots";
 
 const DAY = "2026-09-01";
 
@@ -81,6 +81,11 @@ describe("blocking", () => {
   it("blocks on an event titled OPEN in the store, which is not availability", () => {
     expect(starts([open("09:00", "10:00")], [open("09:00", "09:30")]))
       .toEqual(["09:30"]);
+  });
+
+  it("blocks on our own booking titled OPEN, whichever calendar it is read from", () => {
+    const attendeeCalledOpen: CalendarEvent = { ...open("09:00", "09:30"), uid: bookingUid() };
+    expect(starts([open("09:00", "10:00"), attendeeCalledOpen])).toEqual(["09:30"]);
   });
 });
 
