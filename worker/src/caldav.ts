@@ -25,6 +25,38 @@ function escapeText(value: string): string {
     .replace(/\r\n|\r|\n/g, "\\n");
 }
 
+function utf8Length(codePoint: number): number {
+  if (codePoint <= 0x7f) return 1;
+  if (codePoint <= 0x7ff) return 2;
+  if (codePoint <= 0xffff) return 3;
+  return 4;
+}
+
+/**
+ * RFC 5545 §3.1: no content line may exceed 75 octets, and a continuation
+ * begins with one space. Measured in octets over code points, so a multi-byte
+ * character is never split across the fold.
+ */
+function fold(line: string): string {
+  const parts: string[] = [];
+  let current = "";
+  let octets = 0;
+
+  for (const char of line) {
+    const size = utf8Length(char.codePointAt(0)!);
+    // The continuation's leading space is one of its 75 octets.
+    if (octets + size > (parts.length ? 74 : 75)) {
+      parts.push(current);
+      current = "";
+      octets = 0;
+    }
+    current += char;
+    octets += size;
+  }
+  parts.push(current);
+  return parts.join("\r\n ");
+}
+
 export function buildVEvent(
   uid: string,
   start: string,
@@ -45,7 +77,7 @@ export function buildVEvent(
   ];
   if (description) lines.push(`DESCRIPTION:${escapeText(description)}`);
   lines.push("END:VEVENT", "END:VCALENDAR");
-  return lines.join("\r\n");
+  return lines.map(fold).join("\r\n");
 }
 
 const ENTITIES: Record<string, string> = {
