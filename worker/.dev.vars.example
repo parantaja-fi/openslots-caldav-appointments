@@ -1,5 +1,7 @@
 # Copy to .dev.vars (gitignored) and fill in. In production these are
-# `wrangler secret put` values; the calendar URLs live in wrangler.toml.
+# `wrangler secret put` values. The calendar URLs come from wrangler.toml, which
+# points at a local Radicale; add AVAILABILITY_CALENDAR_URL and BOOKING_STORE_URL
+# here to run the live and e2e suites against another backend instead.
 
 # CalDAV credentials, per logical calendar role. A username selects HTTP
 # Basic; leave both unset to use GOOGLE_SERVICE_ACCOUNT_JSON instead.

@@ -6,12 +6,19 @@ import { readFileSync } from "node:fs";
  * verbs here is cheaper than making that module importable from two packages.
  */
 
-const devVars = readFileSync(new URL("../../worker/.dev.vars", import.meta.url), "utf8");
+// wrangler's own precedence, and one regex serves both files: each states its
+// settings as `KEY = "value"`. The calendar URLs live in wrangler.toml unless
+// .dev.vars overrides them, so looking only at .dev.vars found nothing on a
+// checkout that had not been pointed at another backend.
+const sources = ["../../worker/.dev.vars", "../../worker/wrangler.toml"]
+  .map(path => readFileSync(new URL(path, import.meta.url), "utf8"));
 
 export function devVar(name: string): string {
-  const match = devVars.match(new RegExp(`^${name}\\s*=\\s*["'](.*)["']\\s*$`, "m"));
-  if (!match?.[1]) throw new Error(`${name} is not set in worker/.dev.vars`);
-  return match[1];
+  for (const source of sources) {
+    const match = source.match(new RegExp(`^${name}\\s*=\\s*["'](.*)["']\\s*$`, "m"));
+    if (match?.[1]) return match[1];
+  }
+  throw new Error(`${name} is set in neither worker/.dev.vars nor worker/wrangler.toml`);
 }
 
 const auth = "Basic " + Buffer.from(
