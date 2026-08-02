@@ -39,7 +39,7 @@ function parseUtcIso(value: string | null): Date | null {
 
 async function getSlots(
   request: Request,
-  config: Config,
+  cfg: Config,
   cors: Record<string, string>,
 ): Promise<Response> {
   const params = new URL(request.url).searchParams;
@@ -51,11 +51,11 @@ async function getSlots(
   }
 
   const now = Date.now();
-  const from = new Date(Math.max(requestedStart.getTime(), now + config.noticeMs));
-  const to = new Date(Math.min(requestedEnd.getTime(), now + config.horizonMs));
+  const from = new Date(Math.max(requestedStart.getTime(), now + cfg.noticeMs));
+  const to = new Date(Math.min(requestedEnd.getTime(), now + cfg.horizonMs));
   if (from >= to) return json({ slots: [] }, cors);
 
-  const { availability, store, coincide } = config.calendars;
+  const { availability, store, coincide } = cfg.calendars;
   const from_ = from.toISOString();
   const to_ = to.toISOString();
   let availabilityEvents, storeEvents;
@@ -69,10 +69,10 @@ async function getSlots(
     return problem(502, "Bad Gateway", "The calendar backend could not be read.", cors);
   }
 
-  const slots = computeSlots(availabilityEvents, storeEvents, config.slotMs, from, to);
-  if (slots.length > config.maxSlots) {
+  const slots = computeSlots(availabilityEvents, storeEvents, cfg.slotMs, from, to);
+  if (slots.length > cfg.maxSlots) {
     return problem(400, "Bad Request",
-      `The window holds more than ${config.maxSlots} slots; request a narrower one.`, cors);
+      `The window holds more than ${cfg.maxSlots} slots; request a narrower one.`, cors);
   }
 
   // A caller that identifies its session gets the grant that lets it book;
@@ -82,15 +82,15 @@ async function getSlots(
   if (!THUMBPRINT.test(thumbprint)) {
     return problem(400, "Bad Request", "X-Session-Thumbprint is not a JWK thumbprint.", cors);
   }
-  if (config.rateLimit) {
-    const { success } = await config.rateLimit.limit({
+  if (cfg.rateLimit) {
+    const { success } = await cfg.rateLimit.limit({
       key: request.headers.get("CF-Connecting-IP") ?? "unknown",
     });
     if (!success) {
       return problem(429, "Too Many Requests", "Too many requests; try again shortly.", cors);
     }
   }
-  const grant = await issueCreateGrant(config, thumbprint, slots.map(s => s.slot_start));
+  const grant = await issueCreateGrant(cfg, thumbprint, slots.map(s => s.slot_start));
   return json({ slots, grant }, cors);
 }
 
@@ -111,7 +111,7 @@ interface BookingRequest {
 
 async function postBooking(
   request: Request,
-  config: Config,
+  cfg: Config,
   cors: Record<string, string>,
 ): Promise<Response> {
   let body: BookingRequest;
@@ -143,15 +143,15 @@ async function postBooking(
   try {
     // The proof says which session is calling; the grant says that session was
     // offered this slot. Together they replace re-reading the OPEN events.
-    await verifyCreateGrant(config, grant, slotStart, await verifySessionProof(config, proof));
+    await verifyCreateGrant(cfg, grant, slotStart, await verifySessionProof(cfg, proof));
   } catch (e) {
     return rejected(e, cors);
   }
 
   const start = new Date(slotStart).toISOString();
-  const end = new Date(Date.parse(start) + config.slotMs).toISOString();
+  const end = new Date(Date.parse(start) + cfg.slotMs).toISOString();
   const uid = crypto.randomUUID();
-  const { store } = config.calendars;
+  const { store } = cfg.calendars;
 
   try {
     await putEvent(store, uid, buildVEvent(uid, start, end, name, notes));
@@ -181,13 +181,13 @@ async function postBooking(
     uid,
     slot_start: start,
     slot_end: end,
-    cancellation_token: await issueCancellationToken(config, uid, start),
+    cancellation_token: await issueCancellationToken(cfg, uid, start),
   }, cors);
 }
 
 async function deleteBooking(
   request: Request,
-  config: Config,
+  cfg: Config,
   uid: string,
   cors: Record<string, string>,
 ): Promise<Response> {
@@ -198,7 +198,7 @@ async function deleteBooking(
 
   let named: string;
   try {
-    named = await verifyCancellationToken(config, token);
+    named = await verifyCancellationToken(cfg, token);
   } catch (e) {
     return rejected(e, cors);
   }
@@ -209,12 +209,42 @@ async function deleteBooking(
   try {
     // Idempotent: a token holder who cancels twice has still got what they
     // asked for, and the second call must not look like a failure.
-    await deleteEvent(config.calendars.store, uid);
+    await deleteEvent(cfg.calendars.store, uid);
   } catch (e) {
     console.error("CalDAV DELETE failed:", e);
     return problem(502, "Bad Gateway", "The booking could not be cancelled.", cors);
   }
   return new Response(null, { status: 204, headers: cors });
+}
+
+function route(
+  request: Request,
+  cfg: Config,
+  cors: Record<string, string>,
+): Promise<Response> | Response {
+  const path = new URL(request.url).pathname;
+  if (path === "/v1/slots") {
+    if (request.method !== "GET") {
+      return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
+    }
+    return getSlots(request, cfg, cors);
+  }
+  if (path === "/v1/bookings") {
+    if (request.method !== "POST") {
+      return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
+    }
+    return postBooking(request, cfg, cors);
+  }
+  // The uid is not percent-decoded: the uids this Worker issues need no
+  // escaping, and decoding a malformed escape would throw.
+  const booking = path.match(/^\/v1\/bookings\/([^/]+)$/);
+  if (booking?.[1]) {
+    if (request.method !== "DELETE") {
+      return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
+    }
+    return deleteBooking(request, cfg, booking[1], cors);
+  }
+  return problem(404, "Not Found", `No route for ${path}.`, cors);
 }
 
 export default {
@@ -233,26 +263,13 @@ export default {
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
-    const path = new URL(request.url).pathname;
-    if (path === "/v1/slots") {
-      if (request.method !== "GET") {
-        return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
-      }
-      return getSlots(request, cfg, cors);
+    try {
+      return await route(request, cfg, cors);
+    } catch (e) {
+      // Whatever it was, the caller is a browser: it needs the CORS headers and
+      // the documented error shape, not an opaque runtime failure.
+      console.error("Unhandled error:", e);
+      return problem(500, "Internal Server Error", "The request could not be handled.", cors);
     }
-    if (path === "/v1/bookings") {
-      if (request.method !== "POST") {
-        return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
-      }
-      return postBooking(request, cfg, cors);
-    }
-    const booking = path.match(/^\/v1\/bookings\/([^/]+)$/);
-    if (booking?.[1]) {
-      if (request.method !== "DELETE") {
-        return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
-      }
-      return deleteBooking(request, cfg, decodeURIComponent(booking[1]), cors);
-    }
-    return problem(404, "Not Found", `No route for ${path}.`, cors);
   },
 } satisfies ExportedHandler<Env>;

@@ -27,6 +27,15 @@ describe("routing", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("treats a uid with a malformed percent escape as a uid, not a crash", async () => {
+    const response = await worker.fetch(
+      new Request("https://api.test/v1/bookings/%E0%A4%A", { method: "DELETE" }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("Content-Type")).toBe("application/problem+json");
+  });
 });
 
 describe("CORS", () => {
