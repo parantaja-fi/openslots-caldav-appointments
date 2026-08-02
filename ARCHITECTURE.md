@@ -50,6 +50,14 @@ calendar block too.
 CalDAV usage is deliberately narrow: `REPORT` (calendar-query with
 time-range filter, `Depth: 1`), `PUT`, `DELETE`, `GET` of a single event.
 Parse with `ical.js`; generate VCALENDAR text by hand (CRLF endings).
+
+**Recurrence is the server's job.** The `REPORT` asks for
+`<c:expand>` over the queried window, so each occurrence arrives as its
+own VEVENT with a real `DTSTART` and no `RRULE` is ever interpreted here:
+the server must already expand recurrences to evaluate the time-range
+filter, so this only asks it to return what it computed. A backend that
+ignores `expand` would silently drop recurring availability, so each
+supported backend has a live test for it.
 Google deviations (URL-encoded calendar ID, mandatory `Depth: 1`, ignored
 `If-None-Match`) are documented in the spike repository.
 

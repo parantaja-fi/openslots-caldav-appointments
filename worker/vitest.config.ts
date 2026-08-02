@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 const wrangler = { configPath: "./wrangler.toml" };
 
 // Two projects, because they need different configuration:
-//   unit — no backend, so dummy credentials satisfy checkEnv. Runs in CI.
+//   unit — no backend, so dummy credentials satisfy config(). Runs in CI.
 //   live — real .dev.vars credentials against a real CalDAV server. Local.
 export default defineConfig({
   test: {

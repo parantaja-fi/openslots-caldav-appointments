@@ -52,3 +52,15 @@ it("grants exactly the slots it listed, to the session that asked", async () => 
   expect(claims.aud).toBe(session.thumbprint);
   expect(claims.cap).toBe("booking/create");
 });
+
+// Recurrence is the backend's job (ARCHITECTURE §2), so this is the check that
+// this backend honours <c:expand>: without it neither event exists in the
+// window, and the answer would be an empty list rather than a wrong one.
+it("sees the occurrences of weekly events inside the window", async () => {
+  await reset();
+  const lastWeek = (minutes: number) => at(start, minutes - 7 * 24 * 60);
+  await paint(availability, "OPEN", lastWeek(60), lastWeek(180), "FREQ=WEEKLY");
+  await paint(availability, "Supervision", lastWeek(90), lastWeek(120), "FREQ=WEEKLY");
+
+  expect(await listSlots()).toEqual([at(start, 60), at(start, 120), at(start, 150)]);
+});

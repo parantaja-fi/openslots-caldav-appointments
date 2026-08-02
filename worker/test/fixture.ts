@@ -15,15 +15,21 @@ export function writable(url: string): Calendar {
   );
 }
 
-/** Creates an event and returns its uid. */
+/**
+ * Creates an event and returns its uid. `rrule` is a test-only affordance —
+ * production never writes recurrences, but it must read them.
+ */
 export async function paint(
   cal: Calendar,
   summary: string,
   start: string,
   end: string,
+  rrule?: string,
 ): Promise<string> {
   const uid = crypto.randomUUID();
-  await putEvent(cal, uid, buildVEvent(uid, start, end, summary, ""));
+  const ics = buildVEvent(uid, start, end, summary, "");
+  await putEvent(cal, uid,
+    rrule ? ics.replace("END:VEVENT", `RRULE:${rrule}\r\nEND:VEVENT`) : ics);
   return uid;
 }
 

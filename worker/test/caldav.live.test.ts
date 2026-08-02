@@ -22,11 +22,13 @@ it("round-trips an OPEN event through a real CalDAV backend", async () => {
   });
 });
 
+// The ampersand also exercises the XML entities the calendar data comes back in.
 it("escapes attendee text rather than letting it alter the ICS", async () => {
-  await paint(availability, "Doe, John\nX-INJECTED:yes", at(start, 300), at(start, 330));
+  const summary = "Doe, John & Co <b>\nX-INJECTED:yes";
+  await paint(availability, summary, at(start, 300), at(start, 330));
 
   const events = await reportEvents(availability, at(start, 300), at(start, 330));
 
   expect(events).toHaveLength(1);
-  expect(events[0]?.summary).toBe("Doe, John\nX-INJECTED:yes");
+  expect(events[0]?.summary).toBe(summary);
 });

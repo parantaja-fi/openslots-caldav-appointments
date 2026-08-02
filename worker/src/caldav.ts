@@ -48,6 +48,22 @@ export function buildVEvent(
   return lines.join("\r\n");
 }
 
+const ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'",
+};
+
+/**
+ * The calendar data is XML text, and expanded occurrences come back with their
+ * CRLFs as `&#13;`, so nothing can be parsed as ICS until this has run.
+ */
+function unescapeXml(text: string): string {
+  return text.replace(/&(#\d+|#x[0-9a-fA-F]+|[a-z]+);/g, (whole, ref: string) => {
+    if (ref.startsWith("#x")) return String.fromCodePoint(parseInt(ref.slice(2), 16));
+    if (ref.startsWith("#")) return String.fromCodePoint(Number(ref.slice(1)));
+    return ENTITIES[ref] ?? whole;
+  });
+}
+
 function parseIcs(ics: string): CalendarEvent[] {
   return new ICAL.Component(ICAL.parse(ics))
     .getAllSubcomponents("vevent")
@@ -67,15 +83,19 @@ export async function reportEvents(
   start: string,
   end: string,
 ): Promise<CalendarEvent[]> {
+  const range = `start="${toCalDAVDate(new Date(start).toISOString())}" ` +
+    `end="${toCalDAVDate(new Date(end).toISOString())}"`;
+  // The server must already expand recurrences to evaluate the time-range
+  // filter, so <c:expand> asks it to return what it computed: every occurrence
+  // arrives as its own VEVENT with a real DTSTART (RFC 4791 §9.6.5).
   const body =
     `<?xml version="1.0" encoding="UTF-8"?>\r\n` +
     `<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">\r\n` +
-    `  <d:prop><d:getetag/><c:calendar-data/></d:prop>\r\n` +
+    `  <d:prop><d:getetag/><c:calendar-data><c:expand ${range}/></c:calendar-data></d:prop>\r\n` +
     `  <c:filter>\r\n` +
     `    <c:comp-filter name="VCALENDAR">\r\n` +
     `      <c:comp-filter name="VEVENT">\r\n` +
-    `        <c:time-range start="${toCalDAVDate(new Date(start).toISOString())}" ` +
-    `end="${toCalDAVDate(new Date(end).toISOString())}"/>\r\n` +
+    `        <c:time-range ${range}/>\r\n` +
     `      </c:comp-filter>\r\n` +
     `    </c:comp-filter>\r\n` +
     `  </c:filter>\r\n` +
@@ -99,7 +119,7 @@ export async function reportEvents(
   const re = /<[^:>\s]+:calendar-data[^>]*>([\s\S]*?)<\/[^:>\s]+:calendar-data>/g;
   for (const match of xml.matchAll(re)) {
     const ics = match[1]?.trim();
-    if (ics) events.push(...parseIcs(ics));
+    if (ics) events.push(...parseIcs(unescapeXml(ics)));
   }
   return events;
 }
