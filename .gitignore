@@ -3,6 +3,11 @@ dist/
 .wrangler/
 .dev.vars
 *.local
+
+# Backend profiles hold real CalDAV credentials. Radicale's is the exception:
+# loopback-only, and CI builds its instance from it.
+worker/test/backends/*.vars
+!worker/test/backends/radicale.vars
 .DS_Store
 test-results/
 playwright-report/

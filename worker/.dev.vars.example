@@ -1,7 +1,11 @@
 # Copy to .dev.vars (gitignored) and fill in. In production these are
 # `wrangler secret put` values. The calendar URLs come from wrangler.toml, which
 # points at a local Radicale; add AVAILABILITY_CALENDAR_URL and BOOKING_STORE_URL
-# here to run the live and e2e suites against another backend instead.
+# here to point `wrangler dev` at another backend instead.
+#
+# This file serves `wrangler dev` and the browser e2e test. The live CalDAV
+# suite reads a backend profile instead (worker/test/backends/, see README.md),
+# which overrides everything here.
 
 # CalDAV credentials, per logical calendar role. A username selects HTTP
 # Basic; leave both unset to use GOOGLE_SERVICE_ACCOUNT_JSON instead.

@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
@@ -10,9 +11,42 @@ const ratelimits = {
   BOOKING_RL: { namespace_id: "1", simple: { limit: 100_000, period: 60 as const } },
 };
 
-// Two projects, because they need different configuration:
-//   unit — no backend, so dummy credentials satisfy config(). Runs in CI.
-//   live — real .dev.vars credentials against a real CalDAV server. Local.
+// Throwaway, and public by construction: it signs nothing real. Not part of a
+// backend profile — which CalDAV server is under test says nothing about the key.
+const SIGNING_KEY_JWK = JSON.stringify({
+  kty: "EC",
+  crv: "P-256",
+  x: "Hq9mBzkBgqzLfMcOnwYoBSZ4B6LIVO8JuLcKDUnr44w",
+  y: "qIxEjT-ATm6LUtr4WVNhV-as-1TmDfWmHp91D8_sPec",
+  d: "NRdKOKBhFF9iyrB75zdIVZKk9Lf3JE2z6Fo6gRv1NfY",
+});
+
+const BACKENDS = new URL("test/backends/", import.meta.url);
+
+/**
+ * A backend profile: one dotenv file per CalDAV server. Passed as bindings, so
+ * it overrides both wrangler.toml and any .dev.vars — which goes on serving
+ * `wrangler dev` and the e2e test alone.
+ */
+function profile(name: string): Record<string, string> {
+  const bindings: Record<string, string> = {};
+  for (const line of readFileSync(new URL(`${name}.vars`, BACKENDS), "utf8").split("\n")) {
+    const match = /^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/.exec(line);
+    if (!match) continue;
+    const value = match[2]!;
+    bindings[match[1]!] = /^(["']).*\1$/.test(value) ? value.slice(1, -1) : value;
+  }
+  return bindings;
+}
+
+const backends = readdirSync(BACKENDS)
+  .filter(file => file.endsWith(".vars"))
+  .map(file => file.replace(/\.vars$/, ""));
+
+// One project per configuration:
+//   unit        — no backend, so dummy credentials satisfy config(). Runs in CI.
+//   live:<name> — the whole live suite against that backend. `npm test` runs
+//                 every profile present; CI runs them as separate jobs.
 export default defineConfig({
   test: {
     projects: [
@@ -26,14 +60,7 @@ export default defineConfig({
               AVAILABILITY_PASSWORD: "unit",
               BOOKING_STORE_USERNAME: "unit",
               BOOKING_STORE_PASSWORD: "unit",
-              // Throwaway, and public by construction: it signs nothing real.
-              SIGNING_KEY_JWK: JSON.stringify({
-                kty: "EC",
-                crv: "P-256",
-                x: "Hq9mBzkBgqzLfMcOnwYoBSZ4B6LIVO8JuLcKDUnr44w",
-                y: "qIxEjT-ATm6LUtr4WVNhV-as-1TmDfWmHp91D8_sPec",
-                d: "NRdKOKBhFF9iyrB75zdIVZKk9Lf3JE2z6Fo6gRv1NfY",
-              }),
+              SIGNING_KEY_JWK,
             },
           },
         })],
@@ -43,15 +70,20 @@ export default defineConfig({
           exclude: ["test/**/*.live.test.ts"],
         },
       },
-      {
-        plugins: [cloudflareTest({ wrangler, miniflare: { ratelimits } })],
+      ...backends.map(name => ({
+        plugins: [cloudflareTest({
+          wrangler,
+          miniflare: { ratelimits, bindings: { ...profile(name), SIGNING_KEY_JWK } },
+        })],
         test: {
-          name: "live",
+          name: `live:${name}`,
           include: ["test/**/*.live.test.ts"],
-          // One remote calendar pair is shared by every live file.
+          // One calendar pair is shared by every live file.
           fileParallelism: false,
+          // Google answers in seconds; the 5 s default times out on it.
+          testTimeout: 60_000,
         },
-      },
+      })),
     ],
   },
 });
