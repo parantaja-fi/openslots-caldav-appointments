@@ -23,7 +23,8 @@ PROOF_MAX_AGE_SECS = "60"
 ALLOWED_ORIGINS = "http://localhost:5173"
 
 # Per-IP limit on every request, checked before routing. Unbound under
-# `wrangler dev` and in the test pool, hence optional in the code.
+# `wrangler dev`, hence optional in the code; the test pool does enforce it, so
+# vitest.config.ts raises the limit for the suites.
 [[ratelimits]]
 name         = "BOOKING_RL"
 namespace_id = "1"

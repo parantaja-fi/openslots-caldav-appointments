@@ -17,7 +17,7 @@ export interface Env {
   BOOKING_STORE_PASSWORD?: string;
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
   SIGNING_KEY_JWK: string;
-  /** Unbound under `wrangler dev` and in the test pool; see wrangler.toml. */
+  /** Optional because `wrangler dev` leaves it unbound; see wrangler.toml. */
   BOOKING_RL?: RateLimit;
 }
 
