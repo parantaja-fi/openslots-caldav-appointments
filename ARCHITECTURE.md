@@ -144,8 +144,9 @@ No UCAN, no DIDs, no server-side session state.
   overlapping bookings can still stand. Acceptable at
   practitioner-scale traffic; a per-slot Durable Object lock is the known
   escalation if ever needed.
-- **Anti-abuse**: per-IP rate limiting on grant issuance (the slot-list
-  endpoint). Replay bounded by short TTL + `iat` freshness.
+- **Anti-abuse**: per-IP rate limiting, applied to every request before it
+  is routed, so nothing reaches the calendar backend on an unmetered
+  path. Replay bounded by short TTL + `iat` freshness.
 - **Blast radius**: the Worker holds write credentials only for the
   booking store. With a separate read-only availability calendar, a
   compromised Worker cannot alter the practitioner's availability, only

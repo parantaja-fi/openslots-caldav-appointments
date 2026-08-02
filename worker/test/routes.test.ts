@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import type { Env } from "../src/config";
 import handler from "../src/index";
 
 const worker = exports.default;
@@ -61,6 +62,36 @@ describe("CORS", () => {
 
 // The handler is called directly rather than through the entrypoint, so that
 // the configuration can be varied.
+describe("rate limiting", () => {
+  const window_ = `window_start=${new Date(Date.now() + 86_400_000).toISOString()}` +
+    `&window_end=${new Date(Date.now() + 172_800_000).toISOString()}`;
+  const limited = (limit: RateLimit["limit"]): Env => ({ ...env, BOOKING_RL: { limit } });
+
+  // The unit project has no calendar backend, so a request that got as far as
+  // the router would answer 502: 429 is proof it was turned away before that.
+  it("turns a request away before the calendar backend, session or not", async () => {
+    const response = await handler.fetch(
+      new Request(`https://api.test/v1/slots?${window_}`),
+      limited(() => Promise.resolve({ success: false })),
+    );
+
+    expect(response.status).toBe(429);
+  });
+
+  it("answers a failing limiter in the documented shape, with CORS headers", async () => {
+    const response = await handler.fetch(
+      new Request(`https://api.test/v1/slots?${window_}`, {
+        headers: { Origin: "http://localhost:5173" },
+      }),
+      limited(() => Promise.reject(new Error("rate limiter unavailable"))),
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("Content-Type")).toBe("application/problem+json");
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:5173");
+  });
+});
+
 describe("configuration", () => {
   const request = () => new Request("https://api.test/v1/slots", {
     method: "OPTIONS",

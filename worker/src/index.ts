@@ -82,14 +82,6 @@ async function getSlots(
   if (!THUMBPRINT.test(thumbprint)) {
     return problem(400, "Bad Request", "X-Session-Thumbprint is not a JWK thumbprint.", cors);
   }
-  if (cfg.rateLimit) {
-    const { success } = await cfg.rateLimit.limit({
-      key: request.headers.get("CF-Connecting-IP") ?? "unknown",
-    });
-    if (!success) {
-      return problem(429, "Too Many Requests", "Too many requests; try again shortly.", cors);
-    }
-  }
   const grant = await issueCreateGrant(cfg, thumbprint, slots.map(s => s.slot_start));
   return json({ slots, grant }, cors);
 }
@@ -259,6 +251,16 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
     try {
+      // Before the router, so that no request reaches the calendar backend on
+      // someone else's budget; preflights are already answered above.
+      if (cfg.rateLimit) {
+        const { success } = await cfg.rateLimit.limit({
+          key: request.headers.get("CF-Connecting-IP") ?? "unknown",
+        });
+        if (!success) {
+          return problem(429, "Too Many Requests", "Too many requests; try again shortly.", cors);
+        }
+      }
       return await route(request, cfg, cors);
     } catch (e) {
       // Whatever it was, the caller is a browser: it needs the CORS headers and
