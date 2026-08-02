@@ -165,9 +165,16 @@ worse blast radius than a send-only API key.
 One obvious place (`wrangler` config + secrets). Operational settings as
 vars; credentials and keys as secrets. Each logical calendar gets its own
 URL and credentials; pointing both at the same values is the
-single-calendar setup. All required config is validated at the top of
-`fetch` — Workers have no startup hook, and missing secrets otherwise
-surface as cryptic crypto errors mid-request.
+single-calendar setup.
+
+Configuration is parsed once at the top of `fetch` — Workers have no
+startup hook — into the units the code uses (durations in milliseconds,
+the two calendar handles, the allowed origins). Parsing *is* the
+validation: nothing is read anywhere that was not converted there, so a
+setting cannot be validated and then re-read raw somewhere else, and
+missing secrets cannot surface as cryptic crypto errors mid-request. A
+misconfigured Worker answers 500 Problem Details without CORS headers,
+the allowed origins being configuration themselves.
 
 ## 8. Deliberately absent
 

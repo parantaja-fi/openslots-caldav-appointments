@@ -46,7 +46,7 @@ function union(open: CalendarEvent[]): { open: Interval[]; seams: Interval[] } {
 export function computeSlots(
   availability: CalendarEvent[],
   store: CalendarEvent[],
-  slotMinutes: number,
+  slotMs: number,
   from: Date,
   to: Date,
 ): Slot[] {
@@ -57,7 +57,6 @@ export function computeSlots(
     ...seams,
   ];
 
-  const step = slotMinutes * 60_000;
   const windowStart = from.getTime();
   const windowEnd = to.getTime();
   const slots: Slot[] = [];
@@ -67,10 +66,10 @@ export function computeSlots(
     // Phase is anchored to the interval's own start, not to the window, so
     // that slot boundaries do not drift as the window moves with the clock.
     let cursor = interval.start;
-    if (cursor < windowStart) cursor += Math.ceil((windowStart - cursor) / step) * step;
+    if (cursor < windowStart) cursor += Math.ceil((windowStart - cursor) / slotMs) * slotMs;
 
-    for (; cursor + step <= limit; cursor += step) {
-      const slotEnd = cursor + step;
+    for (; cursor + slotMs <= limit; cursor += slotMs) {
+      const slotEnd = cursor + slotMs;
       if (blocking.some(b => b.start < slotEnd && b.end > cursor)) continue;
       slots.push({
         slot_start: new Date(cursor).toISOString(),

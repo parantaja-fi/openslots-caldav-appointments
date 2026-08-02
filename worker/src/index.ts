@@ -1,5 +1,5 @@
 import { buildVEvent, deleteEvent, putEvent, reportEvents } from "./caldav";
-import { calendars, checkEnv, type Env } from "./config";
+import { config, type Config, type Env } from "./config";
 import {
   GrantError,
   issueCancellationToken,
@@ -15,15 +15,13 @@ const UTC_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 /** Base64url SHA-256, per RFC 7638. */
 const THUMBPRINT = /^[A-Za-z0-9_-]{43}$/;
 
-function corsHeaders(request: Request, env: Env): Record<string, string> {
+function corsHeaders(request: Request, origins: string[]): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
   const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Session-Thumbprint, X-Session-Proof",
   };
-  if (env.ALLOWED_ORIGINS.split(",").some(allowed => allowed.trim() === origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
+  if (origins.includes(origin)) headers["Access-Control-Allow-Origin"] = origin;
   return headers;
 }
 
@@ -39,7 +37,11 @@ function parseUtcIso(value: string | null): Date | null {
   return isNaN(date.getTime()) ? null : date;
 }
 
-async function getSlots(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+async function getSlots(
+  request: Request,
+  config: Config,
+  cors: Record<string, string>,
+): Promise<Response> {
   const params = new URL(request.url).searchParams;
   const requestedStart = parseUtcIso(params.get("window_start"));
   const requestedEnd = parseUtcIso(params.get("window_end"));
@@ -49,17 +51,11 @@ async function getSlots(request: Request, env: Env, cors: Record<string, string>
   }
 
   const now = Date.now();
-  const from = new Date(Math.max(
-    requestedStart.getTime(),
-    now + Number(env.MIN_NOTICE_MINUTES) * 60_000,
-  ));
-  const to = new Date(Math.min(
-    requestedEnd.getTime(),
-    now + Number(env.BOOKING_HORIZON_DAYS) * 86_400_000,
-  ));
+  const from = new Date(Math.max(requestedStart.getTime(), now + config.noticeMs));
+  const to = new Date(Math.min(requestedEnd.getTime(), now + config.horizonMs));
   if (from >= to) return json({ slots: [] }, cors);
 
-  const { availability, store, coincide } = calendars(env);
+  const { availability, store, coincide } = config.calendars;
   const from_ = from.toISOString();
   const to_ = to.toISOString();
   let availabilityEvents, storeEvents;
@@ -73,12 +69,10 @@ async function getSlots(request: Request, env: Env, cors: Record<string, string>
     return problem(502, "Bad Gateway", "The calendar backend could not be read.", cors);
   }
 
-  const slots = computeSlots(
-    availabilityEvents, storeEvents, Number(env.SLOT_MINUTES), from, to,
-  );
-  if (slots.length > Number(env.MAX_SLOTS)) {
+  const slots = computeSlots(availabilityEvents, storeEvents, config.slotMs, from, to);
+  if (slots.length > config.maxSlots) {
     return problem(400, "Bad Request",
-      `The window holds more than ${env.MAX_SLOTS} slots; request a narrower one.`, cors);
+      `The window holds more than ${config.maxSlots} slots; request a narrower one.`, cors);
   }
 
   // A caller that identifies its session gets the grant that lets it book;
@@ -88,15 +82,15 @@ async function getSlots(request: Request, env: Env, cors: Record<string, string>
   if (!THUMBPRINT.test(thumbprint)) {
     return problem(400, "Bad Request", "X-Session-Thumbprint is not a JWK thumbprint.", cors);
   }
-  if (env.BOOKING_RL) {
-    const { success } = await env.BOOKING_RL.limit({
+  if (config.rateLimit) {
+    const { success } = await config.rateLimit.limit({
       key: request.headers.get("CF-Connecting-IP") ?? "unknown",
     });
     if (!success) {
       return problem(429, "Too Many Requests", "Too many requests; try again shortly.", cors);
     }
   }
-  const grant = await issueCreateGrant(env, thumbprint, slots.map(s => s.slot_start));
+  const grant = await issueCreateGrant(config, thumbprint, slots.map(s => s.slot_start));
   return json({ slots, grant }, cors);
 }
 
@@ -115,7 +109,11 @@ interface BookingRequest {
   notes?: unknown;
 }
 
-async function postBooking(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+async function postBooking(
+  request: Request,
+  config: Config,
+  cors: Record<string, string>,
+): Promise<Response> {
   let body: BookingRequest;
   try {
     body = await request.json() as BookingRequest;
@@ -145,15 +143,15 @@ async function postBooking(request: Request, env: Env, cors: Record<string, stri
   try {
     // The proof says which session is calling; the grant says that session was
     // offered this slot. Together they replace re-reading the OPEN events.
-    await verifyCreateGrant(env, grant, slotStart, await verifySessionProof(env, proof));
+    await verifyCreateGrant(config, grant, slotStart, await verifySessionProof(config, proof));
   } catch (e) {
     return rejected(e, cors);
   }
 
   const start = new Date(slotStart).toISOString();
-  const end = new Date(Date.parse(start) + Number(env.SLOT_MINUTES) * 60_000).toISOString();
+  const end = new Date(Date.parse(start) + config.slotMs).toISOString();
   const uid = crypto.randomUUID();
-  const { store } = calendars(env);
+  const { store } = config.calendars;
 
   try {
     await putEvent(store, uid, buildVEvent(uid, start, end, name, notes));
@@ -183,13 +181,13 @@ async function postBooking(request: Request, env: Env, cors: Record<string, stri
     uid,
     slot_start: start,
     slot_end: end,
-    cancellation_token: await issueCancellationToken(env, uid, start),
+    cancellation_token: await issueCancellationToken(config, uid, start),
   }, cors);
 }
 
 async function deleteBooking(
   request: Request,
-  env: Env,
+  config: Config,
   uid: string,
   cors: Record<string, string>,
 ): Promise<Response> {
@@ -200,7 +198,7 @@ async function deleteBooking(
 
   let named: string;
   try {
-    named = await verifyCancellationToken(env, token);
+    named = await verifyCancellationToken(config, token);
   } catch (e) {
     return rejected(e, cors);
   }
@@ -211,7 +209,7 @@ async function deleteBooking(
   try {
     // Idempotent: a token holder who cancels twice has still got what they
     // asked for, and the second call must not look like a failure.
-    await deleteEvent(calendars(env).store, uid);
+    await deleteEvent(config.calendars.store, uid);
   } catch (e) {
     console.error("CalDAV DELETE failed:", e);
     return problem(502, "Bad Gateway", "The booking could not be cancelled.", cors);
@@ -221,14 +219,17 @@ async function deleteBooking(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const cors = corsHeaders(request, env);
-
-    // Workers have no startup hook, so configuration is checked per request.
-    const misconfigured = checkEnv(env);
-    if (misconfigured) {
-      console.error("Worker misconfigured:", misconfigured);
-      return problem(500, "Internal Server Error", "The service is misconfigured.", cors);
+    // The allowed origins are configuration too, so the configuration must be
+    // in hand before any response — including the misconfiguration one, which
+    // therefore carries no CORS headers.
+    let cfg: Config;
+    try {
+      cfg = config(env);
+    } catch (e) {
+      console.error("Worker misconfigured:", e);
+      return problem(500, "Internal Server Error", "The service is misconfigured.", {});
     }
+    const cors = corsHeaders(request, cfg.origins);
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
@@ -237,20 +238,20 @@ export default {
       if (request.method !== "GET") {
         return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
       }
-      return getSlots(request, env, cors);
+      return getSlots(request, cfg, cors);
     }
     if (path === "/v1/bookings") {
       if (request.method !== "POST") {
         return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
       }
-      return postBooking(request, env, cors);
+      return postBooking(request, cfg, cors);
     }
     const booking = path.match(/^\/v1\/bookings\/([^/]+)$/);
     if (booking?.[1]) {
       if (request.method !== "DELETE") {
         return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
       }
-      return deleteBooking(request, env, decodeURIComponent(booking[1]), cors);
+      return deleteBooking(request, cfg, decodeURIComponent(booking[1]), cors);
     }
     return problem(404, "Not Found", `No route for ${path}.`, cors);
   },

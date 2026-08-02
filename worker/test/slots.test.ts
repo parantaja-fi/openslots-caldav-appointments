@@ -21,7 +21,7 @@ function starts(
   from = t("00:00"),
   to = "2026-09-02T00:00:00.000Z",
 ): string[] {
-  return computeSlots(availability, store, 30, new Date(from), new Date(to))
+  return computeSlots(availability, store, 30 * 60_000, new Date(from), new Date(to))
     .map(s => s.slot_start.slice(11, 16));
 }
 

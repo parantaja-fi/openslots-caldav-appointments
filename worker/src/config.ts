@@ -1,3 +1,4 @@
+import type { JWK } from "jose";
 import { googleAccessToken } from "./auth";
 
 export interface Env {
@@ -33,6 +34,20 @@ export interface Calendars {
   coincide: boolean;
 }
 
+/** The Worker's configuration, in the units the code actually uses. */
+export interface Config {
+  calendars: Calendars;
+  slotMs: number;
+  noticeMs: number;
+  horizonMs: number;
+  maxSlots: number;
+  grantTtlSecs: number;
+  proofMaxAgeSecs: number;
+  origins: string[];
+  signingKeyJwk: JWK;
+  rateLimit?: RateLimit;
+}
+
 function basicAuth(username: string, password: string): string {
   const bytes = new TextEncoder().encode(`${username}:${password}`);
   return `Basic ${btoa(String.fromCharCode(...bytes))}`;
@@ -59,52 +74,57 @@ export function calendar(
   throw new Error(`No credentials configured for ${url}`);
 }
 
-export function calendars(env: Env): Calendars {
-  return {
-    availability: calendar(
-      env.AVAILABILITY_CALENDAR_URL,
-      env.AVAILABILITY_USERNAME,
-      env.AVAILABILITY_PASSWORD,
-      env.GOOGLE_SERVICE_ACCOUNT_JSON,
-    ),
-    store: calendar(
-      env.BOOKING_STORE_URL,
-      env.BOOKING_STORE_USERNAME,
-      env.BOOKING_STORE_PASSWORD,
-      env.GOOGLE_SERVICE_ACCOUNT_JSON,
-    ),
-    coincide: env.AVAILABILITY_CALENDAR_URL === env.BOOKING_STORE_URL,
-  };
+function required(env: Env, name: keyof Env): string {
+  const value = env[name];
+  if (typeof value !== "string" || !value) throw new Error(`${name} is not set`);
+  return value;
 }
 
-const NUMERIC_VARS = [
-  "SLOT_MINUTES",
-  "BOOKING_HORIZON_DAYS",
-  "MIN_NOTICE_MINUTES",
-  "MAX_SLOTS",
-  "GRANT_TTL_SECS",
-  "PROOF_MAX_AGE_SECS",
-] as const satisfies readonly (keyof Env)[];
+function positive(env: Env, name: keyof Env): number {
+  const value = Number(required(env, name));
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${name} must be a positive number`);
+  }
+  return value;
+}
 
 /**
- * Workers have no startup hook, so every request validates configuration
- * first; otherwise missing secrets surface as cryptic errors mid-request.
- * Returns a description of the first problem, or null.
+ * Workers have no startup hook, so every request parses the configuration
+ * first. Parsing *is* the validation: nothing is read anywhere that was not
+ * converted here, so a missing or nonsensical value cannot surface later as a
+ * cryptic mid-request error. Throws with a description of the first problem.
  */
-export function checkEnv(env: Env): string | null {
-  for (const role of ["AVAILABILITY_CALENDAR_URL", "BOOKING_STORE_URL"] as const) {
-    if (!env[role]) return `${role} is not set`;
-  }
-  for (const name of NUMERIC_VARS) {
-    const value = Number(env[name]);
-    if (!Number.isFinite(value) || value <= 0) return `${name} must be a positive number`;
-  }
-  if (!env.AVAILABILITY_USERNAME && !env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    return "availability calendar has neither AVAILABILITY_USERNAME nor GOOGLE_SERVICE_ACCOUNT_JSON";
-  }
-  if (!env.BOOKING_STORE_USERNAME && !env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    return "booking store has neither BOOKING_STORE_USERNAME nor GOOGLE_SERVICE_ACCOUNT_JSON";
-  }
-  if (!env.SIGNING_KEY_JWK) return "SIGNING_KEY_JWK is not set; run `npm run keygen`";
-  return null;
+export function config(env: Env): Config {
+  const availabilityUrl = required(env, "AVAILABILITY_CALENDAR_URL");
+  const storeUrl = required(env, "BOOKING_STORE_URL");
+  const origins = required(env, "ALLOWED_ORIGINS")
+    .split(",").map(origin => origin.trim()).filter(Boolean);
+  if (!origins.length) throw new Error("ALLOWED_ORIGINS lists no origin");
+
+  return {
+    calendars: {
+      availability: calendar(
+        availabilityUrl,
+        env.AVAILABILITY_USERNAME,
+        env.AVAILABILITY_PASSWORD,
+        env.GOOGLE_SERVICE_ACCOUNT_JSON,
+      ),
+      store: calendar(
+        storeUrl,
+        env.BOOKING_STORE_USERNAME,
+        env.BOOKING_STORE_PASSWORD,
+        env.GOOGLE_SERVICE_ACCOUNT_JSON,
+      ),
+      coincide: availabilityUrl === storeUrl,
+    },
+    slotMs: positive(env, "SLOT_MINUTES") * 60_000,
+    noticeMs: positive(env, "MIN_NOTICE_MINUTES") * 60_000,
+    horizonMs: positive(env, "BOOKING_HORIZON_DAYS") * 86_400_000,
+    maxSlots: positive(env, "MAX_SLOTS"),
+    grantTtlSecs: positive(env, "GRANT_TTL_SECS"),
+    proofMaxAgeSecs: positive(env, "PROOF_MAX_AGE_SECS"),
+    origins,
+    signingKeyJwk: JSON.parse(required(env, "SIGNING_KEY_JWK")) as JWK,
+    rateLimit: env.BOOKING_RL,
+  };
 }

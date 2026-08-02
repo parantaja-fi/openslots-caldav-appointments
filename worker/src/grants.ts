@@ -6,7 +6,7 @@ import {
   SignJWT,
   type JWK,
 } from "jose";
-import type { Env } from "./config";
+import type { Config } from "./config";
 
 const ALG = "ES256";
 const CREATE = "booking/create";
@@ -28,24 +28,28 @@ interface Keys {
 
 let cached: Keys | null = null;
 
-async function keys(env: Env): Promise<Keys> {
+async function keys(config: Config): Promise<Keys> {
   if (cached) return cached;
-  const jwk = JSON.parse(env.SIGNING_KEY_JWK) as JWK;
-  const { d: _private, ...publicJwk } = jwk;
+  const { d: _private, ...publicJwk } = config.signingKeyJwk;
   cached = {
-    sign: await importJWK(jwk, ALG) as CryptoKey,
+    sign: await importJWK(config.signingKeyJwk, ALG) as CryptoKey,
     verify: await importJWK(publicJwk, ALG) as CryptoKey,
   };
   return cached;
 }
 
-function sign(env: Env, claims: Record<string, unknown>, audience: string | undefined, expiry: number) {
+function sign(
+  config: Config,
+  claims: Record<string, unknown>,
+  audience: string | undefined,
+  expiry: number,
+) {
   const jwt = new SignJWT(claims)
     .setProtectedHeader({ alg: ALG })
     .setIssuedAt()
     .setExpirationTime(expiry);
   if (audience) jwt.setAudience(audience);
-  return keys(env).then(k => jwt.sign(k.sign));
+  return keys(config).then(k => jwt.sign(k.sign));
 }
 
 /**
@@ -54,21 +58,21 @@ function sign(env: Env, claims: Record<string, unknown>, audience: string | unde
  * re-checks OPEN events.
  */
 export async function issueCreateGrant(
-  env: Env,
+  config: Config,
   thumbprint: string,
   slots: string[],
 ): Promise<string> {
-  const ttl = Number(env.GRANT_TTL_SECS);
-  return sign(env, { cap: CREATE, slots }, thumbprint, Math.floor(Date.now() / 1000) + ttl);
+  const expiry = Math.floor(Date.now() / 1000) + config.grantTtlSecs;
+  return sign(config, { cap: CREATE, slots }, thumbprint, expiry);
 }
 
 export async function verifyCreateGrant(
-  env: Env,
+  config: Config,
   token: string,
   slotStart: string,
   thumbprint: string,
 ): Promise<void> {
-  const { verify } = await keys(env);
+  const { verify } = await keys(config);
   let claims;
   try {
     ({ payload: claims } = await jwtVerify(token, verify, {
@@ -89,16 +93,17 @@ export async function verifyCreateGrant(
  * possession of the email is the authority. Expires at slot start.
  */
 export async function issueCancellationToken(
-  env: Env,
+  config: Config,
   uid: string,
   slotStart: string,
 ): Promise<string> {
-  return sign(env, { cap: DELETE, sub: uid }, undefined, Math.floor(Date.parse(slotStart) / 1000));
+  const expiry = Math.floor(Date.parse(slotStart) / 1000);
+  return sign(config, { cap: DELETE, sub: uid }, undefined, expiry);
 }
 
 /** Returns the booking uid the token names. */
-export async function verifyCancellationToken(env: Env, token: string): Promise<string> {
-  const { verify } = await keys(env);
+export async function verifyCancellationToken(config: Config, token: string): Promise<string> {
+  const { verify } = await keys(config);
   let claims;
   try {
     ({ payload: claims } = await jwtVerify(token, verify, { algorithms: [ALG] }));
@@ -115,13 +120,13 @@ export async function verifyCancellationToken(env: Env, token: string): Promise<
  * thumbprint for comparison against the grant's audience. The public key
  * travels in the proof's own header, so the Worker stores no session state.
  */
-export async function verifySessionProof(env: Env, proof: string): Promise<string> {
+export async function verifySessionProof(config: Config, proof: string): Promise<string> {
   let header;
   try {
     ({ protectedHeader: header } = await jwtVerify(proof, EmbeddedJWK, {
       algorithms: [ALG],
       typ: PROOF_TYP,
-      maxTokenAge: `${Number(env.PROOF_MAX_AGE_SECS)}s`,
+      maxTokenAge: `${config.proofMaxAgeSecs}s`,
     }));
   } catch (e) {
     throw new GrantError(401, `Session proof rejected: ${(e as Error).message}`);

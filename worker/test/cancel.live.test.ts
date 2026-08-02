@@ -1,10 +1,12 @@
 import { env, exports } from "cloudflare:workers";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { reportEvents } from "../src/caldav";
+import { config } from "../src/config";
 import { issueCancellationToken } from "../src/grants";
 import { at, clear, futureWindow, paint, writable } from "./fixture";
 
 const worker = exports.default;
+const cfg = config(env);
 const store = writable(env.BOOKING_STORE_URL);
 const { start, end } = futureWindow();
 const SLOT = at(start, 60);
@@ -22,7 +24,7 @@ beforeEach(() => clear(store, start, end));
 
 it("removes the booking, and says so again on replay", async () => {
   const uid = await paint(store, "Alice", SLOT, at(SLOT, 30));
-  const token = await issueCancellationToken(env, uid, SLOT);
+  const token = await issueCancellationToken(cfg, uid, SLOT);
 
   expect((await cancel(uid, token)).status).toBe(204);
   expect(await reportEvents(store, start, end)).toEqual([]);
@@ -33,7 +35,7 @@ it("removes the booking, and says so again on replay", async () => {
 
 it("refuses a token issued for another booking", async () => {
   const uid = await paint(store, "Alice", SLOT, at(SLOT, 30));
-  const token = await issueCancellationToken(env, crypto.randomUUID(), SLOT);
+  const token = await issueCancellationToken(cfg, crypto.randomUUID(), SLOT);
 
   expect((await cancel(uid, token)).status).toBe(403);
   expect((await reportEvents(store, start, end)).map(e => e.uid)).toEqual([uid]);
@@ -41,7 +43,7 @@ it("refuses a token issued for another booking", async () => {
 
 it("refuses a token that expired at slot start", async () => {
   const uid = await paint(store, "Alice", SLOT, at(SLOT, 30));
-  const token = await issueCancellationToken(env, uid, at(new Date().toISOString(), -60));
+  const token = await issueCancellationToken(cfg, uid, at(new Date().toISOString(), -60));
 
   expect((await cancel(uid, token)).status).toBe(401);
   expect((await reportEvents(store, start, end)).map(e => e.uid)).toEqual([uid]);
