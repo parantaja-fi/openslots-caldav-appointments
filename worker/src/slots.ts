@@ -26,6 +26,22 @@ export interface Slot {
   slot_end: string;   // ISO 8601, UTC
 }
 
+/**
+ * Whether the event we just inserted must be rolled back. The slot belongs to
+ * the earliest booking in it, and outright to any event we did not write; two
+ * simultaneous bookings therefore yield one winner rather than two losers.
+ */
+export function lostRace(
+  uid: string,
+  events: CalendarEvent[],
+  start: string,
+  end: string,
+): boolean {
+  return events.some(e =>
+    e.uid !== uid && !isOpen(e) && e.start < end && e.end > start &&
+    (!isBooking(e.uid) || e.uid < uid));
+}
+
 interface Interval {
   start: number;
   end: number;

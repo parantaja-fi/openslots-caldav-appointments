@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "../src/caldav";
-import { bookingUid, computeSlots } from "../src/slots";
+import { bookingUid, computeSlots, lostRace } from "../src/slots";
 
 const DAY = "2026-09-01";
 
@@ -86,6 +86,37 @@ describe("blocking", () => {
   it("blocks on our own booking titled OPEN, whichever calendar it is read from", () => {
     const attendeeCalledOpen: CalendarEvent = { ...open("09:00", "09:30"), uid: bookingUid() };
     expect(starts([open("09:00", "10:00"), attendeeCalledOpen])).toEqual(["09:30"]);
+  });
+});
+
+describe("race arbitration", () => {
+  const ours = "booking-20260901T085959000Z-ours";
+  const slot = { start: t("09:00"), end: t("09:30") };
+
+  function booking(uid: string, start: string, end: string): CalendarEvent {
+    return { ...event("Alice", start, end), uid };
+  }
+
+  const lost = (events: CalendarEvent[]) => lostRace(ours, events, slot.start, slot.end);
+
+  it("keeps our booking when the competing one was created later", () => {
+    expect(lost([booking("booking-20260901T090000000Z-theirs", "09:00", "09:30")])).toBe(false);
+  });
+
+  it("rolls our booking back when the competing one was created earlier", () => {
+    expect(lost([booking("booking-20260901T085958000Z-theirs", "09:00", "09:30")])).toBe(true);
+  });
+
+  it("yields to an event we did not write, whatever its uid sorts as", () => {
+    expect(lost([booking("aardvark", "09:15", "10:00")])).toBe(true);
+  });
+
+  it("ignores our own event, availability, and events outside the slot", () => {
+    expect(lost([
+      booking(ours, "09:00", "09:30"),
+      open("09:00", "10:00"),
+      booking("booking-20260901T000000000Z-theirs", "09:30", "10:00"),
+    ])).toBe(false);
   });
 });
 

@@ -127,9 +127,15 @@ No UCAN, no DIDs, no server-side session state.
   cancelled booking's disappearance is the revocation, so no single-use
   state is needed.
 - **Double-booking**: CalDAV `PUT` is not atomic, so check-after-insert —
-  insert, re-query the window in the store, roll back with `DELETE` on
-  conflict, return 409. Acceptable at practitioner-scale traffic; a
-  per-slot Durable Object lock is the known escalation if ever needed.
+  insert, re-query the slot in the store, roll back with `DELETE` on
+  conflict, return 409. The slot belongs to the **earliest** booking uid
+  in it (§2), and outright to any event the system did not write, so two
+  simultaneous bookings settle into one 200 and one 409 rather than two
+  rollbacks leaving the slot empty. Residual window: a request whose
+  re-query lands before the other's `PUT` sees no conflict, so two
+  overlapping bookings can still stand. Acceptable at
+  practitioner-scale traffic; a per-slot Durable Object lock is the known
+  escalation if ever needed.
 - **Anti-abuse**: per-IP rate limiting on grant issuance (the slot-list
   endpoint). Replay bounded by short TTL + `iat` freshness.
 - **Blast radius**: the Worker holds write credentials only for the

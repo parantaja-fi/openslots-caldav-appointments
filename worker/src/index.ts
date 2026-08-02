@@ -9,7 +9,7 @@ import {
   verifySessionProof,
 } from "./grants";
 import { problem } from "./problem";
-import { bookingUid, computeSlots, isOpen } from "./slots";
+import { bookingUid, computeSlots, lostRace } from "./slots";
 
 const UTC_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 /** Base64url SHA-256, per RFC 7638. */
@@ -160,14 +160,9 @@ async function postBooking(
     return problem(502, "Bad Gateway", "The booking could not be stored.", cors);
   }
 
-  // CalDAV has no conditional insert, so detect the race afterwards: anyone
-  // else's non-OPEN event in this slot means we lost it, and ours must go.
+  // CalDAV has no conditional insert, so detect the race afterwards.
   try {
-    const events = await reportEvents(store, start, end);
-    const conflict = events.some(event =>
-      event.uid !== uid && !isOpen(event) &&
-      event.start < end && event.end > start);
-    if (conflict) {
+    if (lostRace(uid, await reportEvents(store, start, end), start, end)) {
       await deleteEvent(store, uid);
       return problem(409, "Conflict", "The slot was taken while you were booking it.", cors);
     }
