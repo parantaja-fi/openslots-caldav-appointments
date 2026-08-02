@@ -3,9 +3,9 @@
 [![CI](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml)
 
 > **Pre-release; not code complete.** One of five milestones is met (see
-> [ROADMAP.md](ROADMAP.md)). There is no confirmation email, only one
-> backend is verified, and there is no operator guide. API field names,
-> configuration and storage layout may still change without notice.
+> [ROADMAP.md](ROADMAP.md)). There is no confirmation email and no
+> operator guide. API field names, configuration and storage layout may
+> still change without notice.
 >
 > **Largely written by an LLM.** Most of the code and documentation here
 > was written by Claude under the author's direction. It has not been
@@ -41,13 +41,14 @@ Three parts:
 M1 met: the Worker API and the SPA are built, and an automated suite runs
 the whole flow — list, book, lose a race, cancel — against a real CalDAV
 backend, with the two logical calendars both separate and coinciding.
-Next is M2, the same suite against Radicale and Nextcloud. M3 adds the
-confirmation email, M4 the operator guide and one-command deploy; 1.0 is
-the two together.
+That suite is green against Radicale, Nextcloud and Google; M2 is
+otherwise the Proton write-up. M3 adds the confirmation email, M4 the
+operator guide and one-command deploy; 1.0 is the two together.
 
-CI builds and typechecks both halves and runs the tests that need no
-backend. The live CalDAV suite runs locally against real credentials, as
-does the browser end-to-end test.
+CI builds and typechecks both halves, runs the tests that need no
+backend, and runs the live suite against a Radicale it starts itself. The
+credentialed backends run on `main` and on manual dispatch. The browser
+end-to-end test runs locally only.
 
 ## Development
 
@@ -57,15 +58,48 @@ Two npm packages, `worker/` and `frontend/`, each with `dev`, `build` and
 ```sh
 cd worker && npm ci && npm run keygen   # a SIGNING_KEY_JWK for .dev.vars
 cp .dev.vars.example .dev.vars          # then fill in, see the comments
-npm test                                # unit tests plus live CalDAV tests
-npm test -- --project unit              # what CI runs: no backend needed
+npm test -- --project unit              # no backend needed
 ```
 
-The live tests write to whatever calendars `.dev.vars` names, so point
-them at dedicated test calendars.
+### Backend profiles
 
-Optional local pre-release check, needing a browser and the same
-credentials — deliberately not part of CI:
+The live CalDAV suite runs once per **profile**: a dotenv file in
+`worker/test/backends/` naming one backend's calendars and credentials.
+`npm test` runs every profile present, `npm test -- --project live:<name>`
+just one. Adding a backend is a new profile, a matrix entry in
+[ci.yml](.github/workflows/ci.yml) and one secret — nothing else.
+
+Only `radicale.vars` is checked in; it doubles as the template, and its
+password reaches nothing but a loopback server. Every other profile is
+gitignored, and CI reads it from a secret holding that same file
+verbatim:
+
+```sh
+gh secret set BACKEND_NEXTCLOUD < worker/test/backends/nextcloud.vars
+gh secret set BACKEND_GOOGLE    < worker/test/backends/google.vars
+```
+
+The live tests write to the calendars a profile names, so point them at
+dedicated test calendars.
+
+For the local Radicale, serve it through waitress rather than its own
+server, which drops roughly one connection in a thousand when workerd is
+the client. Then create the two collections; Radicale will not make them
+on `PUT`:
+
+```sh
+pipx install radicale && pipx inject radicale waitress
+waitress-serve --listen=localhost:5232 radicale:application &
+node scripts/mkcalendars.mjs radicale
+npm test -- --project live:radicale
+```
+
+Radicale also needs an htpasswd user matching the profile; the
+`live-radicale` job in [ci.yml](.github/workflows/ci.yml) builds the
+whole configuration from scratch and is the reference.
+
+Optional local pre-release check, needing a browser and the credentials
+in `.dev.vars` — deliberately not part of CI:
 
 ```sh
 cd frontend && npm run e2e

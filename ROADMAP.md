@@ -33,8 +33,17 @@ instances, Radicale self-hosted; Nextcloud is already green from M1.
 Google likewise, best-effort. Document the Proton path (store elsewhere
 + ICS view + CalDAV client for painting `OPEN`).
 
+Google, exercised 2026-08-02, found the one real interop gap: it accepts
+`<c:expand>` and ignores it, returning the unexpanded master, so weekly
+`OPEN` events yielded no slots at all. Recurrence expansion moved into
+the Worker (`ARCHITECTURE.md` §2), which also brought it under unit test.
+Backend profiles now select the backend (`worker/test/backends/`), CI
+runs the live suite against Radicale on every pull request and against
+Nextcloud and Google on `main`.
+
 *Exit: test suite green on two backends; "any CalDAV server" claims
-removed or substantiated.*
+removed or substantiated. Suite green on all three since 2026-08-02;
+the Proton write-up is what remains.*
 
 ## M3 — Customer email
 

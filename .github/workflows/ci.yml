@@ -24,8 +24,85 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      # Only the tests that need no backend; the live suite runs locally.
+      # No backend needed; the live suite is the two jobs below.
       - run: npm test -- --project unit
+
+  # The live suite against a CalDAV server this job builds itself, so it needs
+  # no secret and runs on pull requests from forks.
+  live-radicale:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      # Radicale's own server drops roughly one connection in a thousand when
+      # workerd is the client, which is several failures per suite run; waitress
+      # serves the same WSGI application without them.
+      - name: Install Radicale
+        run: |
+          python3 -m venv "$RUNNER_TEMP/radicale"
+          "$RUNNER_TEMP/radicale/bin/pip" install --quiet radicale waitress
+      - name: Start Radicale
+        run: |
+          profile=test/backends/radicale.vars
+          user=$(sed -n 's/^TEST_WRITE_USERNAME *= *"\(.*\)"/\1/p' "$profile")
+          password=$(sed -n 's/^TEST_WRITE_PASSWORD *= *"\(.*\)"/\1/p' "$profile")
+          printf '%s:%s\n' "$user" "$password" > "$RUNNER_TEMP/users"
+          printf '%s\n' \
+            "[auth]" \
+            "type = htpasswd" \
+            "htpasswd_filename = $RUNNER_TEMP/users" \
+            "htpasswd_encryption = plain" \
+            "[storage]" \
+            "filesystem_folder = $RUNNER_TEMP/collections" > "$RUNNER_TEMP/config"
+          RADICALE_CONFIG="$RUNNER_TEMP/config" \
+            "$RUNNER_TEMP/radicale/bin/waitress-serve" \
+            --listen=localhost:5232 radicale:application &
+          # Any answer means it is listening; unauthenticated, that is a 401.
+          until curl -s -o /dev/null http://localhost:5232/; do sleep 1; done
+      - run: node scripts/mkcalendars.mjs radicale
+      - run: npm test -- --project live:radicale
+
+  # The credentialed backends. Gated so that a fork's pull request never sees a
+  # secret, and serialised per backend because every live file shares one
+  # window in one calendar pair.
+  live-remote:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { backend: nextcloud, secret: BACKEND_NEXTCLOUD }
+          - { backend: google, secret: BACKEND_GOOGLE }
+    concurrency:
+      group: live-remote-${{ matrix.backend }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      # The secret is the profile, byte for byte, as written by
+      # `gh secret set BACKEND_<NAME> < worker/test/backends/<name>.vars`.
+      - name: Write the profile
+        run: printf '%s' "$PROFILE" > "test/backends/${{ matrix.backend }}.vars"
+        env:
+          PROFILE: ${{ secrets[matrix.secret] }}
+      - run: npm test -- --project live:${{ matrix.backend }}
 
   frontend:
     runs-on: ubuntu-latest

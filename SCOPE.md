@@ -86,8 +86,9 @@ Backends and verification:
 6. **Two verified backends: Radicale (self-hosted) and Nextcloud**, with
    Google retained best-effort from the spikes (reusing the spike
    credentials). "Verified" means an automated test suite runs the full
-   booking flow against a real instance. The spikes verified only Google;
-   "any CalDAV server" is currently an unsubstantiated claim.
+   booking flow against a real instance. All three are green as of
+   2026-08-02; "any CalDAV server" remains an unsubstantiated claim, and
+   Google showed why — see `ROADMAP.md` M2.
 7. A documented Proton path: booking store elsewhere + ICS subscription
    for viewing + a standard CalDAV client for painting availability.
 
