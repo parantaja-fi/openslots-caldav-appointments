@@ -38,12 +38,12 @@ Three parts:
 
 ## Status
 
-M1 met: the Worker API and the SPA are built, and an automated suite runs
-the whole flow — list, book, lose a race, cancel — against a real CalDAV
-backend, with the two logical calendars both separate and coinciding.
-That suite is green against Radicale, Nextcloud and Google; M2 is
-otherwise the Proton write-up. M3 adds the confirmation email, M4 the
-operator guide and one-command deploy; 1.0 is the two together.
+M1 and M2 met: the Worker API and the SPA are built, and an automated
+suite runs the whole flow — list, book, lose a race, cancel — against a
+real CalDAV backend, with the two logical calendars both separate and
+coinciding. That suite is green against Radicale, Nextcloud and Google.
+M3 adds the confirmation email, M4 the operator guide and one-command
+deploy; 1.0 is the two together.
 
 CI builds and typechecks both halves, runs the tests that need no
 backend, and runs the live suite against a Radicale it starts itself. The

@@ -30,8 +30,7 @@ end to end, which M2 picks up.*
 
 Radicale and Nextcloud verified by the same suite against real
 instances, Radicale self-hosted; Nextcloud is already green from M1.
-Google likewise, best-effort. Document the Proton path (store elsewhere
-+ ICS view + CalDAV client for painting `OPEN`).
+Google likewise, best-effort.
 
 Google, exercised 2026-08-02, found the one real interop gap: it accepts
 `<c:expand>` and ignores it, returning the unexpanded master, so weekly
@@ -41,9 +40,9 @@ Backend profiles now select the backend (`worker/test/backends/`), CI
 runs the live suite against Radicale on every pull request and against
 Nextcloud and Google on `main`.
 
-*Exit: test suite green on two backends; "any CalDAV server" claims
-removed or substantiated. Suite green on all three since 2026-08-02;
-the Proton write-up is what remains.*
+*Exit: met 2026-08-02 — suite green on all three backends, and no
+document claims "any CalDAV server" without saying it is unsubstantiated.
+The Proton write-up moved past 1.0; see "Later".*
 
 ## M3 — Customer email
 
@@ -69,6 +68,14 @@ M0–M4 done, acceptance test passed.
 
 ## Later
 
+- The Proton path, verified then written up: booking store on a CalDAV
+  backend, Proton subscribing to its ICS URL for viewing, a standard
+  CalDAV client for painting `OPEN`. Verify against a real Proton
+  account first — in particular the subscription refresh interval, which
+  their documentation puts in hours, and whether a Nextcloud or Google
+  secret-ICS URL is accepted at all. Describing it from their published
+  behaviour instead would repeat the M2 `<c:expand>` mistake. Then a
+  short `docs/proton.md` linked from the M4 operator guide.
 - ICS URL as an availability source (enables Proton)
 - Reminder email before the appointment — reuses the M3 delivery
   mechanism and the booking's own data; nothing new needed.

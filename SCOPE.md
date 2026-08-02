@@ -89,18 +89,16 @@ Backends and verification:
    booking flow against a real instance. All three are green as of
    2026-08-02; "any CalDAV server" remains an unsubstantiated claim, and
    Google showed why — see `ROADMAP.md` M2.
-7. A documented Proton path: booking store elsewhere + ICS subscription
-   for viewing + a standard CalDAV client for painting availability.
 
 Operator experience (the actual 1.0 substance):
 
-8. **Operator guide**: prerequisites, per-backend setup, secrets, deploy,
+7. **Operator guide**: prerequisites, per-backend setup, secrets, deploy,
    custom domain, smoke test. Written for the §2 practitioner, tested by
    the §1 acceptance test.
-9. One-command (or near) deploy; configuration in one obvious place; a
+8. One-command (or near) deploy; configuration in one obvious place; a
    built-in health/config check that tells the operator what is wrong.
-10. CI that builds both halves and runs the test suite; deploys are
-    explicit, never a side effect of push.
+9. CI that builds both halves and runs the test suite; deploys are
+   explicit, never a side effect of push.
 
 ## 5. Out of scope for 1.0
 
@@ -112,6 +110,9 @@ Operator experience (the actual 1.0 substance):
 - Recurring bookings, waiting lists, reminders.
 - Any UI for the practitioner beyond their own calendar client.
 - Proton (or any provider) as a booking store via unofficial APIs.
+- The documented Proton path (store elsewhere + ICS subscription for
+  viewing). §3 still supports it in principle; what is deferred is
+  verifying and writing it up — `ROADMAP.md` "Later".
 - Native apps; anything requiring a database.
 
 Out of scope permanently unless the goal changes: features whose natural
