@@ -50,14 +50,29 @@ Booking confirmation email carrying the cancellation link, using the M0
 mechanism. Practitioner notification via their calendar client if
 adequate, email otherwise.
 
+`attendee.email` is now required — it is where the link goes — and the
+confirmation points at a page of its own, which reads the booking through
+a new `GET /v1/bookings/:uid` and cancels only on an explicit button
+(`ARCHITECTURE.md` §3, §5). The practitioner is notified by email as
+well, when they configure an address: no CalDAV client alerts reliably on
+an event another client pushed in, so their calendar alone would have
+left them discovering bookings by looking. Without an API key the Worker
+sends nothing and says `disabled` in the booking response, which is what
+keeps `wrangler dev` and every test run from mailing anyone.
+
 *Exit: a booking produces a confirmation the customer can cancel from,
-on another device.*
+on another device. Built and under test; the criterion itself still wants
+one run with a real Brevo key and a phone.*
 
 ## M4 — Operator experience
 
 Operator guide (prerequisites, per-backend setup, secrets, deploy, custom
-domain, smoke test), near-one-command deploy, built-in health/config
-check that says what is wrong. Deploys remain explicit.
+domain, smoke test) — first draft written 2026-08-02 as `SETUP.md`, from
+one operator's own setup and therefore untested by anyone else — plus a
+near-one-command deploy and a built-in health/config
+check that says what is wrong — including an email transport that was
+meant to be configured and is not, which a booking otherwise reports only
+in its own response (`ARCHITECTURE.md` §6). Deploys remain explicit.
 
 *Exit: the `SCOPE.md` §1 acceptance test — a practitioner who is not the
 author deploys from the documentation alone and takes a real booking.*

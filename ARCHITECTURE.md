@@ -30,7 +30,12 @@ The system uses **two logical calendars**, configured independently:
   `booking-<compact UTC timestamp>-<uuid>`, which marks the events the
   system wrote — nothing else about a VEVENT is attendee-independent, the
   `SUMMARY` being the attendee's name — and orders them by creation time
-  (§5 arbitrates on that order).
+  (§5 arbitrates on that order). The customer's email address, and their
+  note when they left one, are the `DESCRIPTION`: an `ATTENDEE` property
+  would be the semantically correct home, but it invites the backend's own
+  scheduling — Google treats it as an invitation to send — where a
+  description line is inert everywhere and is what the practitioner's
+  calendar client shows them anyway.
 
 The two roles may resolve to the **same backend calendar** — one calendar
 holding both `OPEN` and booked events, the original single-calendar
@@ -67,11 +72,21 @@ Google deviations (URL-encoded calendar ID, mandatory `Depth: 1`, ignored
 
 ## 3. Domain API
 
-Three endpoints, booking-domain-shaped:
+Four endpoints, booking-domain-shaped:
 
 - `GET /v1/slots` — computed open slots for a window, with one create-grant
   covering the returned list (§5).
 - `POST /v1/bookings` — book a slot; requires the slot's create-grant.
+  `attendee.email` is required: it is where the confirmation and its
+  cancellation link go. The response carries the cancellation token and
+  `confirmation_email` — `sent`, `failed`, or `disabled` where the
+  deployment configured no transport. A stored booking is never undone by
+  a mail failure, so the caller is told instead (§6).
+- `GET /v1/bookings/:uid` — the booking's times, for the page the emailed
+  link lands on; requires that booking's cancellation token, and 404s once
+  the booking is gone, which is how the page knows it was already
+  cancelled. It answers times alone: the page needs no name or address,
+  so neither is echoed.
 - `DELETE /v1/bookings/:uid` — cancel; requires the booking's
   cancellation token (§5).
 
@@ -133,11 +148,13 @@ No UCAN, no DIDs, no server-side session state.
   which is what makes cancelling from another device work. The link
   carries the token in the URL **fragment** (never sent to servers, so it
   stays out of logs and Referer headers); the SPA reads it and sends it in
-  a header. The linked page only *shows* the booking on load — cancelling
-  requires an explicit button issuing the DELETE, so mail-scanner URL
-  prefetch cannot cancel. Replay is harmless: DELETE is idempotent and a
-  cancelled booking's disappearance is the revocation, so no single-use
-  state is needed.
+  a header. The uid rides in the query beside it, being no secret on its
+  own. The linked page only *shows* the booking on load, through `GET
+  /v1/bookings/:uid` — cancelling requires an explicit button issuing the
+  DELETE, so mail-scanner URL prefetch cannot cancel, and a prefetch
+  without the fragment cannot even read. Replay is harmless: DELETE is
+  idempotent and a cancelled booking's disappearance is the revocation, so
+  no single-use state is needed.
 - **Double-booking**: CalDAV `PUT` is not atomic, so check-after-insert —
   insert, re-query the slot in the store, roll back with `DELETE` on
   conflict, return 409. The slot belongs to the **earliest** booking uid
@@ -150,7 +167,10 @@ No UCAN, no DIDs, no server-side session state.
   escalation if ever needed.
 - **Anti-abuse**: per-IP rate limiting, applied to every request before it
   is routed, so nothing reaches the calendar backend on an unmetered
-  path. Replay bounded by short TTL + `iat` freshness.
+  path. Replay bounded by short TTL + `iat` freshness. Booking also sends
+  mail, so the same limit is what bounds that: the message is fixed text
+  to the one address the booker typed, and reaching it at all costs a
+  create-grant and an open slot.
 - **Blast radius**: the Worker holds write credentials only for the
   booking store. With a separate read-only availability calendar, a
   compromised Worker cannot alter the practitioner's availability, only
@@ -179,6 +199,26 @@ sender identity: a sender address on their domain with SPF/DKIM records
 at their DNS; the Brevo API key is a Worker secret. The seam exists so a
 provider change is one function, not a rewrite.
 
+Two messages, both plain text — nothing to escape, and it reads
+everywhere. The **customer's confirmation** states the appointment in the
+configured display zone (never UTC) and carries the cancellation link,
+`{cancel URL}?uid={uid}#{token}` per §5. The **practitioner's notice**
+adds the attendee's name, address and note, and goes out only when the
+operator configured an address for it; no CalDAV client reliably alerts
+on an event another client pushed in, so the calendar alone is not
+notification.
+
+Both are sent after the conflict re-check has passed, never before: only
+a booking that survived is confirmed. Neither can undo the booking —
+`sendEmail()` reports failure rather than throwing, and the response's
+`confirmation_email` (§3) passes that on, so the page that made the
+booking knows to keep offering the cancellation it still holds.
+
+No API key means the deployment sends nothing and says `disabled`. That
+is what lets `wrangler dev` and every live test run without reaching
+Brevo; a production deployment that meant to send mail and forgot the
+secret is what the M4 health check is for.
+
 SMTP submission to the operator's own mailbox was considered and
 deferred (`ROADMAP.md` Later): Workers cannot speak SMTP over `fetch`,
 so it needs the TCP-sockets API plus an SMTP client dependency, and
@@ -191,6 +231,13 @@ One obvious place (`wrangler` config + secrets). Operational settings as
 vars; credentials and keys as secrets. Each logical calendar gets its own
 URL and credentials; pointing both at the same values is the
 single-calendar setup.
+
+The email settings follow the same rule as the rest, with one wrinkle:
+the API key decides whether they are read at all. Without it there is no
+email configuration; with it, the sender address, the cancellation page's
+URL and the display zone must all be present and usable — a zone the
+runtime cannot resolve or a URL that will not parse is refused there,
+not discovered in a sent message.
 
 Configuration is parsed once at the top of `fetch` — Workers have no
 startup hook — into the units the code uses (durations in milliseconds,

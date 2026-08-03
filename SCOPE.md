@@ -76,9 +76,10 @@ Functional:
 2. Cancellation by the customer, from the booking confirmation.
 3. **Booking confirmation email** to the customer, carrying the
    cancellation link. (Also the answer to cancelling from another device.)
-4. Practitioner notification of new bookings — via their own calendar
-   client's normal mechanisms if possible; email only if that proves
-   inadequate.
+4. Practitioner notification of new bookings — settled as email, to an
+   address the operator configures. The calendar client was the intended
+   route; none alerts reliably on an event another client pushed in
+   (`ROADMAP.md` M3).
 5. Configurable slot length, booking horizon, and minimum notice.
 
 Backends and verification:

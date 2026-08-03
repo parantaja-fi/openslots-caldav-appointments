@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml)
 
-> **Pre-release; not code complete.** One of five milestones is met (see
-> [ROADMAP.md](ROADMAP.md)). There is no confirmation email and no
-> operator guide. API field names, configuration and storage layout may
-> still change without notice.
+> **Pre-release; not code complete.** Three of five milestones are met
+> (see [ROADMAP.md](ROADMAP.md)). The operator guide
+> ([SETUP.md](SETUP.md)) is a first draft, tested by nobody but the
+> author. API field names, configuration and storage layout may still
+> change without notice.
 >
 > **Largely written by an LLM.** Most of the code and documentation here
 > was written by Claude under the author's direction. It has not been
@@ -42,13 +43,20 @@ M1 and M2 met: the Worker API and the SPA are built, and an automated
 suite runs the whole flow — list, book, lose a race, cancel — against a
 real CalDAV backend, with the two logical calendars both separate and
 coinciding. That suite is green against Radicale, Nextcloud and Google.
-M3 adds the confirmation email, M4 the operator guide and one-command
-deploy; 1.0 is the two together.
+
+M3 is built: a booking sends the customer a confirmation carrying a
+cancellation link, and the practitioner a notice, through the Brevo
+transactional API. Configure no API key and the Worker sends nothing and
+says so, which is how it runs in development and in CI. What remains of
+M3 is the criterion itself — one run with a real key, cancelled from a
+phone. M4 is the operator guide and one-command deploy; 1.0 is the two
+together.
 
 CI builds and typechecks both halves, runs the tests that need no
 backend, and runs the live suite against a Radicale it starts itself. The
-credentialed backends run on `main` and on manual dispatch. The browser
-end-to-end test runs locally only.
+credentialed backends, and the email round trip, run on `main`, on
+manual dispatch and weekly. The browser end-to-end test runs locally
+only.
 
 ## Development
 
@@ -60,6 +68,14 @@ cd worker && npm ci && npm run keygen   # a SIGNING_KEY_JWK for .dev.vars
 cp .dev.vars.example .dev.vars          # then fill in, see the comments
 npm test -- --project unit              # no backend needed
 ```
+
+No vitest run sends mail: `vitest.config.ts` pins an empty
+`BREVO_API_KEY` for every project, whatever `.dev.vars` or a backend
+profile holds, and the transport itself is covered against a stub.
+`wrangler dev` does read the key from `.dev.vars`, so with one set the
+browser e2e test sends real mail — deliberately, and only to addresses
+at a domain the author controls (`e2e@parantaja.fi`), never to
+`example.com`, whose bounces would cost sender reputation.
 
 ### Backend profiles
 
@@ -105,10 +121,32 @@ in `.dev.vars` — deliberately not part of CI:
 cd frontend && npm run e2e
 ```
 
+### The email round trip
+
+`npm run roundtrip` proves what nothing else does: that the cancellation
+link a customer is actually sent works. It books a slot, waits for the
+confirmation to reach the inbox `ci@parantaja.fi` forwards to, and
+cancels the booking using only the uid and token carried by the link in
+that message. Run it deliberately, against a `wrangler dev` that has a
+`BREVO_API_KEY`:
+
+```sh
+cd worker && npm run roundtrip
+```
+
+It sends two real messages and spends two of a small monthly receive
+quota, so it is never part of `npm test`. In CI it is the
+`email-roundtrip` job: `main`, manual dispatch and a weekly cron, gated
+behind every other job being green, and never on a pull request. Three
+secrets — `BREVO_CI_API_KEY` (a key of its own, revocable without
+touching local testing or production), `TESTMAIL_APIKEY` and
+`TESTMAIL_NAMESPACE`.
+
 ## Documentation
 
 | Document | Contents |
 |---|---|
+| [SETUP.md](SETUP.md) | Setting up a deployment of your own, start to finish |
 | [SCOPE.md](SCOPE.md) | What is being built, for whom, and what is out |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The mechanisms: topology, calendar model, API, security |
 | [ROADMAP.md](ROADMAP.md) | Milestones from here to 1.0 |
