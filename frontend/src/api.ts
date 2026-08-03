@@ -1,6 +1,6 @@
 import { WORKER_URL } from "./config";
 import { proof, thumbprint } from "./session";
-import type { BookRequest, Booking, Slot } from "./types";
+import type { BookRequest, Booking, BookingView, Slot } from "./types";
 
 export class ConflictError extends Error {}
 
@@ -46,6 +46,17 @@ export async function postBooking(request: BookRequest): Promise<Booking> {
   if (!response.ok) throw new Error(await detail(response));
 
   return await response.json() as Booking;
+}
+
+/** The booking the emailed link names, or null when it is already gone. */
+export async function fetchBooking(uid: string, token: string): Promise<BookingView | null> {
+  const response = await fetch(`${WORKER_URL}/v1/bookings/${encodeURIComponent(uid)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(await detail(response));
+
+  return await response.json() as BookingView;
 }
 
 export async function cancelBooking(uid: string, token: string): Promise<void> {

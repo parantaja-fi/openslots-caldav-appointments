@@ -5,7 +5,7 @@ export interface Slot {
 
 export interface BookRequest {
   slot_start: string;
-  attendee: { name: string; email?: string };
+  attendee: { name: string; email: string };
   notes?: string;
 }
 
@@ -14,4 +14,13 @@ export interface Booking {
   slot_start: string;
   slot_end: string;
   cancellation_token: string;
+  /** "disabled" when the deployment configured no email transport at all. */
+  confirmation_email: "sent" | "failed" | "disabled";
+}
+
+/** What the cancellation page is told about the booking its link names. */
+export interface BookingView {
+  uid: string;
+  slot_start: string;
+  slot_end: string;
 }

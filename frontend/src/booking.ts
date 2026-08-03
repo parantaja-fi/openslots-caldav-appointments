@@ -1,6 +1,7 @@
 import type { Calendar } from "@fullcalendar/core";
 import { cancelBooking, ConflictError, postBooking } from "./api";
 import type { Booking, Slot } from "./types";
+import { element, when as label } from "./ui";
 
 let panel: HTMLDivElement | null = null;
 
@@ -26,33 +27,24 @@ function getPanel(): HTMLDivElement {
   return panel;
 }
 
-function element<T extends HTMLElement>(id: string): T {
-  return document.getElementById(id) as T;
-}
-
-function label(slot: Slot): string {
-  const start = new Date(slot.slot_start).toLocaleString(undefined, {
-    weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-  });
-  const end = new Date(slot.slot_end).toLocaleTimeString(undefined, {
-    hour: "2-digit", minute: "2-digit",
-  });
-  return `${start} – ${end}`;
-}
-
 export function showBookingForm(
   slot: Slot,
   calendar: Calendar,
   refreshSlots: () => Promise<void>,
 ): void {
   const el = getPanel();
-  const when = label(slot);
+  const when = label(slot.slot_start, slot.slot_end);
 
   el.innerHTML = `
     <h3 style="margin:0 0 16px;font-size:1.1rem">${when}</h3>
     <label style="display:block;margin-bottom:12px;font-size:0.9rem">
       Name
       <input id="bf-name" type="text" placeholder="Your name"
+        style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:1rem">
+    </label>
+    <label style="display:block;margin-bottom:12px;font-size:0.9rem">
+      Email
+      <input id="bf-email" type="email" placeholder="you@example.com"
         style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:1rem">
     </label>
     <label style="display:block;margin-bottom:16px;font-size:0.9rem">
@@ -75,14 +67,16 @@ export function showBookingForm(
   el.style.display = "block";
 
   const name = element<HTMLInputElement>("bf-name");
+  const email = element<HTMLInputElement>("bf-email");
   name.focus();
   element("bf-dismiss").onclick = () => { el.style.display = "none"; };
 
   element("bf-submit").onclick = async () => {
-    if (!name.value.trim()) {
-      name.style.borderColor = "#dc2626";
-      return;
-    }
+    // The address is where the confirmation and its cancellation link go, so
+    // it is as required as the name; the Worker checks it again.
+    const missing = [name, email].filter(field => !field.value.trim());
+    for (const field of missing) field.style.borderColor = "#dc2626";
+    if (missing.length) return;
     const submit = element<HTMLButtonElement>("bf-submit");
     const dismiss = element<HTMLButtonElement>("bf-dismiss");
     submit.disabled = dismiss.disabled = true;
@@ -92,7 +86,7 @@ export function showBookingForm(
     try {
       booking = await postBooking({
         slot_start: slot.slot_start,
-        attendee: { name: name.value.trim() },
+        attendee: { name: name.value.trim(), email: email.value.trim() },
         notes: element<HTMLInputElement>("bf-note").value.trim() || undefined,
       });
     } catch (err) {
@@ -108,17 +102,19 @@ export function showBookingForm(
     }
 
     calendar.getEventById(slot.slot_start)?.remove();
-    showConfirmation(booking, name.value.trim(), when, refreshSlots);
+    showConfirmation(booking, name.value.trim(), email.value.trim(), when, refreshSlots);
   };
 }
 
 /**
- * The cancellation token lives here and nowhere else: this panel is the only
- * thing that needs it until M3 mails the link.
+ * The panel holds the cancellation token for as long as it is open. The
+ * emailed link is what carries it beyond this tab — so when the confirmation
+ * did not go out, the panel says that this is the only way back.
  */
 function showConfirmation(
   booking: Booking,
   name: string,
+  email: string,
   when: string,
   refreshSlots: () => Promise<void>,
 ): void {
@@ -138,7 +134,11 @@ function showConfirmation(
       </button>
     </div>
   `;
-  element("bf-confirmation").textContent = `Thanks, ${name}. ${when} is booked.`;
+  element("bf-confirmation").textContent = booking.confirmation_email === "sent"
+    ? `Thanks, ${name}. ${when} is booked, and a confirmation is on its way to ` +
+      `${email}; it carries a link you can cancel from later.`
+    : `Thanks, ${name}. ${when} is booked. The confirmation email could not be ` +
+      `sent, so this panel is the only place you can cancel it from.`;
   el.style.display = "block";
 
   element("bf-close").onclick = () => { el.style.display = "none"; };
