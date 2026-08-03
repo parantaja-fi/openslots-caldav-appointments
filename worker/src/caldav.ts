@@ -217,6 +217,27 @@ export async function reportEvents(
   return events;
 }
 
+/**
+ * One event by uid, or null when the resource is gone — which is what a
+ * cancelled booking looks like. No recurrence handling: the only resources
+ * fetched this way are the single VEVENTs the system wrote itself.
+ */
+export async function getEvent(cal: Calendar, uid: string): Promise<CalendarEvent | null> {
+  const response = await fetch(resourceUrl(cal, uid), {
+    headers: { Authorization: await cal.authHeader() },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`CalDAV GET failed: ${response.status}`);
+
+  const calendar = new ICAL.Component(ICAL.parse(await response.text()));
+  registerTimezones(calendar);
+  const vevent = calendar.getFirstSubcomponent("vevent");
+  if (!vevent) return null;
+
+  const event = new ICAL.Event(vevent);
+  return toEvent(event.uid, event.summary, event.startDate, event.endDate);
+}
+
 export async function putEvent(cal: Calendar, uid: string, ics: string): Promise<void> {
   const response = await fetch(resourceUrl(cal, uid), {
     method: "PUT",

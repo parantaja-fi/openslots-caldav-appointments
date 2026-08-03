@@ -39,6 +39,20 @@ describe("routing", () => {
     },
   );
 
+  it("allows only GET and DELETE on a single booking", async () => {
+    const response = await worker.fetch(
+      new Request("https://api.test/v1/bookings/booking-1", { method: "PUT" }),
+    );
+
+    expect(response.status).toBe(405);
+  });
+
+  it("refuses to show a booking without a cancellation token", async () => {
+    const response = await worker.fetch(new Request("https://api.test/v1/bookings/booking-1"));
+
+    expect(response.status).toBe(401);
+  });
+
   it("404s an unknown route", async () => {
     const response = await worker.fetch(new Request("https://api.test/v1/calendars"));
 

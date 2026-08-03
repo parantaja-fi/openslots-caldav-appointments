@@ -18,6 +18,13 @@ function cancel(uid: string, token: string): Promise<Response> {
   }));
 }
 
+/** What the emailed link's page does on load. */
+function show(uid: string, token: string): Promise<Response> {
+  return worker.fetch(new Request(`https://api.test/v1/bookings/${uid}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }));
+}
+
 beforeAll(() => clear(store, start, end));
 afterAll(() => clear(store, start, end));
 beforeEach(() => clear(store, start, end));
@@ -31,6 +38,29 @@ it("removes the booking, and says so again on replay", async () => {
 
   // The event is already gone; cancelling again is still a success.
   expect((await cancel(uid, token)).status).toBe(204);
+});
+
+it("shows the booking its token names, and says when it is gone", async () => {
+  const uid = await paint(store, "Alice", SLOT, at(SLOT, 30));
+  const token = await issueCancellationToken(cfg, uid, SLOT);
+
+  const response = await show(uid, token);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    uid,
+    slot_start: SLOT,
+    slot_end: at(SLOT, 30),
+  });
+
+  expect((await cancel(uid, token)).status).toBe(204);
+  expect((await show(uid, token)).status).toBe(404);
+});
+
+it("refuses to show a booking the token does not name", async () => {
+  const uid = await paint(store, "Alice", SLOT, at(SLOT, 30));
+  const token = await issueCancellationToken(cfg, crypto.randomUUID(), SLOT);
+
+  expect((await show(uid, token)).status).toBe(403);
 });
 
 it("refuses a token issued for another booking", async () => {

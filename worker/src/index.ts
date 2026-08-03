@@ -1,4 +1,4 @@
-import { buildVEvent, deleteEvent, putEvent, reportEvents } from "./caldav";
+import { buildVEvent, deleteEvent, getEvent, putEvent, reportEvents } from "./caldav";
 import { config, type Config, type Env } from "./config";
 import { sendBookingEmails } from "./email";
 import {
@@ -195,12 +195,16 @@ async function postBooking(
   }, cors);
 }
 
-async function deleteBooking(
+/**
+ * The bearer capability both single-booking routes stand on: a cancellation
+ * token naming this very booking. Returns the refusal, or null to proceed.
+ */
+async function tokenRefusal(
   request: Request,
   cfg: Config,
   uid: string,
   cors: Record<string, string>,
-): Promise<Response> {
+): Promise<Response | null> {
   const token = bearer(request);
   if (!token) {
     return problem(401, "Unauthorized", "A cancellation token is required.", cors);
@@ -213,8 +217,45 @@ async function deleteBooking(
     return rejected(e, cors);
   }
   if (named !== uid) {
-    return problem(403, "Forbidden", "The token cancels a different booking.", cors);
+    return problem(403, "Forbidden", "The token names a different booking.", cors);
   }
+  return null;
+}
+
+/** What the emailed link's page shows before offering to cancel. */
+async function getBooking(
+  request: Request,
+  cfg: Config,
+  uid: string,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const refusal = await tokenRefusal(request, cfg, uid, cors);
+  if (refusal) return refusal;
+
+  let event;
+  try {
+    event = await getEvent(cfg.calendars.store, uid);
+  } catch (e) {
+    console.error("CalDAV GET failed:", e);
+    return problem(502, "Bad Gateway", "The booking could not be read.", cors);
+  }
+  // A cancelled booking is a deleted event, so this is also how the page
+  // learns that it has already been cancelled.
+  if (!event) return problem(404, "Not Found", "That booking no longer exists.", cors);
+
+  // The attendee's name and address are not echoed: the page shows when the
+  // appointment is, and needs nothing else.
+  return json({ uid, slot_start: event.start, slot_end: event.end }, cors);
+}
+
+async function deleteBooking(
+  request: Request,
+  cfg: Config,
+  uid: string,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const refusal = await tokenRefusal(request, cfg, uid, cors);
+  if (refusal) return refusal;
 
   try {
     // Idempotent: a token holder who cancels twice has still got what they
@@ -249,10 +290,9 @@ function route(
   // escaping, and decoding a malformed escape would throw.
   const booking = path.match(/^\/v1\/bookings\/([^/]+)$/);
   if (booking?.[1]) {
-    if (request.method !== "DELETE") {
-      return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
-    }
-    return deleteBooking(request, cfg, booking[1], cors);
+    if (request.method === "GET") return getBooking(request, cfg, booking[1], cors);
+    if (request.method === "DELETE") return deleteBooking(request, cfg, booking[1], cors);
+    return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
   }
   return problem(404, "Not Found", `No route for ${path}.`, cors);
 }
