@@ -7,6 +7,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Weekly, so a breakage nobody pushed into — a revoked key, a DNS change —
+  # still surfaces. Only the email round trip needs this; the rest come along.
+  schedule:
+    - cron: "17 5 * * 1"
 
 jobs:
   worker:
@@ -42,39 +46,14 @@ jobs:
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci
-      # Radicale's own server drops roughly one connection in a thousand when
-      # workerd is the client, which is several failures per suite run; waitress
-      # serves the same WSGI application without them.
-      - name: Install Radicale
-        run: |
-          python3 -m venv "$RUNNER_TEMP/radicale"
-          "$RUNNER_TEMP/radicale/bin/pip" install --quiet radicale waitress
-      - name: Start Radicale
-        run: |
-          profile=test/backends/radicale.vars
-          user=$(sed -n 's/^TEST_WRITE_USERNAME *= *"\(.*\)"/\1/p' "$profile")
-          password=$(sed -n 's/^TEST_WRITE_PASSWORD *= *"\(.*\)"/\1/p' "$profile")
-          printf '%s:%s\n' "$user" "$password" > "$RUNNER_TEMP/users"
-          printf '%s\n' \
-            "[auth]" \
-            "type = htpasswd" \
-            "htpasswd_filename = $RUNNER_TEMP/users" \
-            "htpasswd_encryption = plain" \
-            "[storage]" \
-            "filesystem_folder = $RUNNER_TEMP/collections" > "$RUNNER_TEMP/config"
-          RADICALE_CONFIG="$RUNNER_TEMP/config" \
-            "$RUNNER_TEMP/radicale/bin/waitress-serve" \
-            --listen=localhost:5232 radicale:application &
-          # Any answer means it is listening; unauthenticated, that is a 401.
-          until curl -s -o /dev/null http://localhost:5232/; do sleep 1; done
-      - run: node scripts/mkcalendars.mjs radicale
+      - uses: ./.github/actions/radicale
       - run: npm test -- --project live:radicale
 
   # The credentialed backends. Gated so that a fork's pull request never sees a
   # secret, and serialised per backend because every live file shares one
   # window in one calendar pair.
   live-remote:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -118,3 +97,56 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  # The email path end to end, and the only job that sends real mail. It needs
+  # every other job first: each run spends two messages of a small monthly
+  # receive quota, so it is not worth spending on a commit already known bad.
+  # Never on pull requests — the secrets are unavailable to forks anyway, and
+  # mail latency makes a poor per-commit gate.
+  email-roundtrip:
+    if: github.event_name != 'pull_request'
+    needs: [worker, live-radicale, live-remote, frontend]
+    runs-on: ubuntu-latest
+    # One run at a time: the inbox is shared, and two runs in the same window
+    # would match each other's messages.
+    concurrency:
+      group: email-roundtrip
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - uses: ./.github/actions/radicale
+      # What `wrangler dev` reads: the loopback backend, a throwaway signing key,
+      # and the CI Brevo key — a third key, revocable without touching local
+      # testing or production.
+      - name: Write .dev.vars
+        run: |
+          cat test/backends/radicale.vars > .dev.vars
+          printf "SIGNING_KEY_JWK = '%s'\n" "$(node scripts/keygen.mjs)" >> .dev.vars
+          printf 'BREVO_API_KEY = "%s"\n' "$BREVO_API_KEY" >> .dev.vars
+          printf 'PRACTITIONER_EMAIL = "ci-notice@parantaja.fi"\n' >> .dev.vars
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_CI_API_KEY }}
+      - name: Start the Worker
+        run: |
+          npx wrangler dev --port 8787 &
+          # Without parameters the route answers 400, which is answer enough.
+          timeout 120 bash -c \
+            'until curl -s -o /dev/null http://localhost:8787/v1/slots; do sleep 1; done'
+        env:
+          WRANGLER_SEND_METRICS: "false"
+      - run: npm run roundtrip
+        env:
+          TESTMAIL_APIKEY: ${{ secrets.TESTMAIL_APIKEY }}
+          TESTMAIL_NAMESPACE: ${{ secrets.TESTMAIL_NAMESPACE }}
+          # The same address written as PRACTITIONER_EMAIL above, which is what
+          # tells the script the notice is observable.
+          ROUNDTRIP_NOTICE_RECIPIENT: ci-notice@parantaja.fi

@@ -6,17 +6,13 @@
 // Usage: node scripts/mkcalendars.mjs <backend>
 
 import { readFileSync } from "node:fs";
+import { parseVars } from "../test/vars.mjs";
 
 const name = process.argv[2];
 if (!name) throw new Error("usage: node scripts/mkcalendars.mjs <backend>");
 
-const vars = {};
 const path = new URL(`../test/backends/${name}.vars`, import.meta.url);
-for (const line of readFileSync(path, "utf8").split("\n")) {
-  const match = /^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/.exec(line);
-  if (!match) continue;
-  vars[match[1]] = /^(["']).*\1$/.test(match[2]) ? match[2].slice(1, -1) : match[2];
-}
+const vars = parseVars(readFileSync(path, "utf8"));
 
 const body = `<?xml version="1.0" encoding="UTF-8"?>
 <C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">

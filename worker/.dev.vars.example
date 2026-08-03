@@ -31,6 +31,19 @@ SIGNING_KEY_JWK = '{"kty":"EC","crv":"P-256","x":"...","y":"...","d":"..."}'
 # domain before doing the same.
 # BREVO_API_KEY = "xkeysib-..."
 
+# The email round trip (`npm run roundtrip`, see README.md) reads the message it
+# sent through the testmail.app JSON API. Its recipient's local part is the
+# testmail tag: ci@parantaja.fi forwards to <namespace>.ci@inbox.testmail.app.
+# Keep the namespace out of the repository — anyone holding it can spend the
+# monthly receive quota. CI passes both as secrets instead of writing them here.
+#
+# Naming PRACTITIONER_EMAIL again as ROUNDTRIP_NOTICE_RECIPIENT says that it
+# too forwards into the test inbox, and makes the round trip check the notice.
+# Leave it out while the practitioner is a real mailbox for the e2e test.
+# TESTMAIL_APIKEY            = "..."
+# TESTMAIL_NAMESPACE         = "..."
+# ROUNDTRIP_NOTICE_RECIPIENT = "ci-notice@parantaja.fi"
+
 # Write credentials for the *test fixture* only, which paints the OPEN events
 # the live tests need. Separate from the Worker's own credentials on purpose:
 # the availability role must stay read-only.
