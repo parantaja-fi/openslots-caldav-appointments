@@ -1,5 +1,6 @@
 import { buildVEvent, deleteEvent, putEvent, reportEvents } from "./caldav";
 import { config, type Config, type Env } from "./config";
+import { sendBookingEmails } from "./email";
 import {
   GrantError,
   issueCancellationToken,
@@ -14,6 +15,8 @@ import { bookingUid, computeSlots, lostRace } from "./slots";
 const UTC_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 /** Base64url SHA-256, per RFC 7638. */
 const THUMBPRINT = /^[A-Za-z0-9_-]{43}$/;
+/** Deliberately loose: enough to catch a typo, not an attempt at RFC 5322. */
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function corsHeaders(request: Request, origins: string[]): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
@@ -121,6 +124,10 @@ async function postBooking(
   if (!name || name.length > 200) {
     return problem(400, "Bad Request", "attendee.name must be 1–200 characters.", cors);
   }
+  const email = typeof body.attendee?.email === "string" ? body.attendee.email.trim() : "";
+  if (!email || email.length > 320 || !EMAIL.test(email)) {
+    return problem(400, "Bad Request", "attendee.email must be an email address.", cors);
+  }
   const notes = body.notes ?? "";
   if (typeof notes !== "string" || notes.length > 1000) {
     return problem(400, "Bad Request", "notes must be a string of at most 1000 characters.", cors);
@@ -145,8 +152,13 @@ async function postBooking(
   const uid = bookingUid();
   const { store } = cfg.calendars;
 
+  // The practitioner reads their customer's address in their own calendar
+  // client; a DESCRIPTION line is inert on every backend, where an ATTENDEE
+  // property would invite Google to send invitations of its own.
+  const description = notes ? `${email}\n\n${notes}` : email;
+
   try {
-    await putEvent(store, uid, buildVEvent(uid, start, end, name, notes));
+    await putEvent(store, uid, buildVEvent(uid, start, end, name, description));
   } catch (e) {
     console.error("CalDAV PUT failed:", e);
     return problem(502, "Bad Gateway", "The booking could not be stored.", cors);
@@ -164,11 +176,22 @@ async function postBooking(
     return problem(502, "Bad Gateway", "The booking could not be confirmed.", cors);
   }
 
+  // Only now, with the booking confirmed and not rolled back, is there
+  // anything to confirm. A failure here is reported, never fatal: the booking
+  // stands, and the panel that made it can still cancel.
+  const cancellationToken = await issueCancellationToken(cfg, uid, start);
+  const confirmation = cfg.email
+    ? await sendBookingEmails(cfg.email, {
+      uid, slotStart: start, slotEnd: end, name, email, notes, cancellationToken,
+    })
+    : "disabled";
+
   return json({
     uid,
     slot_start: start,
     slot_end: end,
-    cancellation_token: await issueCancellationToken(cfg, uid, start),
+    cancellation_token: cancellationToken,
+    confirmation_email: confirmation,
   }, cors);
 }
 

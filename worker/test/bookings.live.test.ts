@@ -28,7 +28,10 @@ async function book(
       Authorization: `Bearer ${grant}`,
       "X-Session-Proof": proof,
     },
-    body: JSON.stringify({ slot_start: slotStart, attendee: { name: "Alice" } }),
+    body: JSON.stringify({
+      slot_start: slotStart,
+      attendee: { name: "Alice", email: "e2e@parantaja.fi" },
+    }),
   }));
 }
 
@@ -51,11 +54,15 @@ it("writes the booking into the store and returns a cancellation token", async (
 
   expect(response.status).toBe(200);
   const body = await response.json() as {
-    uid: string; slot_start: string; slot_end: string; cancellation_token: string;
+    uid: string; slot_start: string; slot_end: string;
+    cancellation_token: string; confirmation_email: string;
   };
   expect(body.slot_start).toBe(SLOT);
   expect(body.slot_end).toBe(SLOT_END);
   expect(body.cancellation_token).toBeTruthy();
+  // No test run configures a mail transport, and the response says so rather
+  // than implying a confirmation nobody sent.
+  expect(body.confirmation_email).toBe("disabled");
 
   const stored = await reportEvents(store, SLOT, body.slot_end);
   expect(stored.map(event => event.uid)).toEqual([body.uid]);
@@ -100,7 +107,10 @@ it("refuses a stale proof", async () => {
 it("refuses a request with no credentials at all", async () => {
   const response = await worker.fetch(new Request("https://api.test/v1/bookings", {
     method: "POST",
-    body: JSON.stringify({ slot_start: SLOT, attendee: { name: "Alice" } }),
+    body: JSON.stringify({
+      slot_start: SLOT,
+      attendee: { name: "Alice", email: "e2e@parantaja.fi" },
+    }),
   }));
 
   expect(response.status).toBe(401);

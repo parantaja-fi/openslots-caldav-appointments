@@ -23,6 +23,22 @@ describe("routing", () => {
     expect(response.status).toBe(405);
   });
 
+  // Validation happens before the capability checks, so no backend is needed.
+  it.each([undefined, "", "alice@", "not an address"])(
+    "rejects a booking whose attendee email is %o", async email => {
+      const response = await worker.fetch(new Request("https://api.test/v1/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          slot_start: new Date(Date.now() + 86_400_000).toISOString(),
+          attendee: { name: "Alice", email },
+        }),
+      }));
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ detail: expect.stringContaining("email") });
+    },
+  );
+
   it("404s an unknown route", async () => {
     const response = await worker.fetch(new Request("https://api.test/v1/calendars"));
 

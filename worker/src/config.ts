@@ -11,6 +11,13 @@ export interface Env {
   GRANT_TTL_SECS: string;
   PROOF_MAX_AGE_SECS: string;
   ALLOWED_ORIGINS: string;
+  CANCEL_URL: string;
+  DISPLAY_TIMEZONE: string;
+  SENDER_EMAIL: string;
+  SENDER_NAME?: string;
+  PRACTITIONER_EMAIL?: string;
+  /** Absent or empty means the confirmation email is deliberately off. */
+  BREVO_API_KEY?: string;
   AVAILABILITY_USERNAME?: string;
   AVAILABILITY_PASSWORD?: string;
   BOOKING_STORE_USERNAME?: string;
@@ -34,9 +41,21 @@ export interface Calendars {
   coincide: boolean;
 }
 
+/** Everything `sendEmail()` needs, present only when a transport is configured. */
+export interface Email {
+  apiKey: string;
+  sender: { email: string; name: string };
+  /** The SPA page the cancellation link points at. */
+  cancelUrl: string;
+  /** IANA zone the appointment times are written in. */
+  timezone: string;
+  practitioner?: string;
+}
+
 /** The Worker's configuration, in the units the code actually uses. */
 export interface Config {
   calendars: Calendars;
+  email?: Email;
   slotMs: number;
   noticeMs: number;
   horizonMs: number;
@@ -89,6 +108,30 @@ function positive(env: Env, name: keyof Env): number {
 }
 
 /**
+ * No API key means the deployment deliberately sends no mail — which is what
+ * lets `wrangler dev` and the live test suites run without reaching Brevo.
+ * With one, the rest must be there and usable: an unresolvable zone or a
+ * malformed cancellation URL would otherwise surface only in a sent message.
+ */
+function email(env: Env): Email | undefined {
+  if (!env.BREVO_API_KEY) return undefined;
+
+  const timezone = required(env, "DISPLAY_TIMEZONE");
+  // Throws RangeError on a zone the runtime cannot resolve.
+  new Intl.DateTimeFormat("en", { timeZone: timezone });
+  const cancelUrl = required(env, "CANCEL_URL");
+  new URL(cancelUrl);
+
+  return {
+    apiKey: env.BREVO_API_KEY,
+    sender: { email: required(env, "SENDER_EMAIL"), name: env.SENDER_NAME || "Bookings" },
+    cancelUrl,
+    timezone,
+    practitioner: env.PRACTITIONER_EMAIL || undefined,
+  };
+}
+
+/**
  * Workers have no startup hook, so every request parses the configuration
  * first. Parsing *is* the validation: nothing is read anywhere that was not
  * converted here, so a missing or nonsensical value cannot surface later as a
@@ -117,6 +160,7 @@ export function config(env: Env): Config {
       ),
       coincide: availabilityUrl === storeUrl,
     },
+    email: email(env),
     slotMs: positive(env, "SLOT_MINUTES") * 60_000,
     noticeMs: positive(env, "MIN_NOTICE_MINUTES") * 60_000,
     horizonMs: positive(env, "BOOKING_HORIZON_DAYS") * 86_400_000,

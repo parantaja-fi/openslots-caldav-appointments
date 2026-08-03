@@ -51,7 +51,10 @@ describe.each(Object.entries(configurations))("%s", (_name, config) => {
         Authorization: `Bearer ${grant}`,
         "X-Session-Proof": proof,
       },
-      body: JSON.stringify({ slot_start: slotStart, attendee: { name } }),
+      body: JSON.stringify({
+        slot_start: slotStart,
+        attendee: { name, email: "e2e@parantaja.fi" },
+      }),
     }), config);
   }
 

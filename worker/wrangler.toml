@@ -7,6 +7,7 @@ compatibility_date = "2026-08-01"
 #   BOOKING_STORE_USERNAME / BOOKING_STORE_PASSWORD CalDAV Basic auth, read/write role
 #   GOOGLE_SERVICE_ACCOUNT_JSON                     used for a role that has no username
 #   SIGNING_KEY_JWK                                 private P-256 JWK, `npm run keygen`
+#   BREVO_API_KEY                                   transactional API key; unset sends no mail
 [vars]
 # Pointing both at the same calendar is the single-calendar setup.
 AVAILABILITY_CALENDAR_URL = "http://localhost:5232/booking/availability-test/"
@@ -21,6 +22,16 @@ GRANT_TTL_SECS     = "1800"
 PROOF_MAX_AGE_SECS = "60"
 
 ALLOWED_ORIGINS = "http://localhost:5173"
+
+# The confirmation email. Read only when BREVO_API_KEY is set, and then all
+# three must be usable: the page the cancellation link points at, the zone the
+# appointment times are written in, and a sender address whose domain carries
+# your SPF and DKIM records. PRACTITIONER_EMAIL, if set, also gets a notice.
+CANCEL_URL       = "http://localhost:5173/cancel.html"
+DISPLAY_TIMEZONE = "Europe/Helsinki"
+SENDER_EMAIL     = "info@parantaja.fi"
+SENDER_NAME      = "Parantaja"
+# PRACTITIONER_EMAIL = "info@parantaja.fi"
 
 # Per-IP limit on every request, checked before routing. Unbound under
 # `wrangler dev`, hence optional in the code; the test pool does enforce it, so

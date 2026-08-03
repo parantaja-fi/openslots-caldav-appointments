@@ -21,6 +21,11 @@ const SIGNING_KEY_JWK = JSON.stringify({
   d: "NRdKOKBhFF9iyrB75zdIVZKk9Lf3JE2z6Fo6gRv1NfY",
 });
 
+// No test run may send mail, whatever a .dev.vars or a backend profile holds:
+// the Brevo call is exercised against a stub in email.test.ts. Like the key
+// above, this says nothing about which CalDAV server is under test.
+const BREVO_API_KEY = "";
+
 const BACKENDS = new URL("test/backends/", import.meta.url);
 
 /**
@@ -61,6 +66,7 @@ export default defineConfig({
               BOOKING_STORE_USERNAME: "unit",
               BOOKING_STORE_PASSWORD: "unit",
               SIGNING_KEY_JWK,
+              BREVO_API_KEY,
             },
           },
         })],
@@ -73,7 +79,10 @@ export default defineConfig({
       ...backends.map(name => ({
         plugins: [cloudflareTest({
           wrangler,
-          miniflare: { ratelimits, bindings: { ...profile(name), SIGNING_KEY_JWK } },
+          miniflare: {
+            ratelimits,
+            bindings: { ...profile(name), SIGNING_KEY_JWK, BREVO_API_KEY },
+          },
         })],
         test: {
           name: `live:${name}`,

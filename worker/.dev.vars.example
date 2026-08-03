@@ -22,6 +22,15 @@ BOOKING_STORE_PASSWORD = ""
 # Rotating it invalidates outstanding create-grants and cancellation links.
 SIGNING_KEY_JWK = '{"kty":"EC","crv":"P-256","x":"...","y":"...","d":"..."}'
 
+# Brevo transactional API key. Left unset, the Worker sends no mail at all and
+# says so in the booking response. Filling it in makes every booking under
+# `wrangler dev` — including each `npm run e2e` — send real mail; the rest of
+# the email settings are in wrangler.toml. The test suites use only recipient
+# addresses at a domain the author controls, so a live key cannot make them
+# bounce mail off strangers; point SENDER_EMAIL and the e2e address at your own
+# domain before doing the same.
+# BREVO_API_KEY = "xkeysib-..."
+
 # Write credentials for the *test fixture* only, which paints the OPEN events
 # the live tests need. Separate from the Worker's own credentials on purpose:
 # the availability role must stay read-only.
