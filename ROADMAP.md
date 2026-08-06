@@ -64,10 +64,9 @@ keeps `wrangler dev` and every test run from mailing anyone.
 cancelled from the emailed link opened in a fresh private window, and
 `email-roundtrip` in CI now proves the same path on every push to `main`,
 reading the link out of a real mailbox rather than the booking response.
-The "another device" wording is deferred, not met: the private window
-shows the link needs nothing from the browser that booked, and
-`CANCEL_URL` cannot leave `localhost` until there is a deployment. A
-phone run belongs with the interface work, which M4 reaches.*
+Later the same day, after the first production deploy, a booking made at
+the deployed page was cancelled from the emailed link on a phone — the
+"another device" wording met literally.*
 
 ## M4 — Operator experience
 
