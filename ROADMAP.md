@@ -60,9 +60,14 @@ left them discovering bookings by looking. Without an API key the Worker
 sends nothing and says `disabled` in the booking response, which is what
 keeps `wrangler dev` and every test run from mailing anyone.
 
-*Exit: a booking produces a confirmation the customer can cancel from,
-on another device. Built and under test; the criterion itself still wants
-one run with a real Brevo key and a phone.*
+*Exit: met 2026-08-06 — a hand-made booking with a live Brevo key,
+cancelled from the emailed link opened in a fresh private window, and
+`email-roundtrip` in CI now proves the same path on every push to `main`,
+reading the link out of a real mailbox rather than the booking response.
+The "another device" wording is deferred, not met: the private window
+shows the link needs nothing from the browser that booked, and
+`CANCEL_URL` cannot leave `localhost` until there is a deployment. A
+phone run belongs with the interface work, which M4 reaches.*
 
 ## M4 — Operator experience
 
