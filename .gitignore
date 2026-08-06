@@ -4,6 +4,10 @@ dist/
 .dev.vars
 *.local
 
+# The deployed Worker's own settings: real calendar URLs and a real account,
+# which are not secrets but do not belong in a public repository either.
+worker/wrangler.production.toml
+
 # Backend profiles hold real CalDAV credentials. Radicale's is the exception:
 # loopback-only, and CI builds its instance from it.
 worker/test/backends/*.vars
@@ -11,3 +15,4 @@ worker/test/backends/*.vars
 .DS_Store
 test-results/
 playwright-report/
+.vscode/
