@@ -88,6 +88,18 @@ M0–M4 done, acceptance test passed.
 
 ## Later
 
+- **Booking page integrated into the operator's own site** (~1.1). The
+  first case is the author's: parantaja.fi, served by GitHub Pages, so
+  the page and the Worker live on different origins. This is why
+  `ALLOWED_ORIGINS` and the build-time API URL are features, not
+  deployment glue, and why the API must keep working cross-origin.
+- **Operator onboarding beyond `SETUP.md`** (~1.5): a setup helper —
+  possibly its own SPA on a parantaja.fi subdomain — that walks a new
+  operator through calendars, DNS and email, manually or with LLM help.
+  `SETUP.md` remains the substance either way; M4's acceptance test
+  still runs against the document alone.
+- **WordPress plugin** (~2.0), if practitioners embedding into WP
+  materialise. Same cross-origin story as the site integration.
 - The Proton path, verified then written up: booking store on a CalDAV
   backend, Proton subscribing to its ICS URL for viewing, a standard
   CalDAV client for painting `OPEN`. Verify against a real Proton

@@ -31,6 +31,19 @@ database, ever.
 - KISS. No speculative abstractions; nothing built that 1.0 does not
   need.
 
+## Deployment surroundings
+
+- The author's practice site is GitHub Pages: staged at
+  <https://staging.pnr.iki.fi>, deploying to <https://parantaja.fi>.
+  The booking page will eventually integrate into it (`ROADMAP.md`
+  "Later"), so the page and the Worker are cross-origin by design:
+  `ALLOWED_ORIGINS` is a deliberate control, never to be dissolved by
+  serving the SPA from the Worker.
+- The deployed Worker's real configuration lives in the gitignored
+  `worker/wrangler.production.toml`; deploy with
+  `npx wrangler deploy -c wrangler.production.toml`. The tracked
+  `wrangler.toml` stays pointed at localhost.
+
 ## Workflow
 
 - Build both halves in CI from the start (the spike's production build
