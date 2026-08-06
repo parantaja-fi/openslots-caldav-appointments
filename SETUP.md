@@ -333,15 +333,20 @@ message, and it scores what it finds.
 Two settings in `worker/wrangler.toml`:
 
 ```toml
-CANCEL_URL         = "https://booking.yourpractice.com/cancel.html"
+CANCEL_URL         = "https://booking.yourpractice.com/cancel"
 DISPLAY_TIMEZONE   = "Europe/Helsinki"
 SENDER_EMAIL       = "info@yourpractice.com"
 SENDER_NAME        = "Your Practice"
 PRACTITIONER_EMAIL = "info@yourpractice.com"
 ```
 
-- `CANCEL_URL` must be the deployed `cancel.html` page. This is the link
+- `CANCEL_URL` must be the deployed cancellation page. This is the link
   in the confirmation email; if it is wrong, customers cannot cancel.
+  Write it **without** `.html`: Pages serves `cancel.html` at `/cancel`
+  and redirects the longer form to it, and the cancellation token travels
+  in the part of the link after `#`, which survives a redirect only by
+  browser convention. Do not make a customer's only way out depend on
+  that. Open the address yourself before switching the email on.
 - `DISPLAY_TIMEZONE` is the zone appointment times are written in, e.g.
   `Europe/Helsinki`, `Europe/London`.
 - `SENDER_EMAIL` must be at the domain you just authenticated, and
@@ -455,7 +460,7 @@ single most important line. After that: does the link in the mail point
 at the same domain as the sender?
 
 **The cancel link does nothing.**
-`CANCEL_URL` must point at the *deployed* `cancel.html`. If it still
+`CANCEL_URL` must point at the *deployed* cancellation page. If it still
 says `localhost`, that is the problem, and the emails already sent
 cannot be fixed.
 
