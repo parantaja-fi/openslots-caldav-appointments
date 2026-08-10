@@ -98,6 +98,22 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  wizard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wizard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: wizard/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
   # The email path end to end, and the only job that sends real mail. It needs
   # every other job first: each run spends two messages of a small monthly
   # receive quota, so it is not worth spending on a commit already known bad.
@@ -105,7 +121,7 @@ jobs:
   # mail latency makes a poor per-commit gate.
   email-roundtrip:
     if: github.event_name != 'pull_request'
-    needs: [worker, live-radicale, live-remote, frontend]
+    needs: [worker, live-radicale, live-remote, frontend, wizard]
     runs-on: ubuntu-latest
     # One run at a time: the inbox is shared, and two runs in the same window
     # would match each other's messages.

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking Calendar — Setup</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, sans-serif; background: #f9fafb; color: #111; }
+      #app { max-width: 760px; margin: 0 auto; padding: 24px; }
+      h1 { margin: 0 0 4px; font-size: 1.5rem; }
+      .lede { margin: 0 0 20px; color: #555; }
+      #inputs { background: white; border-radius: 8px; padding: 16px;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px;
+                display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px;
+                align-items: center; }
+      #inputs label { font-size: 0.9rem; color: #333; }
+      #inputs input { font: inherit; padding: 6px 8px; border: 1px solid #ccc;
+                      border-radius: 4px; width: 100%; }
+      #inputs .hint { grid-column: 2; font-size: 0.8rem; color: #777; margin: -4px 0 4px; }
+      #steps { list-style: none; margin: 0; padding: 0; }
+      #steps li { background: white; border-radius: 8px; padding: 12px 16px;
+                  box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 12px;
+                  display: grid; grid-template-columns: 28px 1fr; gap: 4px 10px; }
+      .badge { font-size: 1.1rem; line-height: 1.4; text-align: center; }
+      .green .badge { color: #15803d; }
+      .red .badge { color: #b91c1c; }
+      .watch .badge { color: #b45309; }
+      .open .badge { color: #999; }
+      .title { font-weight: 600; }
+      .body { grid-column: 2; font-size: 0.9rem; color: #444; }
+      .body p { margin: 0 0 8px; }
+      .body a { color: #1d4ed8; }
+      .body button { font: inherit; font-size: 0.85rem; padding: 4px 10px;
+                     border: 1px solid #ccc; border-radius: 4px; background: #f3f4f6;
+                     cursor: pointer; }
+      #controls { margin: 16px 0; display: flex; gap: 12px; align-items: baseline; }
+      #controls button { font: inherit; padding: 6px 14px; border: 1px solid #ccc;
+                         border-radius: 4px; background: white; cursor: pointer; }
+      #alldone { color: #15803d; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Set up your booking calendar</h1>
+      <p class="lede">
+        Work through the steps with <a
+        href="https://github.com/parantaja-fi/openslots-caldav-appointments/blob/main/SETUP.md"
+        target="_blank" rel="noopener">SETUP.md</a> as the reference. This page
+        watches each step land and turns it green — it never asks for a
+        password, key or token.
+      </p>
+      <div id="inputs">
+        <label for="owner">GitHub username</label>
+        <input id="owner" autocomplete="off" spellcheck="false" placeholder="the account you forked into" />
+        <label for="repo">Fork name</label>
+        <input id="repo" autocomplete="off" spellcheck="false" />
+        <label for="worker">Worker URL</label>
+        <input id="worker" autocomplete="off" spellcheck="false" placeholder="https://booking-worker.<subdomain>.workers.dev" />
+        <span class="hint">Printed by the deploy run; also on your Cloudflare dashboard.</span>
+        <label for="domain">Sender domain</label>
+        <input id="domain" autocomplete="off" spellcheck="false" placeholder="yourpractice.com — leave empty if email is off" />
+      </div>
+      <div id="controls">
+        <button id="refresh">Check now</button>
+        <span id="alldone" hidden>All green — your booking calendar is live.</span>
+      </div>
+      <ol id="steps"></ol>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

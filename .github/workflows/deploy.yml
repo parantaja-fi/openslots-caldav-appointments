@@ -43,6 +43,7 @@ jobs:
           cache-dependency-path: |
             worker/package-lock.json
             frontend/package-lock.json
+            wizard/package-lock.json
 
       # Reads where Pages will serve this repository — the real origin and
       # base path, whatever the fork is named and whether a custom domain is
@@ -156,9 +157,24 @@ jobs:
           VITE_WORKER_URL: ${{ steps.worker.outputs.deployment-url }}
         run: npm run build -- --base "${{ steps.pages.outputs.base_path }}/"
 
+      - run: npm ci
+        working-directory: wizard
+
+      # The setup wizard rides along at /wizard/. What matters is the
+      # upstream project's copy — the one a practitioner uses before their
+      # fork's page exists; a fork serving its own is merely harmless.
+      - name: Build the wizard
+        working-directory: wizard
+        run: npm run build -- --base "${{ steps.pages.outputs.base_path }}/wizard/"
+
+      - name: Assemble the site
+        run: |
+          cp -R frontend/dist site
+          cp -R wizard/dist site/wizard
+
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: frontend/dist
+          path: site
 
       - uses: actions/deploy-pages@v5
         id: page
