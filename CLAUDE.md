@@ -12,7 +12,7 @@ database, ever.
   calendar model, API, security). Do not restate mechanisms elsewhere;
   reference them. When two documents describe the same mechanism they
   diverge.
-- `ROADMAP.md` — milestones to 1.0.
+- `ROADMAP.md` — milestones to 0.2.0; the first release is 0.1.0.
 - `../parantaja-booking-calendar-spikes/LEARNINGS.md` — rationale from the
   spike phase; consult before re-deriving a settled decision.
 
@@ -28,8 +28,8 @@ database, ever.
 - TypeScript strict throughout. Dependencies: FullCalendar (frontend),
   `ical.js` + `jose` (Worker); anything else needs explicit
   justification.
-- KISS. No speculative abstractions; nothing built that 1.0 does not
-  need.
+- KISS. No speculative abstractions; nothing built that the next
+  release does not need.
 
 ## Deployment surroundings
 

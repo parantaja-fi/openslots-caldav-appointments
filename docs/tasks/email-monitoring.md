@@ -4,8 +4,8 @@
 > setting up the Brevo sender identity for `parantaja.fi`.
 >
 > **Scope warning.** This is operator monitoring for one deployment, not
-> product code. It is *not* part of 1.0 (`SCOPE.md` §4 does not list it,
-> and the built-in health check in M4 is a different thing — that one
+> product code. It is *not* part of 0.1.0 (`SCOPE.md` §4 does not list
+> it, and the built-in health check in M5.1 is a different thing — that one
 > tells the operator their configuration is wrong, this one watches what
 > the system actually does over weeks). It may belong in a separate
 > repository. Decide that before writing code.

@@ -44,13 +44,14 @@ suite runs the whole flow — list, book, lose a race, cancel — against a
 real CalDAV backend, with the two logical calendars both separate and
 coinciding. That suite is green against Radicale, Nextcloud and Google.
 
-M3 is built: a booking sends the customer a confirmation carrying a
+M3 is met: a booking sends the customer a confirmation carrying a
 cancellation link, and the practitioner a notice, through the Brevo
-transactional API. Configure no API key and the Worker sends nothing and
-says so, which is how it runs in development and in CI. What remains of
-M3 is the criterion itself — one run with a real key, cancelled from a
-phone. M4 is the operator guide and one-command deploy; 1.0 is the two
-together.
+transactional API; the round trip runs in CI against a real mailbox.
+Configure no API key and the Worker sends nothing and says so, which is
+how it runs in development and in CI. Next is the setup wizard
+([ROADMAP.md](ROADMAP.md) M5–M6): a health endpoint, a fork-deploy
+workflow, and a guided browser tab; 0.1.0 is the wizard passing its
+acceptance test.
 
 CI builds and typechecks both halves, runs the tests that need no
 backend, and runs the live suite against a Radicale it starts itself. The
@@ -149,7 +150,7 @@ touching local testing or production), `TESTMAIL_APIKEY` and
 | [SETUP.md](SETUP.md) | Setting up a deployment of your own, start to finish |
 | [SCOPE.md](SCOPE.md) | What is being built, for whom, and what is out |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The mechanisms: topology, calendar model, API, security |
-| [ROADMAP.md](ROADMAP.md) | Milestones from here to 1.0 |
+| [ROADMAP.md](ROADMAP.md) | Milestones from here to 0.2.0 |
 | [SECURITY.md](SECURITY.md) | How to report a vulnerability |
 
 ## Contributing

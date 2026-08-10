@@ -16,9 +16,10 @@ teachers, consultants) who want customers to book appointments against their
 real calendar without subscribing to a SaaS booking platform or surrendering
 their data to one.
 
-**Acceptance test for 1.0**: a practitioner who is not the author, with
-ordinary computer literacy and no help beyond the repository's documentation,
-deploys the system for themselves and takes a real booking.
+**Acceptance test for 0.1.0**: a practitioner who is not the author, with
+ordinary computer literacy and no help beyond the setup wizard and the
+repository's documentation, deploys the system for themselves from a
+browser alone — no terminal — and takes a real booking.
 
 Everything in scope serves that test. Anything that does not is out.
 
@@ -27,8 +28,8 @@ Everything in scope serves that test. Anything that does not is out.
 - **Practitioner (operator).** Owns a calendar; marks availability by
   creating events titled `OPEN` in it, using whatever calendar client they
   already use. Deploys and configures the system once. Not assumed to be a
-  developer, but assumed able to follow a careful step-by-step guide
-  (create accounts, copy secrets, run a few commands).
+  developer, but assumed able to follow careful step-by-step guidance
+  (create accounts, mint credentials, paste them where told).
 - **Customer.** Follows a link, sees free slots, books one with name and
   email, receives a confirmation, can cancel. No account, no app install,
   no assumptions about their calendar provider.
@@ -68,7 +69,7 @@ Carried forward as constraints, not open questions — rationale in
   the frontend, `ical.js` + `jose` (or raw Web Crypto) on the Worker;
   nothing else without a fight.
 
-## 4. In scope for 1.0
+## 4. In scope for 0.1.0
 
 Functional:
 
@@ -91,17 +92,19 @@ Backends and verification:
    2026-08-02; "any CalDAV server" remains an unsubstantiated claim, and
    Google showed why — see `ROADMAP.md` M2.
 
-Operator experience (the actual 1.0 substance):
+Operator experience (the actual 0.1.0 substance):
 
-7. **Operator guide**: prerequisites, per-backend setup, secrets, deploy,
-   custom domain, smoke test. Written for the §2 practitioner, tested by
-   the §1 acceptance test.
-8. One-command (or near) deploy; configuration in one obvious place; a
-   built-in health/config check that tells the operator what is wrong.
+7. **Setup wizard**: fork, credentials, configuration and deploy driven
+   from one guided browser tab (`ROADMAP.md` M5–M6), with `SETUP.md`
+   behind it as the reference. Written for the §2 practitioner, tested
+   by the §1 acceptance test.
+8. Near-one-command deploy — one *Run workflow* click on the fork;
+   configuration in one obvious place; a built-in health/config check
+   that tells the operator what is wrong.
 9. CI that builds both halves and runs the test suite; deploys are
    explicit, never a side effect of push.
 
-## 5. Out of scope for 1.0
+## 5. Out of scope for 0.1.0
 
 - Multi-practitioner scheduling, or aggregating availability across more
   calendars than the two roles in §3.

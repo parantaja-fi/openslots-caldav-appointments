@@ -2,7 +2,7 @@
 
 > **First draft.** Written 2026-08-02 from one operator's setup. It has
 > not yet been tested by anyone but the author, which is exactly what
-> `ROADMAP.md` M4 exists to fix. If a step is wrong or a step is
+> `ROADMAP.md` M5–M6 exist to fix. If a step is wrong or a step is
 > missing, that is a bug — please open an issue.
 
 This guide takes you from nothing to a working booking page. It assumes
@@ -475,7 +475,7 @@ Honesty about the current state:
   there is, this guide's troubleshooting section is the substitute.
 - Nothing warns you if the email transport is configured but broken.
 
-All three are `ROADMAP.md` M4.
+All three are `ROADMAP.md` M5.
 
 ## Where things are written down
 

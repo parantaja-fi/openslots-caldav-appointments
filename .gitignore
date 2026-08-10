@@ -16,3 +16,4 @@ worker/test/backends/*.vars
 test-results/
 playwright-report/
 .vscode/
+NOW.md

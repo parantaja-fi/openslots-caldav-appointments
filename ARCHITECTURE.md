@@ -217,7 +217,7 @@ booking knows to keep offering the cancellation it still holds.
 No API key means the deployment sends nothing and says `disabled`. That
 is what lets `wrangler dev` and every live test run without reaching
 Brevo; a production deployment that meant to send mail and forgot the
-secret is what the M4 health check is for.
+secret is what the M5.1 health check is for.
 
 SMTP submission to the operator's own mailbox was considered and
 deferred (`ROADMAP.md` Later): Workers cannot speak SMTP over `fetch`,
