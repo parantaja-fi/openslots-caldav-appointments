@@ -117,12 +117,19 @@ channel. In dependency order:
    origin-shaped is derived per `ARCHITECTURE.md` §7.*
 3. **M5.3 — The verifier.** A static SPA, one guided tab, that
    watches the manual steps land — fork existence and workflow runs
-   polled unauthenticated, Worker health via M5.1, DNS via DoH, Brevo
-   record status via its CORS-open API — turning each step into a
-   green tick with a deep link to the next.
+   polled unauthenticated, Worker health via M5.1, and the email DNS
+   records by presence via DoH — turning each step into a green tick
+   with a deep link to the next. Brevo's authoritative per-record
+   status needs its API key, so it belongs to M6, keeping this stage
+   credential-free (amended 2026-08-10 from "via its CORS-open API").
+   *Met 2026-08-10 — `wizard/`, served at `/wizard/` beside the
+   booking page by the M5.2 workflow.*
 
 *Exit: a practitioner working through the manual steps sees each turn
-green in the wizard without pasting any credential into it.*
+green in the wizard without pasting any credential into it. Met
+2026-08-10, every step walked green in a scripted browser against this
+repository's own fork-style deployment; a practitioner who is not the
+author remains M6's exit.*
 
 ## M6 — Setup wizard: provisioning
 

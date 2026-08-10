@@ -68,10 +68,12 @@ export function deriveSteps(saved: Saved, probes: ProbeState): StepView[] {
     title: "Fork the project",
     status: !owner ? "open" : probes.fork ? "green" : "watch",
     body: [
-      owner
-        ? "Watching for the fork to appear."
-        : "One click on GitHub's Fork button. Enter your GitHub username " +
-          "above and this step turns green the moment the fork exists.",
+      probes.fork
+        ? "Your fork exists."
+        : owner
+          ? "Watching for the fork to appear."
+          : "One click on GitHub's Fork button. Enter your GitHub username " +
+            "above and this step turns green the moment the fork exists.",
     ],
     links: [
       {

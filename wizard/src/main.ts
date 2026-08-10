@@ -69,25 +69,34 @@ function renderStep(step: StepView): HTMLLIElement {
   return li;
 }
 
+// A poll requested while one is in flight runs right after it — an edited
+// input mid-poll must not wait for the next tick.
 let polling = false;
+let queued = false;
 async function poll(): Promise<void> {
-  if (polling) return;
+  if (polling) {
+    queued = true;
+    return;
+  }
   polling = true;
-  const { owner, repo, workerUrl, senderDomain } = state.inputs;
-  const jobs: Promise<void>[] = [];
-  if (owner && repo) {
-    jobs.push(probeFork(owner, repo, cache).then((r) => void (probes.fork = r)));
-    jobs.push(probeRun(owner, repo, cache).then((r) => void (probes.run = r)));
-  }
-  if (workerUrl) {
-    jobs.push(probeHealth(workerUrl).then((r) => void (probes.health = r)));
-  }
-  if (senderDomain) {
-    jobs.push(probeDns(senderDomain).then((r) => void (probes.dns = r)));
-  }
-  await Promise.all(jobs);
+  do {
+    queued = false;
+    const { owner, repo, workerUrl, senderDomain } = state.inputs;
+    const jobs: Promise<void>[] = [];
+    if (owner && repo) {
+      jobs.push(probeFork(owner, repo, cache).then((r) => void (probes.fork = r)));
+      jobs.push(probeRun(owner, repo, cache).then((r) => void (probes.run = r)));
+    }
+    if (workerUrl) {
+      jobs.push(probeHealth(workerUrl).then((r) => void (probes.health = r)));
+    }
+    if (senderDomain) {
+      jobs.push(probeDns(senderDomain).then((r) => void (probes.dns = r)));
+    }
+    await Promise.all(jobs);
+    render();
+  } while (queued);
   polling = false;
-  render();
 }
 
 for (const [id, key] of [

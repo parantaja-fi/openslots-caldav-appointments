@@ -474,10 +474,13 @@ Honesty about the current state:
   in the fork's Actions secrets and the knobs in its Actions
   variables, set *Settings → Pages → Source* to "GitHub Actions",
   then *Actions → Deploy → Run workflow* deploys both halves and ends
-  by probing health. What does not exist yet is anything telling you
-  *which* secrets to set or watching them land — that is M5.3's
-  verifier and the M6 wizard; until then, Part 3 is the reference for
-  what each value means.
+  by probing health. Since M5.3 the
+  [setup wizard](https://parantaja-fi.github.io/openslots-caldav-appointments/wizard/)
+  watches those steps land — fork, deploy run, Worker health, email
+  DNS — as a checklist of green ticks, without ever asking for a
+  credential. What does not exist yet is the stage that enters the
+  configuration for you (the M6 wizard); Part 3 remains the reference
+  for what each value means.
 - `curl -f https://<your-worker>/v1/health` (M5.1, `ARCHITECTURE.md`
   §3) reports the configuration parse status, whether each calendar
   answers, and an email transport whose sender is set but whose key

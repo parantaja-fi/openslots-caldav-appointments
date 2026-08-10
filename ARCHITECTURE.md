@@ -17,6 +17,12 @@ Three parts, nothing else:
 3. **CalDAV backend(s)** — sole persistence layer. No database, no
    server-side session state.
 
+Beside the system, not in it: the **setup wizard** (`wizard/`,
+`ROADMAP.md` M5–M6), a second static page served at `/wizard/`. Its
+verifier stage only watches — public GitHub REST unauthenticated, the
+token-less health endpoint (§3), DNS over HTTPS — and holds no
+credential.
+
 ## 2. Calendar model
 
 The system uses **two logical calendars**, configured independently:

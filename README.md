@@ -48,11 +48,13 @@ M3 is met: a booking sends the customer a confirmation carrying a
 cancellation link, and the practitioner a notice, through the Brevo
 transactional API; the round trip runs in CI against a real mailbox.
 Configure no API key and the Worker sends nothing and says so, which is
-how it runs in development and in CI. Of the setup wizard's milestones
-([ROADMAP.md](ROADMAP.md) M5–M6), the health endpoint and the
-fork-deploy workflow are met: *Run workflow* on a configured fork
-deploys both halves and gates on health. Next is the guided browser
-tab; 0.1.0 is the wizard passing its acceptance test.
+how it runs in development and in CI. M5 is met in full
+([ROADMAP.md](ROADMAP.md)): the health endpoint, the fork-deploy
+workflow (*Run workflow* on a configured fork deploys both halves and
+gates on health), and the credential-free verifier served at
+`/wizard/`, a checklist that watches each manual setup step turn
+green. Next is M6, the wizard's provisioning stage; 0.1.0 is the
+wizard passing its acceptance test.
 
 CI builds and typechecks both halves, runs the tests that need no
 backend, and runs the live suite against a Radicale it starts itself. The
@@ -62,8 +64,8 @@ only.
 
 ## Development
 
-Two npm packages, `worker/` and `frontend/`, each with `dev`, `build` and
-`typecheck`.
+Three npm packages — `worker/`, `frontend/` and `wizard/` (the setup
+checklist page) — each with `dev`, `build` and `typecheck`.
 
 ```sh
 cd worker && npm ci && npm run keygen   # a SIGNING_KEY_JWK for .dev.vars
