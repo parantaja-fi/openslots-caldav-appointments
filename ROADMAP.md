@@ -93,7 +93,9 @@ channel. In dependency order:
    config parse status, email transport state — including a transport
    that was meant to be configured and is not, which a booking otherwise
    reports only in its own response (`ARCHITECTURE.md` §6). Consumed by
-   `curl` now; by M5.2's CI and M5.3's verifier next.
+   `curl` now; by M5.2's CI and M5.3's verifier next. *Met 2026-08-10 —
+   `ARCHITECTURE.md` §3; the booking store is `appointments` on the
+   wire.*
 2. **M5.2 — Fork-deploy CI.** A `deploy.yml` (`workflow_dispatch`,
    never `on: push`) that deploys a fork with GitHub-web interaction
    only. Mostly assembly of maintained actions (researched 2026-08-10,

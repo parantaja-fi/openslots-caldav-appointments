@@ -471,11 +471,13 @@ cannot be fixed.
 Honesty about the current state:
 
 - There is no one-command deploy. Part 3 is the manual version of it.
-- There is no health check that tells you what is misconfigured. Until
-  there is, this guide's troubleshooting section is the substitute.
 - Nothing warns you if the email transport is configured but broken.
 
-All three are `ROADMAP.md` M5.
+Both are `ROADMAP.md` M5. What does exist since M5.1:
+`curl -f https://<your-worker>/v1/health` reports the configuration
+parse status, whether each calendar answers, and an email transport
+whose sender is set but whose key secret is missing
+(`ARCHITECTURE.md` §3).
 
 ## Where things are written down
 

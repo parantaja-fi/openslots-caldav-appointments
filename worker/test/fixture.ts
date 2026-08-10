@@ -8,6 +8,7 @@ import { buildVEvent, deleteEvent, putEvent, reportEvents } from "../src/caldav"
  */
 export function writable(url: string): Calendar {
   return calendar(
+    "test-fixture",
     url,
     env.TEST_WRITE_USERNAME,
     env.TEST_WRITE_PASSWORD,

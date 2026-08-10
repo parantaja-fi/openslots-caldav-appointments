@@ -1,5 +1,5 @@
 import { buildVEvent, deleteEvent, getEvent, putEvent, reportEvents } from "./caldav";
-import { config, type Config, type Env } from "./config";
+import { type Calendar, config, type Config, type Env } from "./config";
 import { sendBookingEmails } from "./email";
 import {
   GrantError,
@@ -195,6 +195,63 @@ async function postBooking(
   }, cors);
 }
 
+/** Health answers any origin: it is token-less, and its body leaks nothing. */
+const HEALTH_CORS = { "Access-Control-Allow-Origin": "*" };
+
+interface Probe {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * The same read a booking depends on, over a near-empty window. Only the
+ * Worker's own error text passes through: a runtime failure message may embed
+ * the backend's hostname, which the health response must not.
+ */
+function probeCalendar(cal: Calendar): Promise<Probe> {
+  const now = Date.now();
+  const probe = reportEvents(
+    cal,
+    new Date(now).toISOString(),
+    new Date(now + 3_600_000).toISOString(),
+  )
+    .then((): Probe => ({ ok: true }))
+    .catch((e: unknown): Probe => ({
+      ok: false,
+      error: e instanceof Error && e.message.startsWith("CalDAV") ? e.message : "unreachable",
+    }));
+  const timeout = new Promise<Probe>(resolve =>
+    setTimeout(() => resolve({ ok: false, error: "timed out" }), 5_000));
+  return Promise.race([probe, timeout]);
+}
+
+function healthResponse(ok: boolean, body: Record<string, unknown>): Response {
+  return new Response(JSON.stringify({ ok, ...body }), {
+    status: ok ? 200 : 503,
+    headers: { "Content-Type": "application/json", ...HEALTH_CORS },
+  });
+}
+
+async function getHealth(cfg: Config, env: Env): Promise<Response> {
+  const { availability, store, coincide } = cfg.calendars;
+  const availabilityProbe = probeCalendar(availability);
+  // `store` internally, `appointments` on the wire (`ARCHITECTURE.md` §3).
+  const [availabilityHealth, appointments] = await Promise.all([
+    availabilityProbe,
+    coincide ? availabilityProbe : probeCalendar(store),
+  ]);
+
+  // The sender travels with the ordinary vars, the API key separately as a
+  // secret, so "sender set, key missing" is the forgot-the-secret shape.
+  const email = cfg.email ? "configured" : env.SENDER_EMAIL ? "missing_key" : "off";
+
+  return healthResponse(availabilityHealth.ok && appointments.ok && email !== "missing_key", {
+    config: { ok: true },
+    calendars: { availability: availabilityHealth, appointments },
+    email,
+  });
+}
+
 /**
  * The bearer capability both single-booking routes stand on: a cancellation
  * token naming this very booking. Returns the refusal, or null to proceed.
@@ -271,9 +328,16 @@ async function deleteBooking(
 function route(
   request: Request,
   cfg: Config,
+  env: Env,
   cors: Record<string, string>,
 ): Promise<Response> | Response {
   const path = new URL(request.url).pathname;
+  if (path === "/v1/health") {
+    if (request.method !== "GET") {
+      return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, HEALTH_CORS);
+    }
+    return getHealth(cfg, env);
+  }
   if (path === "/v1/slots") {
     if (request.method !== "GET") {
       return problem(405, "Method Not Allowed", `${request.method} is not allowed here.`, cors);
@@ -307,6 +371,13 @@ export default {
       cfg = config(env);
     } catch (e) {
       console.error("Worker misconfigured:", e);
+      // Reporting this very state is what the health endpoint is for; with no
+      // configuration there is nothing further to probe.
+      if (new URL(request.url).pathname === "/v1/health" && request.method === "GET") {
+        return healthResponse(false, {
+          config: { ok: false, error: e instanceof Error ? e.message : String(e) },
+        });
+      }
       return problem(500, "Internal Server Error", "The service is misconfigured.", {});
     }
     const cors = corsHeaders(request, cfg.origins);
@@ -324,7 +395,7 @@ export default {
           return problem(429, "Too Many Requests", "Too many requests; try again shortly.", cors);
         }
       }
-      return await route(request, cfg, cors);
+      return await route(request, cfg, env, cors);
     } catch (e) {
       // Whatever it was, the caller is a browser: it needs the CORS headers and
       // the documented error shape, not an opaque runtime failure.

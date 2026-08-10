@@ -75,8 +75,11 @@ function basicAuth(username: string, password: string): string {
 /**
  * A username selects HTTP Basic; otherwise the Google service account is used.
  * The two roles may differ, which is what lets availability be read-only.
+ * The error names the role, never the URL: the health endpoint repeats
+ * configuration errors to any origin.
  */
 export function calendar(
+  role: string,
   url: string,
   username: string | undefined,
   password: string | undefined,
@@ -90,7 +93,7 @@ export function calendar(
     const json = googleServiceAccountJson;
     return { url, authHeader: async () => `Bearer ${await googleAccessToken(json)}` };
   }
-  throw new Error(`No credentials configured for ${url}`);
+  throw new Error(`No credentials configured for the ${role} calendar`);
 }
 
 function required(env: Env, name: keyof Env): string {
@@ -147,12 +150,14 @@ export function config(env: Env): Config {
   return {
     calendars: {
       availability: calendar(
+        "availability",
         availabilityUrl,
         env.AVAILABILITY_USERNAME,
         env.AVAILABILITY_PASSWORD,
         env.GOOGLE_SERVICE_ACCOUNT_JSON,
       ),
       store: calendar(
+        "booking-store",
         storeUrl,
         env.BOOKING_STORE_USERNAME,
         env.BOOKING_STORE_PASSWORD,

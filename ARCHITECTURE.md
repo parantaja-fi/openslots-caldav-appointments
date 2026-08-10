@@ -72,7 +72,7 @@ Google deviations (URL-encoded calendar ID, mandatory `Depth: 1`, ignored
 
 ## 3. Domain API
 
-Four endpoints, booking-domain-shaped:
+Five endpoints, booking-domain-shaped:
 
 - `GET /v1/slots` — computed open slots for a window, with one create-grant
   covering the returned list (§5).
@@ -89,6 +89,23 @@ Four endpoints, booking-domain-shaped:
   so neither is echoed.
 - `DELETE /v1/bookings/:uid` — cancel; requires the booking's
   cancellation token (§5).
+- `GET /v1/health` — deployment health, for `curl`, the deploy CI's
+  closing probe and the setup wizard (`ROADMAP.md` M5). Token-less and
+  CORS-open to any origin, so the body may carry booleans, coarse states
+  and env var names — never a URL, hostname, address or key. Reports the
+  configuration parse status (parsing is the validation, §7) with the
+  thrown message on failure; CalDAV reachability per calendar role
+  (`availability` and `appointments` on the wire), probed with the same
+  read a booking depends on, one probe when the roles coincide, each
+  raced against a five-second timeout; and the email transport state —
+  `configured`, `off`, or `missing_key` when a sender address is set but
+  the API key secret is not, the forgot-the-secret shape a booking
+  otherwise reports only in its own response (§6). 200 when everything
+  is healthy (`off` is healthy: it is deliberate), 503 otherwise, so a
+  `curl -f` is the whole probe. Rate-limited like every other route,
+  which is also the answer to strangers driving CalDAV probes: a health
+  call costs its caller what an unauthenticated `/v1/slots` call already
+  could.
 
 Errors are RFC 9457 Problem Details. Field names are chosen deliberately
 and prefixed by role (`slot_start`, not `start`).
