@@ -8,6 +8,9 @@ dist/
 # which are not secrets but do not belong in a public repository either.
 worker/wrangler.production.toml
 
+# Assembled by .github/workflows/deploy.yml on the runner; never committed.
+worker/wrangler.deploy.toml
+
 # Backend profiles hold real CalDAV credentials. Radicale's is the exception:
 # loopback-only, and CI builds its instance from it.
 worker/test/backends/*.vars

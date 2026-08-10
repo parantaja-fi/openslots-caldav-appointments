@@ -1,0 +1,186 @@
+name: Deploy
+
+# The fork-deploy workflow (ROADMAP.md M5.2): deploys the Worker and the
+# booking page from GitHub-web interaction alone. Dispatch only, never
+# on: push — deploys are explicit.
+#
+# Configuration comes from three places, none of them committed:
+#   - Actions repository variables — the public operational knobs;
+#   - Actions secrets — credentials, calendar URLs and addresses, because a
+#     fork is public and so are its logs;
+#   - derived here — ALLOWED_ORIGINS, CANCEL_URL, VITE_WORKER_URL and the
+#     page's base path all come from the Pages settings and the deploy
+#     itself, so a renamed fork or a custom domain needs a re-run, never a
+#     re-configuration.
+#
+# The one manual prerequisite: Settings → Pages → Source: "GitHub Actions"
+# (ROADMAP.md M6 automates that click away).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.page.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            worker/package-lock.json
+            frontend/package-lock.json
+
+      # Reads where Pages will serve this repository — the real origin and
+      # base path, whatever the fork is named and whether a custom domain is
+      # set — before anything is built against them.
+      - uses: actions/configure-pages@v6
+        id: pages
+
+      - run: npm ci
+        working-directory: worker
+
+      # The tracked wrangler.toml stays pointed at localhost for development;
+      # the deploy configuration is assembled fresh on every run. Keep main,
+      # compatibility_date and the rate limit in step with wrangler.toml.
+      - name: Assemble the Worker configuration
+        working-directory: worker
+        env:
+          ORIGIN: ${{ steps.pages.outputs.origin }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          SLOT_MINUTES: ${{ vars.SLOT_MINUTES }}
+          BOOKING_HORIZON_DAYS: ${{ vars.BOOKING_HORIZON_DAYS }}
+          MIN_NOTICE_MINUTES: ${{ vars.MIN_NOTICE_MINUTES }}
+          MAX_SLOTS: ${{ vars.MAX_SLOTS }}
+          GRANT_TTL_SECS: ${{ vars.GRANT_TTL_SECS }}
+          PROOF_MAX_AGE_SECS: ${{ vars.PROOF_MAX_AGE_SECS }}
+          DISPLAY_TIMEZONE: ${{ vars.DISPLAY_TIMEZONE }}
+          SENDER_NAME: ${{ vars.SENDER_NAME }}
+        run: |
+          cat > wrangler.deploy.toml <<EOF
+          name = "booking-worker"
+          main = "src/index.ts"
+          compatibility_date = "2026-08-01"
+
+          [vars]
+          SLOT_MINUTES         = "$SLOT_MINUTES"
+          BOOKING_HORIZON_DAYS = "$BOOKING_HORIZON_DAYS"
+          MIN_NOTICE_MINUTES   = "$MIN_NOTICE_MINUTES"
+          MAX_SLOTS            = "$MAX_SLOTS"
+          GRANT_TTL_SECS       = "$GRANT_TTL_SECS"
+          PROOF_MAX_AGE_SECS   = "$PROOF_MAX_AGE_SECS"
+          DISPLAY_TIMEZONE     = "$DISPLAY_TIMEZONE"
+          SENDER_NAME          = "$SENDER_NAME"
+          ALLOWED_ORIGINS      = "$ORIGIN"
+          CANCEL_URL           = "$ORIGIN$BASE_PATH/cancel"
+
+          [[ratelimits]]
+          name         = "BOOKING_RL"
+          namespace_id = "1"
+          simple       = { limit = 20, period = 60 }
+          EOF
+
+      - name: Deploy the Worker
+        id: worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy -c wrangler.deploy.toml
+
+      # Every configured secret becomes a Worker secret in one bulk call;
+      # empty or unset ones are skipped, which is what keeps them optional —
+      # config.ts treats absent and empty alike. Values ride a pipe into
+      # stdin, never argv or the log.
+      - name: Forward the configuration secrets
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AVAILABILITY_CALENDAR_URL: ${{ secrets.AVAILABILITY_CALENDAR_URL }}
+          BOOKING_STORE_URL: ${{ secrets.BOOKING_STORE_URL }}
+          AVAILABILITY_USERNAME: ${{ secrets.AVAILABILITY_USERNAME }}
+          AVAILABILITY_PASSWORD: ${{ secrets.AVAILABILITY_PASSWORD }}
+          BOOKING_STORE_USERNAME: ${{ secrets.BOOKING_STORE_USERNAME }}
+          BOOKING_STORE_PASSWORD: ${{ secrets.BOOKING_STORE_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          PRACTITIONER_EMAIL: ${{ secrets.PRACTITIONER_EMAIL }}
+        run: |
+          secrets=$(jq -nc 'env
+            | { AVAILABILITY_CALENDAR_URL, BOOKING_STORE_URL,
+                AVAILABILITY_USERNAME, AVAILABILITY_PASSWORD,
+                BOOKING_STORE_USERNAME, BOOKING_STORE_PASSWORD,
+                GOOGLE_SERVICE_ACCOUNT_JSON, BREVO_API_KEY,
+                SENDER_EMAIL, PRACTITIONER_EMAIL }
+            | with_entries(select(.value != null and .value != ""))')
+          if [ "$secrets" != "{}" ]; then
+            printf '%s' "$secrets" | npx wrangler secret bulk -c wrangler.deploy.toml
+          fi
+
+      # First run only: mint the ES256 signing key and hand it straight to
+      # Cloudflare. It exists nowhere else — not in GitHub, not in this log —
+      # and re-runs keep it, so grants and emailed cancellation links
+      # survive redeploys.
+      - name: Mint the signing key if absent
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! npx wrangler secret list -c wrangler.deploy.toml | grep -q '"SIGNING_KEY_JWK"'; then
+            node scripts/keygen.mjs | npx wrangler secret put SIGNING_KEY_JWK -c wrangler.deploy.toml
+          fi
+
+      - run: npm ci
+        working-directory: frontend
+
+      - name: Build the booking page
+        working-directory: frontend
+        env:
+          VITE_WORKER_URL: ${{ steps.worker.outputs.deployment-url }}
+        run: npm run build -- --base "${{ steps.pages.outputs.base_path }}/"
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: frontend/dist
+
+      - uses: actions/deploy-pages@v5
+        id: page
+
+      # The gate (ROADMAP.md M5.2): the deploy is not done until the
+      # deployment says it is healthy. The health body is safe to print —
+      # booleans, coarse states and env var names by design.
+      - name: Probe health
+        env:
+          WORKER_URL: ${{ steps.worker.outputs.deployment-url }}
+          CANCEL_PAGE: ${{ steps.pages.outputs.origin }}${{ steps.pages.outputs.base_path }}/cancel
+        run: |
+          for i in $(seq 1 20); do
+            curl -sf "$WORKER_URL/v1/health" && break
+            if [ "$i" = 20 ]; then
+              echo "Unhealthy:"; curl -s "$WORKER_URL/v1/health"; exit 1
+            fi
+            sleep 5
+          done
+          # The emailed cancellation link must resolve extensionless.
+          for i in $(seq 1 20); do
+            curl -sf -o /dev/null "$CANCEL_PAGE" && exit 0
+            sleep 5
+          done
+          echo "No cancellation page at $CANCEL_PAGE"; exit 1
