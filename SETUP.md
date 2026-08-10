@@ -470,14 +470,19 @@ cannot be fixed.
 
 Honesty about the current state:
 
-- There is no one-command deploy. Part 3 is the manual version of it.
-- Nothing warns you if the email transport is configured but broken.
-
-Both are `ROADMAP.md` M5. What does exist since M5.1:
-`curl -f https://<your-worker>/v1/health` reports the configuration
-parse status, whether each calendar answers, and an email transport
-whose sender is set but whose key secret is missing
-(`ARCHITECTURE.md` §3).
+- The near-one-command deploy exists since M5.2: put the credentials
+  in the fork's Actions secrets and the knobs in its Actions
+  variables, set *Settings → Pages → Source* to "GitHub Actions",
+  then *Actions → Deploy → Run workflow* deploys both halves and ends
+  by probing health. What does not exist yet is anything telling you
+  *which* secrets to set or watching them land — that is M5.3's
+  verifier and the M6 wizard; until then, Part 3 is the reference for
+  what each value means.
+- `curl -f https://<your-worker>/v1/health` (M5.1, `ARCHITECTURE.md`
+  §3) reports the configuration parse status, whether each calendar
+  answers, and an email transport whose sender is set but whose key
+  secret is missing. A key that is present but *wrong* is still only
+  discovered by a booking: health checks presence, not validity.
 
 ## Where things are written down
 

@@ -48,10 +48,11 @@ M3 is met: a booking sends the customer a confirmation carrying a
 cancellation link, and the practitioner a notice, through the Brevo
 transactional API; the round trip runs in CI against a real mailbox.
 Configure no API key and the Worker sends nothing and says so, which is
-how it runs in development and in CI. Next is the setup wizard
-([ROADMAP.md](ROADMAP.md) M5–M6): a health endpoint, a fork-deploy
-workflow, and a guided browser tab; 0.1.0 is the wizard passing its
-acceptance test.
+how it runs in development and in CI. Of the setup wizard's milestones
+([ROADMAP.md](ROADMAP.md) M5–M6), the health endpoint and the
+fork-deploy workflow are met: *Run workflow* on a configured fork
+deploys both halves and gates on health. Next is the guided browser
+tab; 0.1.0 is the wizard passing its acceptance test.
 
 CI builds and typechecks both halves, runs the tests that need no
 backend, and runs the live suite against a Radicale it starts itself. The

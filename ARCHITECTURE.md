@@ -265,6 +265,15 @@ missing secrets cannot surface as cryptic crypto errors mid-request. A
 misconfigured Worker answers 500 Problem Details without CORS headers,
 the allowed origins being configuration themselves.
 
+The fork deploy (`.github/workflows/deploy.yml`, `ROADMAP.md` M5.2)
+populates all of this from a public repository without committing any
+of it: operational knobs come from Actions variables, credentials and
+addresses from Actions secrets, and everything origin-shaped —
+`ALLOWED_ORIGINS`, `CANCEL_URL`, the page's API URL and base path —
+is derived on each run from the Pages settings and the Worker deploy
+itself, so a renamed fork or a custom domain needs a re-run, never a
+reconfiguration.
+
 ## 8. Deliberately absent
 
 No database. No customer accounts or cross-device identity (the emailed

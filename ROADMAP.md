@@ -108,7 +108,13 @@ channel. In dependency order:
    The one custom step: on first run, generate the ES256 signing key
    and pipe it straight into `wrangler secret put`, so it exists
    nowhere but Cloudflare. Ends by probing M5.1's health. This is the
-   near-one-command deploy; the command is *Run workflow*.
+   near-one-command deploy; the command is *Run workflow*. *Met
+   2026-08-10 — dispatched against this repository with only Actions
+   secrets and variables configured: both halves deployed, secrets
+   forwarded, signing key minted on first run, health probe green.
+   Nothing is committed: credentials and addresses are Actions
+   secrets, public knobs Actions variables, and everything
+   origin-shaped is derived per `ARCHITECTURE.md` §7.*
 3. **M5.3 — The verifier.** A static SPA, one guided tab, that
    watches the manual steps land — fork existence and workflow runs
    polled unauthenticated, Worker health via M5.1, DNS via DoH, Brevo
@@ -123,8 +129,10 @@ green in the wizard without pasting any credential into it.*
 The PAT-driven stage. Prompts driven by a checked-in manifest of
 required configuration (Heroku's `app.json` convention, ibid. §10),
 the PAT minted through a prefilled template URL (GitHub, 2025-08);
-then the browser does the rest: config commit, sealed-box Actions
-secrets, Pages enablement (or the one manual click that spares the
+then the browser does the rest: public knobs written to Actions
+variables and credentials to sealed-box Actions secrets over the REST
+API — never a config commit; a fork is public and so is its history —
+Pages enablement (or the one manual click that spares the
 Administration permission — the `docs/fork-guided-setup.md` §8
 decision), workflow dispatch with live run progress, Brevo domain
 created and its DNS records displayed and polled to green.
