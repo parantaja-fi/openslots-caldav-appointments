@@ -7,6 +7,8 @@ import {
   formComplete,
   senderDomainOf,
 } from "./form";
+import type { RepoInfo } from "./github";
+import { GithubError, getPublicKey, getRepo, putSecret, putVariable, startDeploy } from "./github";
 import type { ManifestEntry } from "./manifest";
 import { MANIFEST } from "./manifest";
 import type { GithubCache } from "./probes";
@@ -45,8 +47,10 @@ function input(id: string): HTMLInputElement {
 
 function render(): void {
   const fields = deriveForm(MANIFEST, state.form, secrets);
+  const formOk = formComplete(fields);
   renderConfig(fields);
-  renderReview(formComplete(fields));
+  renderProvision(formOk);
+  renderReview(formOk);
   renderSteps();
 }
 
@@ -240,6 +244,134 @@ function renderConfig(fields: FieldView[]): void {
       : null;
   cfg.replaceChildren(calendars, cloudflare, email, shape);
   if (active) document.getElementById(active)?.focus();
+}
+
+// --- Provisioning the fork --------------------------------------------
+
+// GitHub pre-fills everything on the token form except the repository
+// pick (not supported as a URL parameter). The four permissions: secrets
+// and variables for the writes, actions for the dispatch, contents for
+// the empty registering commit.
+const PAT_URL =
+  "https://github.com/settings/personal-access-tokens/new" +
+  "?name=Booking+setup+wizard" +
+  "&description=" +
+  encodeURIComponent(
+    "Lets the setup wizard write the booking configuration into the fork " +
+      "and start its deploy. Repository access: only the fork.",
+  ) +
+  "&expires_in=7" +
+  "&contents=write&actions=write&secrets=write&actions_variables=write";
+
+// The token joins the other secrets in module memory only.
+let pat = "";
+let provisioning = false;
+const provisionLog: { text: string; kind: "info" | "ok" | "err" }[] = [];
+
+async function provision(): Promise<void> {
+  provisioning = true;
+  provisionLog.length = 0;
+  const say = (text: string, kind: "info" | "ok" | "err" = "info") => {
+    provisionLog.push({ text, kind });
+    renderProvision(true);
+  };
+  const { owner, repo } = state.inputs;
+  const eff = effectiveValues(MANIFEST, state.form, secrets);
+  try {
+    if (!owner || !repo) {
+      throw new Error("Enter your GitHub username above first — the wizard needs to know which fork to write to.");
+    }
+    say("Checking the token against your fork.");
+    let info: RepoInfo;
+    try {
+      info = await getRepo(owner, repo, pat);
+    } catch (e) {
+      if (e instanceof GithubError && e.status === 404) {
+        throw new Error(
+          `The token cannot see ${owner}/${repo} — under the token's Repository access, pick your fork.`,
+        );
+      }
+      throw e;
+    }
+    const key = await getPublicKey(owner, repo, pat);
+    for (const [name, value] of Object.entries(eff.secrets)) {
+      await putSecret(owner, repo, pat, key, name, value);
+      say(`${name} written.`, "ok");
+    }
+    for (const [name, value] of Object.entries(eff.variables)) {
+      await putVariable(owner, repo, pat, name, value);
+      say(`${name} written.`, "ok");
+    }
+    say("Starting the deploy.");
+    await startDeploy(owner, repo, pat, info.default_branch);
+    say("Deploy started — watch it run in the checklist below.", "ok");
+    state.done["secrets"] = true;
+    save(state);
+    void poll();
+  } catch (e) {
+    say(e instanceof Error ? e.message : String(e), "err");
+  } finally {
+    provisioning = false;
+    render();
+  }
+}
+
+function renderProvision(formOk: boolean): void {
+  const box = document.getElementById("provision")!;
+  if (!formOk) {
+    box.replaceChildren();
+    return;
+  }
+
+  const h = document.createElement("h3");
+  h.textContent = "Write it to your fork";
+
+  const why = document.createElement("p");
+  why.className = "why";
+  const mint = document.createElement("a");
+  mint.href = PAT_URL;
+  mint.target = "_blank";
+  mint.rel = "noopener";
+  mint.textContent = "Mint an access token";
+  why.append(
+    mint,
+    " on GitHub — the form comes pre-filled; under Repository access " +
+      "choose “Only select repositories” and pick your fork. Paste the " +
+      "token here and the wizard writes every secret and variable to " +
+      "your fork itself, then starts the deploy. Prefer doing it by " +
+      "hand? The review list below has copy buttons for everything.",
+  );
+
+  const row = document.createElement("div");
+  row.className = "patrow";
+  const field = document.createElement("input");
+  field.id = "f-pat";
+  field.type = "password";
+  field.value = pat;
+  field.placeholder = "github_pat_…";
+  field.autocomplete = "off";
+  field.spellcheck = false;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = provisioning ? "Writing…" : "Write and deploy";
+  button.disabled = !pat || provisioning;
+  field.addEventListener("input", () => {
+    pat = field.value.trim();
+    button.disabled = !pat || provisioning;
+  });
+  button.addEventListener("click", () => void provision());
+  row.append(field, button);
+
+  const log = document.createElement("ul");
+  log.className = "log";
+  for (const line of provisionLog) {
+    const li = document.createElement("li");
+    li.className = line.kind;
+    li.textContent = line.text;
+    log.append(li);
+  }
+
+  box.replaceChildren(h, why, row, log);
 }
 
 // --- The review list --------------------------------------------------

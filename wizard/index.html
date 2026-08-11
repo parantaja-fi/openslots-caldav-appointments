@@ -42,7 +42,20 @@
         .fieldrow { grid-template-columns: 1fr; }
         .fieldrow .help, .fieldrow .err { grid-column: 1; }
       }
-      #review h3 { margin: 12px 0 4px; font-size: 1rem; }
+      #provision h3, #review h3 { margin: 12px 0 4px; font-size: 1rem; }
+      #provision .why { margin: 0 0 10px; font-size: 0.85rem; color: #444; }
+      #provision .why a { color: #1d4ed8; }
+      #provision .patrow { display: flex; gap: 8px; margin-bottom: 8px; }
+      #provision input { font: inherit; padding: 6px 8px; border: 1px solid #ccc;
+                         border-radius: 4px; flex: 1; }
+      #provision button { font: inherit; font-size: 0.9rem; padding: 6px 12px;
+                          border: 1px solid #ccc; border-radius: 4px;
+                          background: #f3f4f6; cursor: pointer; white-space: nowrap; }
+      #provision button:disabled { color: #999; cursor: default; }
+      #provision .log { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
+      #provision .log li { margin-bottom: 2px; color: #444; }
+      #provision .log li.ok { color: #15803d; }
+      #provision .log li.err { color: #b91c1c; }
       #review .where { margin: 0 0 8px; font-size: 0.85rem; color: #444; }
       #review .where a { color: #1d4ed8; }
       #review .kv { display: flex; gap: 10px; align-items: center;
@@ -82,8 +95,9 @@
         Work through the steps with <a
         href="https://github.com/parantaja-fi/openslots-caldav-appointments/blob/main/SETUP.md"
         target="_blank" rel="noopener">SETUP.md</a> as the reference. This page
-        watches each step land and turns it green — it never asks for a
-        password, key or token.
+        watches each step land and turns it green. Your passwords and keys go,
+        encrypted, straight to your own fork on GitHub — nowhere else — and
+        are forgotten when the tab closes.
       </p>
       <div id="inputs">
         <label for="owner">GitHub username</label>
@@ -97,10 +111,11 @@
         <p class="lede">
           Everything your deployment needs, checked as you type. The knobs are
           remembered by this browser; passwords, keys and tokens stay in this
-          tab's memory only — close it before deploying and you will paste
-          them again. Nothing is sent anywhere from this page.
+          tab's memory until you write them to your fork — close the tab and
+          you will paste them again.
         </p>
         <form id="cfg"></form>
+        <section id="provision"></section>
         <section id="review"></section>
       </section>
       <div id="controls">

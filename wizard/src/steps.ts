@@ -79,9 +79,9 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
     status: saved.done["secrets"] ? "green" : "open",
     body: [
       formOk
-        ? "The form above is complete. Copy each name and value from its " +
-          "review list into your fork's Actions settings — secrets and " +
-          "variables each have a page of their own."
+        ? "The form above is complete. Paste a repo-scoped token beneath it " +
+          "and the wizard writes everything into your fork and starts the " +
+          "deploy — or copy the review list in by hand."
         : "Fill in the configuration form above; once every required field " +
           "is valid it becomes a copy-ready review list.",
       "Secrets are write-only, so the wizard cannot watch this step; the " +
