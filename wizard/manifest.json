@@ -1,0 +1,182 @@
+[
+  {
+    "name": "AVAILABILITY_CALENDAR_URL",
+    "kind": "secret",
+    "group": "calendars",
+    "label": "Availability calendar address",
+    "help": "The calendar holding your OPEN events. The system only ever reads it.",
+    "validate": "caldavUrl",
+    "placeholder": "https://cloud.example/remote.php/dav/calendars/you/availability/"
+  },
+  {
+    "name": "AVAILABILITY_USERNAME",
+    "kind": "secret",
+    "group": "calendars",
+    "label": "Availability username",
+    "help": "The account the availability calendar belongs to.",
+    "validate": "nonEmpty"
+  },
+  {
+    "name": "AVAILABILITY_PASSWORD",
+    "kind": "secret",
+    "group": "calendars",
+    "label": "Availability app password",
+    "help": "An app password minted for this — never your ordinary login password.",
+    "validate": "nonEmpty",
+    "masked": true
+  },
+  {
+    "name": "BOOKING_STORE_URL",
+    "kind": "secret",
+    "group": "calendars",
+    "label": "Booking calendar address",
+    "help": "Where confirmed bookings are written, as ordinary calendar events.",
+    "validate": "caldavUrl",
+    "placeholder": "https://cloud.example/remote.php/dav/calendars/you/bookings/"
+  },
+  {
+    "name": "BOOKING_STORE_USERNAME",
+    "kind": "secret",
+    "group": "calendars",
+    "label": "Booking username",
+    "help": "The account the booking calendar belongs to.",
+    "validate": "nonEmpty"
+  },
+  {
+    "name": "BOOKING_STORE_PASSWORD",
+    "kind": "secret",
+    "group": "calendars",
+    "label": "Booking app password",
+    "help": "An app password for the booking calendar.",
+    "validate": "nonEmpty",
+    "masked": true
+  },
+  {
+    "name": "GOOGLE_SERVICE_ACCOUNT_JSON",
+    "kind": "secret",
+    "group": "calendars",
+    "label": "Service-account key file",
+    "help": "The whole JSON key file of the Google Cloud service account both calendars are shared with.",
+    "validate": "googleJson",
+    "multiline": true
+  },
+  {
+    "name": "CLOUDFLARE_API_TOKEN",
+    "kind": "secret",
+    "group": "cloudflare",
+    "label": "API token",
+    "help": "Lets the deploy run publish the booking API to your Cloudflare account.",
+    "validate": "nonEmpty",
+    "masked": true
+  },
+  {
+    "name": "CLOUDFLARE_ACCOUNT_ID",
+    "kind": "secret",
+    "group": "cloudflare",
+    "label": "Account ID",
+    "help": "On your Cloudflare dashboard's overview page, right-hand column — 32 characters.",
+    "validate": "cloudflareAccountId"
+  },
+  {
+    "name": "BREVO_API_KEY",
+    "kind": "secret",
+    "group": "email",
+    "label": "Brevo API key",
+    "help": "Lets the system hand your confirmation emails to Brevo for delivery.",
+    "validate": "nonEmpty",
+    "masked": true
+  },
+  {
+    "name": "SENDER_EMAIL",
+    "kind": "secret",
+    "group": "email",
+    "label": "Sender address",
+    "help": "The From: address — at your own domain, and a real mailbox you read.",
+    "validate": "email",
+    "placeholder": "info@yourpractice.com"
+  },
+  {
+    "name": "PRACTITIONER_EMAIL",
+    "kind": "secret",
+    "group": "email",
+    "label": "Your notification address",
+    "help": "Gets a notice on every booking. Leave empty for none.",
+    "validate": "email",
+    "optional": true
+  },
+  {
+    "name": "SENDER_NAME",
+    "kind": "variable",
+    "group": "email",
+    "label": "Sender name",
+    "help": "The name shown beside the sender address; “Bookings” if left empty.",
+    "validate": "text",
+    "optional": true
+  },
+  {
+    "name": "DISPLAY_TIMEZONE",
+    "kind": "variable",
+    "group": "email",
+    "label": "Timezone",
+    "help": "Appointment times in the emails are written in this zone.",
+    "validate": "timezone",
+    "placeholder": "Europe/Helsinki"
+  },
+  {
+    "name": "SLOT_MINUTES",
+    "kind": "variable",
+    "group": "shape",
+    "label": "Appointment length (minutes)",
+    "help": "Every OPEN block is cut into slots of this length.",
+    "validate": "posInt",
+    "default": "30"
+  },
+  {
+    "name": "MIN_NOTICE_MINUTES",
+    "kind": "variable",
+    "group": "shape",
+    "label": "Minimum notice (minutes)",
+    "help": "How close to now a slot may still be booked — 120 blocks the next two hours.",
+    "validate": "posInt",
+    "default": "120"
+  },
+  {
+    "name": "BOOKING_HORIZON_DAYS",
+    "kind": "variable",
+    "group": "shape",
+    "label": "Booking horizon (days)",
+    "help": "How far ahead customers can see and book.",
+    "validate": "posInt",
+    "default": "60"
+  },
+  {
+    "name": "MAX_SLOTS",
+    "kind": "variable",
+    "group": "shape",
+    "label": "Most slots ever listed",
+    "help": "A safety cap on one page load; the default is plenty.",
+    "validate": "posInt",
+    "default": "500",
+    "advanced": true
+  },
+  {
+    "name": "GRANT_TTL_SECS",
+    "kind": "variable",
+    "group": "shape",
+    "label": "Booking grant lifetime (seconds)",
+    "help": "How long a customer has between seeing a slot and confirming it.",
+    "validate": "posInt",
+    "default": "1800",
+    "advanced": true
+  },
+  {
+    "name": "PROOF_MAX_AGE_SECS",
+    "kind": "variable",
+    "group": "shape",
+    "label": "Proof freshness (seconds)",
+    "help": "Anti-replay window on booking requests; leave as is.",
+    "validate": "posInt",
+    "default": "60",
+    "advanced": true
+  }
+]

@@ -12,8 +12,13 @@ function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, bo
       senderDomain: "p.fi",
       ...overrides,
     },
+    form: { provider: "nextcloud", sameCalendar: true, emailOn: true, values: {} },
     done,
   };
+}
+
+function emailOff(s: Saved): Saved {
+  return { ...s, form: { ...s.form, emailOn: false } };
 }
 
 function step(id: string, s: Saved, probes: ProbeState = {}) {
@@ -92,8 +97,23 @@ describe("health", () => {
   });
 });
 
+describe("secrets step", () => {
+  it("points at the form until it is complete, then at the review list", () => {
+    const before = deriveSteps(saved(), {}).find((x) => x.id === "secrets")!;
+    expect(before.body.join("\n")).toContain("Fill in the configuration form");
+    const after = deriveSteps(saved(), {}, true).find((x) => x.id === "secrets")!;
+    expect(after.body.join("\n")).toContain("review list");
+  });
+});
+
 describe("dns", () => {
-  it("is open without a domain — email off is a valid setup", () => {
+  it("is green with nothing to prove when email is off", () => {
+    const view = step("dns", emailOff(saved({ senderDomain: "" })));
+    expect(view.status).toBe("green");
+    expect(view.body.join("\n")).toContain("switched off");
+  });
+
+  it("waits for a sender address when email is on but none is valid yet", () => {
     expect(step("dns", saved({ senderDomain: "" })).status).toBe("open");
   });
 

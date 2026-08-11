@@ -27,22 +27,11 @@ export interface StepView {
   manual: boolean;
 }
 
-const SECRET_NAMES =
-  "CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, AVAILABILITY_CALENDAR_URL, " +
-  "AVAILABILITY_USERNAME, AVAILABILITY_PASSWORD, BOOKING_STORE_URL, " +
-  "BOOKING_STORE_USERNAME, BOOKING_STORE_PASSWORD — and for email, " +
-  "BREVO_API_KEY, SENDER_EMAIL and optionally PRACTITIONER_EMAIL.";
-
-const VARIABLE_NAMES =
-  "SLOT_MINUTES, BOOKING_HORIZON_DAYS, MIN_NOTICE_MINUTES, MAX_SLOTS, " +
-  "GRANT_TTL_SECS, PROOF_MAX_AGE_SECS, DISPLAY_TIMEZONE and optionally " +
-  "SENDER_NAME.";
-
 function healthLine(name: string, sub: { ok: boolean; error?: string }): string {
   return sub.ok ? `${name}: ok` : `${name}: ${sub.error ?? "failing"}`;
 }
 
-export function deriveSteps(saved: Saved, probes: ProbeState): StepView[] {
+export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): StepView[] {
   const { owner, repo, workerUrl, senderDomain } = saved.inputs;
   const fork = owner && repo ? `https://github.com/${owner}/${repo}` : null;
   const steps: StepView[] = [];
@@ -89,11 +78,14 @@ export function deriveSteps(saved: Saved, probes: ProbeState): StepView[] {
     title: "Enter the configuration",
     status: saved.done["secrets"] ? "green" : "open",
     body: [
-      "In your fork's Actions settings, create the secrets — credentials " +
-        "and addresses: " + SECRET_NAMES,
-      "Then the variables — the public knobs: " + VARIABLE_NAMES,
-      "SETUP.md Part 3 explains each value. Secrets are write-only, so the " +
-        "wizard cannot watch this step; the deploy run below is its proof.",
+      formOk
+        ? "The form above is complete. Copy each name and value from its " +
+          "review list into your fork's Actions settings — secrets and " +
+          "variables each have a page of their own."
+        : "Fill in the configuration form above; once every required field " +
+          "is valid it becomes a copy-ready review list.",
+      "Secrets are write-only, so the wizard cannot watch this step; the " +
+        "deploy run below is its proof.",
     ],
     links: fork
       ? [
@@ -191,25 +183,31 @@ export function deriveSteps(saved: Saved, probes: ProbeState): StepView[] {
   });
 
   const dns = probes.dns;
+  const emailOn = saved.form.emailOn;
   steps.push({
     id: "dns",
     title: "Email DNS records",
-    status: !senderDomain
-      ? "open"
-      : dns && dns.dkim && dns.code && dns.dmarc
-        ? "green"
-        : "watch",
-    body: [
-      !senderDomain
-        ? "Enter your sender domain above, or skip this step if email is off."
-        : dns
-          ? `DKIM ${dns.dkim ? "found" : "missing"}, brevo-code ` +
-            `${dns.code ? "found" : "missing"}, DMARC ${dns.dmarc ? "found" : "missing"}.`
-          : "Looking the records up.",
-      "Checked by presence in public DNS (SETUP.md Part 4 names them); " +
-        "Brevo's own record-by-record verdict arrives with the next wizard " +
-        "stage.",
-    ],
+    status: !emailOn
+      ? "green"
+      : !senderDomain
+        ? "open"
+        : dns && dns.dkim && dns.code && dns.dmarc
+          ? "green"
+          : "watch",
+    body: !emailOn
+      ? ["Email is switched off in the configuration — nothing to prove in DNS."]
+      : [
+          !senderDomain
+            ? "Enter a valid sender address in the configuration form; its " +
+              "domain is what these records vouch for."
+            : dns
+              ? `DKIM ${dns.dkim ? "found" : "missing"}, brevo-code ` +
+                `${dns.code ? "found" : "missing"}, DMARC ${dns.dmarc ? "found" : "missing"}.`
+              : "Looking the records up.",
+          "Checked by presence in public DNS (SETUP.md Part 4 names them); " +
+            "Brevo's own record-by-record verdict arrives with the next wizard " +
+            "stage.",
+        ],
     links: [],
     manual: false,
   });

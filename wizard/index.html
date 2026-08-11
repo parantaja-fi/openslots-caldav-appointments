@@ -18,6 +18,41 @@
       #inputs input { font: inherit; padding: 6px 8px; border: 1px solid #ccc;
                       border-radius: 4px; width: 100%; }
       #inputs .hint { grid-column: 2; font-size: 0.8rem; color: #777; margin: -4px 0 4px; }
+      #config { background: white; border-radius: 8px; padding: 16px;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+      #config h2 { margin: 0 0 4px; font-size: 1.1rem; }
+      #config .lede { margin: 0 0 14px; font-size: 0.85rem; }
+      #cfg fieldset { border: 1px solid #e5e7eb; border-radius: 6px;
+                      margin: 0 0 12px; padding: 10px 12px; }
+      #cfg legend { font-weight: 600; font-size: 0.95rem; padding: 0 4px; }
+      #cfg .why { margin: 0 0 10px; font-size: 0.8rem; color: #666; }
+      #cfg .toggle { display: block; font-size: 0.9rem; margin: 0 0 10px; }
+      #cfg details { margin-top: 4px; }
+      #cfg summary { font-size: 0.85rem; color: #555; cursor: pointer; }
+      .fieldrow { display: grid; grid-template-columns: 220px 1fr; gap: 2px 12px;
+                  margin-bottom: 10px; align-items: start; }
+      .fieldrow > label { font-size: 0.9rem; color: #333; padding-top: 7px; }
+      .fieldrow input, .fieldrow textarea, .fieldrow select, #cfg select {
+        font: inherit; padding: 6px 8px; border: 1px solid #ccc;
+        border-radius: 4px; width: 100%; }
+      .fieldrow .help { grid-column: 2; font-size: 0.8rem; color: #777; }
+      .fieldrow .err { grid-column: 2; font-size: 0.8rem; color: #b91c1c; }
+      .fieldrow.invalid input, .fieldrow.invalid textarea { border-color: #b91c1c; }
+      @media (max-width: 640px) {
+        .fieldrow { grid-template-columns: 1fr; }
+        .fieldrow .help, .fieldrow .err { grid-column: 1; }
+      }
+      #review h3 { margin: 12px 0 4px; font-size: 1rem; }
+      #review .where { margin: 0 0 8px; font-size: 0.85rem; color: #444; }
+      #review .where a { color: #1d4ed8; }
+      #review .kv { display: flex; gap: 10px; align-items: center;
+                    font-size: 0.85rem; margin-bottom: 4px; }
+      #review code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px;
+                     font-size: 0.8rem; }
+      #review .val { color: #444; overflow-wrap: anywhere; }
+      #review button { font: inherit; font-size: 0.8rem; padding: 2px 8px;
+                       border: 1px solid #ccc; border-radius: 4px;
+                       background: #f3f4f6; cursor: pointer; }
       #steps { list-style: none; margin: 0; padding: 0; }
       #steps li { background: white; border-radius: 8px; padding: 12px 16px;
                   box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 12px;
@@ -58,9 +93,18 @@
         <label for="worker">Worker URL</label>
         <input id="worker" autocomplete="off" spellcheck="false" placeholder="https://booking-worker.<subdomain>.workers.dev" />
         <span class="hint">Printed by the deploy run; also on your Cloudflare dashboard.</span>
-        <label for="domain">Sender domain</label>
-        <input id="domain" autocomplete="off" spellcheck="false" placeholder="yourpractice.com — leave empty if email is off" />
       </div>
+      <section id="config">
+        <h2>Configuration</h2>
+        <p class="lede">
+          Everything your deployment needs, checked as you type. The knobs are
+          remembered by this browser; passwords, keys and tokens stay in this
+          tab's memory only — close it before deploying and you will paste
+          them again. Nothing is sent anywhere from this page.
+        </p>
+        <form id="cfg"></form>
+        <section id="review"></section>
+      </section>
       <div id="controls">
         <button id="refresh">Check now</button>
         <span id="alldone" hidden>All green — your booking calendar is live.</span>
