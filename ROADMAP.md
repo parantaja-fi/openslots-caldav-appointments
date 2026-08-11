@@ -193,6 +193,13 @@ settled 2026-08-11:
    to green; then the email secrets written and the deploy
    re-dispatched. Resumable across sessions — DNS propagation is not
    the practitioner's clock — with the key re-pasted on resume.
+   *Met 2026-08-11: domain registration, record display and the
+   dual Brevo+DoH verdict verified live against parantaja.fi from a
+   browser origin (the duplicate POST answers 404
+   `duplicate_parameter`, read back instead); records persist across
+   reload, the key does not. The email secrets ride the existing
+   provision button, which re-writes and re-dispatches on a second
+   press — no separate step needed.*
 4. **M6.4 — The journey, walked by proxy.** The welcome step with
    the one-picture mental model (customer → page on GitHub → API on
    Cloudflare → your calendar), phase rail, living-with-it and
