@@ -2,7 +2,8 @@ name: Derive check
 # Scratch (M6.2 verify-first): can CI derive the Cloudflare account id
 # from the API token alone? Prints verdicts only, never values.
 on:
-  workflow_dispatch:
+  push:
+    branches: [m62-derive-check]
 
 jobs:
   check:
