@@ -10,6 +10,26 @@
       #app { max-width: 760px; margin: 0 auto; padding: 24px; }
       h1 { margin: 0 0 4px; font-size: 1.5rem; }
       .lede { margin: 0 0 20px; color: #555; }
+      .lede a { color: #1d4ed8; }
+      #model { display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+               margin: 0 0 16px; }
+      #model .node { background: white; border: 1px solid #e5e7eb;
+                     border-radius: 6px; padding: 6px 12px; font-size: 0.9rem;
+                     display: flex; flex-direction: column; }
+      #model .on { font-size: 0.75rem; color: #777; }
+      #model .arr { color: #999; }
+      #rail { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 20px;
+              font-size: 0.85rem; }
+      #rail .phase { padding: 2px 10px; border-radius: 999px;
+                     background: #e5e7eb; color: #777; }
+      #rail .phase.green { background: #dcfce7; color: #15803d; }
+      #rail .phase.current { background: #1d4ed8; color: white; }
+      #alldone { background: white; border-radius: 8px; padding: 12px 16px;
+                 box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 12px;
+                 font-size: 0.9rem; color: #444; }
+      #alldone .donehead { color: #15803d; font-weight: 600; }
+      #alldone p { margin: 0 0 8px; }
+      #alldone a { color: #1d4ed8; }
       #inputs { background: white; border-radius: 8px; padding: 16px;
                 box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px;
                 display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px;
@@ -44,7 +64,7 @@
       }
       #email h3, #provision h3, #review h3 { margin: 12px 0 4px; font-size: 1rem; }
       #email .why, #provision .why { margin: 0 0 10px; font-size: 0.85rem; color: #444; }
-      #provision .why a { color: #1d4ed8; }
+      #email .why a, #provision .why a { color: #1d4ed8; }
       #email button { font: inherit; font-size: 0.85rem; padding: 4px 10px;
                       border: 1px solid #ccc; border-radius: 4px;
                       background: #f3f4f6; cursor: pointer; }
@@ -102,12 +122,28 @@
     <div id="app">
       <h1>Set up your booking calendar</h1>
       <p class="lede">
-        Work through the steps with <a
-        href="https://github.com/parantaja-fi/openslots-caldav-appointments/blob/main/SETUP.md"
-        target="_blank" rel="noopener">SETUP.md</a> as the reference. This page
-        watches each step land and turns it green. Your passwords and keys go,
-        encrypted, straight to your own fork on GitHub — nowhere else — and
-        are forgotten when the tab closes.
+        You are about to get a booking calendar of your own: a public booking
+        page, a small program guarding it, and your existing calendar as the
+        only place anything is stored. Two free services run it — nothing to
+        install, no server to keep. This page walks the whole journey and
+        watches each step land.
+      </p>
+      <div id="model">
+        <span class="node">Your customer</span>
+        <span class="arr">→</span>
+        <span class="node">Booking page<span class="on">on GitHub</span></span>
+        <span class="arr">→</span>
+        <span class="node">Booking API<span class="on">on Cloudflare</span></span>
+        <span class="arr">→</span>
+        <span class="node">Your calendar<span class="on">stays where it is</span></span>
+      </div>
+      <div id="rail"></div>
+      <p class="lede">
+        <a href="https://github.com/parantaja-fi/openslots-caldav-appointments/blob/main/SETUP.md"
+        target="_blank" rel="noopener">SETUP.md</a> is the long-form reference
+        when you want the why behind a step. Your passwords and keys go,
+        encrypted, straight to your own copy of the project on GitHub —
+        nowhere else — and are forgotten when the tab closes.
       </p>
       <div id="inputs">
         <label for="owner">GitHub username</label>
@@ -131,9 +167,24 @@
       </section>
       <div id="controls">
         <button id="refresh">Check now</button>
-        <span id="alldone" hidden>All green — your booking calendar is live.</span>
       </div>
       <ol id="steps"></ol>
+      <div id="alldone" hidden>
+        <p class="donehead">All green — your booking calendar is live.</p>
+        <p>
+          Living with it: bookings land in your calendar as ordinary events,
+          and cancelling one from its email link frees the slot. Your open
+          hours are the OPEN events in the availability calendar — edit
+          those, and the page follows. To change a setting later, come back
+          here: adjust the form, paste a fresh token, write and deploy again.
+        </p>
+        <p>
+          The setup token has done its job —
+          <a href="https://github.com/settings/personal-access-tokens"
+          target="_blank" rel="noopener">revoke it now</a>. Day-to-day
+          booking needs no standing access to your GitHub account.
+        </p>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

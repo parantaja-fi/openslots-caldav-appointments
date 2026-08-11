@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProbeState } from "../src/steps";
-import { allGreen, deriveSteps } from "../src/steps";
+import { allGreen, derivePhases, deriveSteps } from "../src/steps";
 import type { Saved } from "../src/state";
 
 function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, boolean> = {}): Saved {
@@ -160,6 +160,40 @@ describe("dns", () => {
   it("ignores a Brevo registration for a domain the form no longer names", () => {
     const doh = { dns: { dkim: true, code: true, dmarc: true } };
     expect(step("dns", withBrevo(saved(), false, "old.example"), doh).status).toBe("green");
+  });
+});
+
+describe("phases", () => {
+  it("greens finished phases and points at the first unfinished one", () => {
+    const phases = derivePhases(deriveSteps(saved({}, { accounts: true }), { fork: true }));
+    expect(phases.map((p) => `${p.label}:${p.status}`)).toEqual([
+      "Accounts:green",
+      "Fork:green",
+      "Configure:current",
+      "Deploy:todo",
+      "Email:todo",
+      "Test drive:todo",
+    ]);
+  });
+
+  it("is current on Deploy while any of its three steps lags", () => {
+    const done = { accounts: true, secrets: true, pages: true };
+    const phases = derivePhases(
+      deriveSteps(saved({}, done), { fork: true, run: { state: "running", url: "u" } }),
+    );
+    expect(phases.find((p) => p.label === "Deploy")?.status).toBe("current");
+  });
+
+  it("is green throughout exactly when the checklist is", () => {
+    const done = { accounts: true, secrets: true, pages: true, smoke: true };
+    const probes: ProbeState = {
+      fork: true,
+      run: { state: "success", url: "u" },
+      health: { state: "answered", body: { ok: true, config: { ok: true } } },
+      dns: { dkim: true, code: true, dmarc: true },
+    };
+    const phases = derivePhases(deriveSteps(saved({}, done), probes));
+    expect(phases.every((p) => p.status === "green")).toBe(true);
   });
 });
 

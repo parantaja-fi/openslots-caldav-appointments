@@ -14,10 +14,10 @@ import type { ManifestEntry } from "./manifest";
 import { MANIFEST } from "./manifest";
 import type { GithubCache } from "./probes";
 import { probeDeployInfo, probeDns, probeFork, probeHealth, probeRun } from "./probes";
-import type { ProbeState, StepView } from "./steps";
-import { allGreen, deriveSteps } from "./steps";
+import type { PhaseView, ProbeState, StepView } from "./steps";
+import { allGreen, derivePhases, deriveSteps } from "./steps";
 import type { Provider } from "./state";
-import { load, save } from "./state";
+import { UPSTREAM_OWNER, UPSTREAM_REPO, load, save } from "./state";
 
 const POLL_MS = 20_000;
 const BADGE = { open: "○", watch: "◌", green: "✓", red: "✗" } as const;
@@ -61,9 +61,22 @@ function render(): void {
 function renderSteps(): void {
   const formOk = formComplete(deriveForm(MANIFEST, state.form, secrets));
   const steps = deriveSteps(state, probes, formOk);
+  renderRail(derivePhases(steps));
   const list = document.getElementById("steps")!;
   list.replaceChildren(...steps.map(renderStep));
   (document.getElementById("alldone") as HTMLElement).hidden = !allGreen(steps);
+}
+
+function renderRail(phases: PhaseView[]): void {
+  const rail = document.getElementById("rail")!;
+  rail.replaceChildren(
+    ...phases.map((p) => {
+      const chip = document.createElement("span");
+      chip.className = `phase ${p.status}`;
+      chip.textContent = p.status === "green" ? `✓ ${p.label}` : p.label;
+      return chip;
+    }),
+  );
 }
 
 // --- The configuration form -------------------------------------------
@@ -332,6 +345,21 @@ function renderEmail(): void {
         "visits and the wizard keeps checking, though after a reload it " +
         "needs the Brevo key pasted again to ask Brevo itself.";
     children.push(why, ...current.records.map(recordRow));
+    if (!current.authenticated) {
+      const byHand = document.createElement("p");
+      byHand.className = "why";
+      const a = document.createElement("a");
+      a.href = `https://github.com/${UPSTREAM_OWNER}/${UPSTREAM_REPO}/blob/main/SETUP.md`;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = "SETUP.md Part 4";
+      byHand.append(
+        "Rather work in Brevo's own pages? ",
+        a,
+        " walks the same records; the verdicts here turn green either way.",
+      );
+      children.push(byHand);
+    }
   }
 
   if (brevoError) {

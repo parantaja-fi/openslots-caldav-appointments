@@ -249,3 +249,31 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
 export function allGreen(steps: StepView[]): boolean {
   return steps.every((s) => s.status === "green");
 }
+
+export interface PhaseView {
+  label: string;
+  status: "green" | "current" | "todo";
+}
+
+const PHASES: [string, string[]][] = [
+  ["Accounts", ["accounts"]],
+  ["Fork", ["fork"]],
+  ["Configure", ["secrets"]],
+  ["Deploy", ["pages", "deploy", "health"]],
+  ["Email", ["dns"]],
+  ["Test drive", ["smoke"]],
+];
+
+/** The journey compressed to a rail: a phase is green when every step
+ * of it is, and the first phase not yet green is where the
+ * practitioner stands. */
+export function derivePhases(steps: StepView[]): PhaseView[] {
+  const byId = new Map(steps.map((s) => [s.id, s.status]));
+  let currentFound = false;
+  return PHASES.map(([label, ids]) => {
+    if (ids.every((id) => byId.get(id) === "green")) return { label, status: "green" as const };
+    if (currentFound) return { label, status: "todo" as const };
+    currentFound = true;
+    return { label, status: "current" as const };
+  });
+}
