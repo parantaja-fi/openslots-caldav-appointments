@@ -166,6 +166,9 @@ settled 2026-08-11:
    yet: the interim output is a validated review list with copy
    buttons and deep links into the fork's settings, and a test that
    fails whenever the manifest and `deploy.yml` name different sets.
+   *Met 2026-08-11: deployed with the form, the review list and the
+   cross-check test; secrets verified (Playwright) to survive neither
+   reload nor the poll's repaint.*
 2. **M6.2 — GitHub provisioning.** The PAT step (template URL,
    paste, verified by an authenticated read of the fork), sealed-box
    secret and variable writes, the workflow-registering commit,
