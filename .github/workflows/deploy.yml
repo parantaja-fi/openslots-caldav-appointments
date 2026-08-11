@@ -94,12 +94,40 @@ jobs:
           simple       = { limit = 20, period = 60 }
           EOF
 
+      # CLOUDFLARE_ACCOUNT_ID is optional: when unset, the account is read
+      # from the token itself (the workers token template carries Account
+      # Settings Read). Ambiguity — a token seeing several accounts — is an
+      # error, not a guess. The id never reaches the log either way.
+      - name: Resolve the Cloudflare account
+        id: account
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # Scratch-branch check: derive unconditionally and compare with
+          # the configured secret. Prints only verdicts, never values.
+          ids=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            https://api.cloudflare.com/client/v4/accounts | jq -r '.result[].id') \
+            || { echo "VERDICT: /accounts not readable with this token"; exit 1; }
+          count=$(printf '%s\n' "$ids" | grep -c .)
+          echo "VERDICT: token sees $count account(s)"
+          [ "$count" = 1 ] || exit 1
+          if [ "$ids" = "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "VERDICT: derived id matches the configured secret"
+          else
+            echo "VERDICT: derived id DIFFERS from the configured secret"
+            exit 1
+          fi
+          CLOUDFLARE_ACCOUNT_ID=$ids
+          echo "::add-mask::$CLOUDFLARE_ACCOUNT_ID"
+          echo "id=$CLOUDFLARE_ACCOUNT_ID" >> "$GITHUB_OUTPUT"
+
       - name: Deploy the Worker
         id: worker
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: ${{ steps.account.outputs.id }}
           workingDirectory: worker
           command: deploy -c wrangler.deploy.toml
 
@@ -111,7 +139,7 @@ jobs:
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.id }}
           AVAILABILITY_CALENDAR_URL: ${{ secrets.AVAILABILITY_CALENDAR_URL }}
           BOOKING_STORE_URL: ${{ secrets.BOOKING_STORE_URL }}
           AVAILABILITY_USERNAME: ${{ secrets.AVAILABILITY_USERNAME }}
@@ -142,7 +170,7 @@ jobs:
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.account.outputs.id }}
         run: |
           if ! npx wrangler secret list -c wrangler.deploy.toml | grep -q '"SIGNING_KEY_JWK"'; then
             node scripts/keygen.mjs | npx wrangler secret put SIGNING_KEY_JWK -c wrangler.deploy.toml
@@ -171,6 +199,19 @@ jobs:
         run: |
           cp -R frontend/dist site
           cp -R wizard/dist site/wizard
+
+      # Where everything landed, for the wizard to discover: Pages serves
+      # with CORS *, and both values are public by nature (the page's own
+      # origin, the Worker URL every visitor's browser calls anyway).
+      - name: Drop deploy-info.json
+        env:
+          WORKER_URL: ${{ steps.worker.outputs.deployment-url }}
+          PAGE_ORIGIN: ${{ steps.pages.outputs.origin }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          jq -n '{ worker_url: env.WORKER_URL,
+                   page_origin: env.PAGE_ORIGIN,
+                   base_path: env.BASE_PATH }' > site/deploy-info.json
 
       - uses: actions/upload-pages-artifact@v5
         with:
