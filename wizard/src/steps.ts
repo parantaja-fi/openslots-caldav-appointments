@@ -189,6 +189,11 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
 
   const dns = probes.dns;
   const emailOn = saved.form.emailOn;
+  // Brevo's verdict counts only for the domain the form currently names;
+  // absent (the by-hand path), public DNS alone decides.
+  const brevo =
+    saved.brevo && saved.brevo.domain === senderDomain ? saved.brevo : null;
+  const dohGreen = Boolean(dns && dns.dkim && dns.code && dns.dmarc);
   steps.push({
     id: "dns",
     title: "Email DNS records",
@@ -196,7 +201,7 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
       ? "green"
       : !senderDomain
         ? "open"
-        : dns && dns.dkim && dns.code && dns.dmarc
+        : dohGreen && (!brevo || brevo.authenticated)
           ? "green"
           : "watch",
     body: !emailOn
@@ -206,12 +211,19 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
             ? "Enter a valid sender address in the configuration form; its " +
               "domain is what these records vouch for."
             : dns
-              ? `DKIM ${dns.dkim ? "found" : "missing"}, brevo-code ` +
+              ? `Public DNS: DKIM ${dns.dkim ? "found" : "missing"}, brevo-code ` +
                 `${dns.code ? "found" : "missing"}, DMARC ${dns.dmarc ? "found" : "missing"}.`
-              : "Looking the records up.",
-          "Checked by presence in public DNS (SETUP.md Part 4 names them); " +
-            "Brevo's own record-by-record verdict arrives with the next wizard " +
-            "stage.",
+              : "Looking the records up in public DNS.",
+          ...(senderDomain && brevo
+            ? [
+                brevo.authenticated
+                  ? "Brevo: domain authenticated."
+                  : `Brevo: ${brevo.records.filter((r) => r.status).length} of ` +
+                    `${brevo.records.length} records confirmed.`,
+              ]
+            : []),
+          "Checked two ways: presence in public DNS, and Brevo's own " +
+            "record-by-record verdict once the domain is registered above.",
         ],
     links: [],
     manual: false,

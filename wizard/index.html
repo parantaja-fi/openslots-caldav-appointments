@@ -42,9 +42,19 @@
         .fieldrow { grid-template-columns: 1fr; }
         .fieldrow .help, .fieldrow .err { grid-column: 1; }
       }
-      #provision h3, #review h3 { margin: 12px 0 4px; font-size: 1rem; }
-      #provision .why { margin: 0 0 10px; font-size: 0.85rem; color: #444; }
+      #email h3, #provision h3, #review h3 { margin: 12px 0 4px; font-size: 1rem; }
+      #email .why, #provision .why { margin: 0 0 10px; font-size: 0.85rem; color: #444; }
       #provision .why a { color: #1d4ed8; }
+      #email button { font: inherit; font-size: 0.85rem; padding: 4px 10px;
+                      border: 1px solid #ccc; border-radius: 4px;
+                      background: #f3f4f6; cursor: pointer; }
+      #email button:disabled { color: #999; cursor: default; }
+      #email .err { font-size: 0.85rem; color: #b91c1c; }
+      #email .rec { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center;
+                    font-size: 0.85rem; margin-bottom: 6px; }
+      #email .rec code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px;
+                         font-size: 0.8rem; overflow-wrap: anywhere; }
+      #email .reclabel { font-weight: 600; min-width: 130px; }
       #provision .patrow { display: flex; gap: 8px; margin-bottom: 8px; }
       #provision input { font: inherit; padding: 6px 8px; border: 1px solid #ccc;
                          border-radius: 4px; flex: 1; }
@@ -115,6 +125,7 @@
           you will paste them again.
         </p>
         <form id="cfg"></form>
+        <section id="email"></section>
         <section id="provision"></section>
         <section id="review"></section>
       </section>

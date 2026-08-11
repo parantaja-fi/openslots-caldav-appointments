@@ -7,6 +7,7 @@ import {
   formComplete,
   senderDomainOf,
 } from "./form";
+import { authenticate, createDomain, getDomain } from "./brevo";
 import type { RepoInfo } from "./github";
 import { GithubError, getPublicKey, getRepo, putSecret, putVariable, startDeploy } from "./github";
 import type { ManifestEntry } from "./manifest";
@@ -49,6 +50,7 @@ function render(): void {
   const fields = deriveForm(MANIFEST, state.form, secrets);
   const formOk = formComplete(fields);
   renderConfig(fields);
+  renderEmail();
   renderProvision(formOk);
   renderReview(formOk);
   renderSteps();
@@ -83,6 +85,8 @@ function commitField(entry: ManifestEntry, value: string): void {
       void poll();
     }
   }
+  // A key pasted on resume lets the poll ask Brevo again straight away.
+  if (entry.name === "BREVO_API_KEY" && value) void poll();
   save(state);
   render();
 }
@@ -244,6 +248,99 @@ function renderConfig(fields: FieldView[]): void {
       : null;
   cfg.replaceChildren(calendars, cloudflare, email, shape);
   if (active) document.getElementById(active)?.focus();
+}
+
+// --- The sender domain at Brevo ---------------------------------------
+
+let brevoBusy = false;
+let brevoError = "";
+
+async function registerDomain(): Promise<void> {
+  brevoBusy = true;
+  brevoError = "";
+  renderEmail();
+  try {
+    state.brevo = await createDomain(secrets["BREVO_API_KEY"]!, state.inputs.senderDomain);
+    save(state);
+    void poll();
+  } catch (e) {
+    brevoError = e instanceof Error ? e.message : String(e);
+  } finally {
+    brevoBusy = false;
+    renderEmail();
+    renderSteps();
+  }
+}
+
+function recordRow(r: { label: string; type: string; host: string; value: string; status: boolean }): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "rec";
+  const badge = document.createElement("span");
+  badge.className = r.status ? "badge green" : "badge open";
+  badge.textContent = r.status ? BADGE.green : BADGE.watch;
+  const label = document.createElement("span");
+  label.className = "reclabel";
+  label.textContent = `${r.label} — ${r.type}`;
+  const host = document.createElement("code");
+  host.textContent = r.host;
+  const value = document.createElement("code");
+  value.className = "recvalue";
+  value.textContent = r.value;
+  row.append(badge, label, host, copyButton(r.host), value, copyButton(r.value));
+  return row;
+}
+
+function renderEmail(): void {
+  const box = document.getElementById("email")!;
+  const domain = state.inputs.senderDomain;
+  const key = secrets["BREVO_API_KEY"] ?? "";
+  const current = state.brevo && state.brevo.domain === domain ? state.brevo : null;
+  if (!state.form.emailOn || !domain || (!key && !current)) {
+    box.replaceChildren();
+    return;
+  }
+
+  const h = document.createElement("h3");
+  h.textContent = "Prove your sender domain";
+  const children: HTMLElement[] = [h];
+
+  if (!current) {
+    const why = document.createElement("p");
+    why.className = "why";
+    why.textContent =
+      state.brevo
+        ? `The sender address moved from ${state.brevo.domain} to ${domain} — ` +
+          "register the new domain at Brevo to get its records."
+        : `Brevo only delivers your emails once ${domain} is proven yours: ` +
+          "it hands out DNS records to place at your domain's registrar, " +
+          "then checks them.";
+    const row = document.createElement("p");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = brevoBusy ? "Registering…" : `Register ${domain} at Brevo`;
+    button.disabled = brevoBusy;
+    button.addEventListener("click", () => void registerDomain());
+    row.append(button);
+    children.push(why, row);
+  } else {
+    const why = document.createElement("p");
+    why.className = "why";
+    why.textContent = current.authenticated
+      ? "Brevo has confirmed every record — your sender domain is proven."
+      : "Create each record at your domain's DNS provider, exactly as " +
+        "copied. Propagation can take hours: the records stay here across " +
+        "visits and the wizard keeps checking, though after a reload it " +
+        "needs the Brevo key pasted again to ask Brevo itself.";
+    children.push(why, ...current.records.map(recordRow));
+  }
+
+  if (brevoError) {
+    const err = document.createElement("p");
+    err.className = "err";
+    err.textContent = brevoError;
+    children.push(err);
+  }
+  box.replaceChildren(...children);
 }
 
 // --- Provisioning the fork --------------------------------------------
@@ -525,7 +622,30 @@ async function poll(): Promise<void> {
     if (senderDomain) {
       jobs.push(probeDns(senderDomain).then((r) => void (probes.dns = r)));
     }
+    // Brevo's side of the dual DNS verdict — only askable while the key
+    // is in tab memory; the persisted records carry the wait otherwise.
+    const brevoKey = secrets["BREVO_API_KEY"];
+    if (brevoKey && state.brevo && !state.brevo.authenticated && state.brevo.domain === senderDomain) {
+      const domain = state.brevo.domain;
+      jobs.push(
+        (async () => {
+          let next = await getDomain(brevoKey, domain);
+          if (
+            !next.authenticated &&
+            next.records.every((r) => r.status) &&
+            (await authenticate(brevoKey, domain))
+          ) {
+            next = await getDomain(brevoKey, domain);
+          }
+          state.brevo = next;
+          save(state);
+        })().catch(() => {
+          // a network or key hiccup — the last known state stands
+        }),
+      );
+    }
     await Promise.all(jobs);
+    renderEmail();
     renderSteps();
   } while (queued);
   polling = false;

@@ -15,6 +15,25 @@ function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, bo
     },
     form: { provider: "nextcloud", sameCalendar: true, emailOn: true, values: {} },
     done,
+    brevo: null,
+  };
+}
+
+function withBrevo(s: Saved, authenticated: boolean, domain = "p.fi"): Saved {
+  const record = (label: string, status: boolean) => ({
+    label,
+    type: "CNAME",
+    host: `${label}._domainkey`,
+    value: "v",
+    status,
+  });
+  return {
+    ...s,
+    brevo: {
+      domain,
+      authenticated,
+      records: [record("brevo1", true), record("brevo2", authenticated)],
+    },
   };
 }
 
@@ -126,6 +145,21 @@ describe("dns", () => {
     expect(
       step("dns", saved(), { dns: { dkim: true, code: true, dmarc: true } }).status,
     ).toBe("green");
+  });
+
+  it("demands Brevo's verdict too once the domain is registered there", () => {
+    const doh = { dns: { dkim: true, code: true, dmarc: true } };
+    const waiting = step("dns", withBrevo(saved(), false), doh);
+    expect(waiting.status).toBe("watch");
+    expect(waiting.body.join("\n")).toContain("1 of 2 records confirmed");
+    const done = step("dns", withBrevo(saved(), true), doh);
+    expect(done.status).toBe("green");
+    expect(done.body.join("\n")).toContain("domain authenticated");
+  });
+
+  it("ignores a Brevo registration for a domain the form no longer names", () => {
+    const doh = { dns: { dkim: true, code: true, dmarc: true } };
+    expect(step("dns", withBrevo(saved(), false, "old.example"), doh).status).toBe("green");
   });
 });
 
