@@ -74,8 +74,7 @@ Was the `SETUP.md` second edition plus deploy tooling, gated on
 deploying from the documentation alone. Descoped in favour of going
 straight to the wizard: the health endpoint and the fork-deploy CI
 moved into M5 as its groundwork, the `SETUP.md` second edition to
-0.2.0, and acceptance to M6's exit. (`SCOPE.md` §1 still states the
-documentation-alone test; amend it when this settles.)
+0.2.0, and acceptance to M6's exit.
 
 ## M5 — Setup wizard: verifier
 
@@ -133,24 +132,81 @@ author remains M6's exit.*
 
 ## M6 — Setup wizard: provisioning
 
-The PAT-driven stage. Prompts driven by a checked-in manifest of
+The PAT-driven stage: prompts driven by a checked-in manifest of
 required configuration (Heroku's `app.json` convention, ibid. §10),
-the PAT minted through a prefilled template URL (GitHub, 2025-08);
-then the browser does the rest: public knobs written to Actions
-variables and credentials to sealed-box Actions secrets over the REST
-API — never a config commit; a fork is public and so is its history —
-Pages enablement (or the one manual click that spares the
-Administration permission — the `docs/fork-guided-setup.md` §8
-decision), workflow dispatch with live run progress, Brevo domain
-created and its DNS records displayed and polled to green.
+the PAT minted through a prefilled template URL (GitHub, 2025-08),
+then the browser writes public knobs to Actions variables and
+credentials to sealed-box Actions secrets over the REST API — never a
+config commit; a fork is public and so is its history. Decisions
+settled 2026-08-11:
 
-*Exit: a practitioner who is not the author completes setup in the
-wizard tab alone, `SETUP.md` open only as reference, and takes a real
-booking.*
+- **Pages enablement stays one manual, deep-linked click** (the
+  `docs/fork-guided-setup.md` §8 decision, now settled): it spares
+  the PAT the Administration permission — the widest of the five —
+  and the click itself teaches that it is GitHub serving the booking
+  page.
+- **Secrets live in tab memory only**; non-secret state persists in
+  localStorage. A crash mid-flight means restarting with fresh
+  pastes ("Later" holds the softening).
+- **Single-tab session**: the whole journey runs from the
+  upstream-hosted wizard, no handoff to the fork's own copy. To be
+  evaluated in M6.4 against the practitioner's production mental
+  model — revisit if finishing on their own page proves clearer.
+- **Sealed-box secret writes without a crypto dependency**: Web
+  Crypto's X25519 plus the little that must be vendored
+  (XSalsa20-Poly1305). Requiring a current browser is acceptable —
+  this is an admin tool used once.
+
+1. **M6.1 — Manifest and configuration form.** A checked-in manifest
+   declaring every Actions secret and variable — name, kind, group,
+   label, one-sentence help, default, validator — drives the
+   configuration form: a CalDAV provider picker moving `SETUP.md`
+   Part 1 to the moment of need, essentials visible, every
+   defaultable knob under a collapsed Advanced. No network writes
+   yet: the interim output is a validated review list with copy
+   buttons and deep links into the fork's settings, and a test that
+   fails whenever the manifest and `deploy.yml` name different sets.
+2. **M6.2 — GitHub provisioning.** The PAT step (template URL,
+   paste, verified by an authenticated read of the fork), sealed-box
+   secret and variable writes, the workflow-registering commit,
+   dispatch and the live run watched. The deploy workflow
+   additionally drops a `deploy-info.json` (Worker URL, page origin)
+   into the Pages artifact, so the wizard discovers the Worker URL
+   itself and that paste disappears. Verify before building on them:
+   the Cloudflare token template link and its bot challenge from a
+   fresh account, account-ID auto-detection (dropping
+   `CLOUDFLARE_ACCOUNT_ID` from the form), Pages' CORS on
+   `deploy-info.json`, the exact PAT template parameters.
+3. **M6.3 — Email provisioning.** Brevo key pasted, domain created
+   over Brevo's CORS-open API, the authoritative records displayed
+   with copy buttons, Brevo's per-record verdict and DoH both polled
+   to green; then the email secrets written and the deploy
+   re-dispatched. Resumable across sessions — DNS propagation is not
+   the practitioner's clock — with the key re-pasted on resume.
+4. **M6.4 — The journey, walked by proxy.** The welcome step with
+   the one-picture mental model (customer → page on GitHub → API on
+   Cloudflare → your calendar), phase rail, living-with-it and
+   revoke-the-PAT closers, and an "I'd rather do this myself in
+   GitHub's UI" link on every automated step. Then the acceptance
+   walk with the author acting the `SCOPE.md` §2 practitioner —
+   pretending not to know what GitHub is — from a fresh browser
+   profile to a real booking. 0.1.0 releases on this passing.
+5. **M6.5 — External acceptance.** The original bar: a practitioner
+   who is not the author, observed (think-aloud where possible),
+   completes setup in the wizard tab alone, `SETUP.md` open only as
+   reference, and takes a real booking. Deliberately scheduled
+   *after* the 0.1.0 release — releasing inside a milestone is
+   unorthodox, but no second practitioner is at hand and the release
+   should not wait; what trips them becomes 0.1.x fixes.
+
+*Exit for 0.1.0: M6.4 — the proxy walk passes end to end. M6.5 keeps
+the unchanged external bar and closes M6 itself.*
 
 ## 0.1.0
 
-M0–M6 done (M4 descoped along the way), wizard exit criterion passed.
+M0–M6.4 done (M4 descoped along the way): the wizard's proxy
+acceptance passed. M6.5, the external acceptance, deliberately
+follows the release.
 
 ## 0.2.0
 
@@ -194,3 +250,7 @@ milestones when 0.1.0 closes:
   transport (rejected for 0.1.0 — `ARCHITECTURE.md` §6).
 - Configurable minimum cancellation notice (cancellation token expiring
   N hours before slot start instead of at it).
+- Wizard resilience after a mid-flight crash: remember in
+  localStorage that an attempt was made and adapt the guidance —
+  which pastes to redo, what is already done — secrets still never
+  persisted (idea 2026-08-11; M6 ships plain restart).

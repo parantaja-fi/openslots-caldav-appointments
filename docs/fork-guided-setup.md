@@ -243,7 +243,9 @@ manual in both (Settings → Danger Zone).
   (repo settings, collaborators, deletion — still confined to the one
   fork). The wizard could trade it away by making Pages enablement a
   second deep-linked manual click (fork Settings → Pages → Source:
-  GitHub Actions); decide at implementation.
+  GitHub Actions); decided 2026-08-11 (`ROADMAP.md` M6): traded
+  away — Pages stays the one manual click, the PAT carries no
+  Administration.
 - ~~`wrangler`-side derivations in CI~~ — mostly dissolved by §10: the
   Worker URL is a `wrangler-action` output and the Pages origin a
   `configure-pages` output, so no subdomain query and no hand-rolled

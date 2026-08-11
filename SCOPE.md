@@ -16,10 +16,14 @@ teachers, consultants) who want customers to book appointments against their
 real calendar without subscribing to a SaaS booking platform or surrendering
 their data to one.
 
-**Acceptance test for 0.1.0**: a practitioner who is not the author, with
+**Acceptance test**: a practitioner who is not the author, with
 ordinary computer literacy and no help beyond the setup wizard and the
 repository's documentation, deploys the system for themselves from a
-browser alone — no terminal — and takes a real booking.
+browser alone — no terminal — and takes a real booking. 0.1.0 releases
+on the author having passed that walk acting as the practitioner's
+proxy (`ROADMAP.md` M6.4); the external walk itself follows the
+release as M6.5. The bar is unchanged; only its scheduling moved
+(2026-08-11), because no second practitioner is at hand yet.
 
 Everything in scope serves that test. Anything that does not is out.
 
