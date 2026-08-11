@@ -6,7 +6,12 @@ export type Provider = "nextcloud" | "fastmail" | "google" | "radicale" | "other
 export interface Inputs {
   owner: string;
   repo: string;
+  /** Discovered from the fork's deploy-info.json, kept for the health
+   * probe; never typed. */
   workerUrl: string;
+  /** The booking page's real URL, also from deploy-info.json — never
+   * constructed from the username (a custom Pages domain changes it). */
+  pageUrl: string;
   /** Derived from the form's sender address, kept for the DNS probe. */
   senderDomain: string;
 }
@@ -32,7 +37,7 @@ const KEY = "wizard-state";
 
 export function load(): Saved {
   const fallback: Saved = {
-    inputs: { owner: "", repo: UPSTREAM_REPO, workerUrl: "", senderDomain: "" },
+    inputs: { owner: "", repo: UPSTREAM_REPO, workerUrl: "", pageUrl: "", senderDomain: "" },
     done: {},
     form: { provider: "nextcloud", sameCalendar: true, emailOn: true, values: {} },
   };

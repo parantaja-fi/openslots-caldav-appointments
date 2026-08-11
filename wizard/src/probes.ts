@@ -66,6 +66,35 @@ export async function probeRun(
     : { state: "failure", url: run.html_url };
 }
 
+/** Where the fork's deploy landed, published by the deploy workflow into
+ * the Pages artifact. Fetched from the constructed github.io URL — the
+ * one place construction is safe, since Pages redirects it to any custom
+ * domain and serves CORS-* throughout; the values inside are the real
+ * ones, read from the deploy itself. */
+export interface DeployInfo {
+  worker_url: string;
+  page_origin: string;
+  base_path: string;
+}
+
+export async function probeDeployInfo(owner: string, repo: string): Promise<DeployInfo | null> {
+  if (!/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo)) return null;
+  try {
+    const res = await fetch(`https://${owner}.github.io/${repo}/deploy-info.json`, {
+      cache: "no-cache",
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as Partial<DeployInfo>;
+    return typeof body.worker_url === "string" &&
+      body.worker_url &&
+      typeof body.page_origin === "string"
+      ? (body as DeployInfo)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The health body per `ARCHITECTURE.md` §3 — safe to render verbatim. */
 export interface Health {
   ok: boolean;

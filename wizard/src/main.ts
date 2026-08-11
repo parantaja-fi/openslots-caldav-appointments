@@ -10,7 +10,7 @@ import {
 import type { ManifestEntry } from "./manifest";
 import { MANIFEST } from "./manifest";
 import type { GithubCache } from "./probes";
-import { probeDns, probeFork, probeHealth, probeRun } from "./probes";
+import { probeDeployInfo, probeDns, probeFork, probeHealth, probeRun } from "./probes";
 import type { ProbeState, StepView } from "./steps";
 import { allGreen, deriveSteps } from "./steps";
 import type { Provider } from "./state";
@@ -370,11 +370,22 @@ async function poll(): Promise<void> {
   polling = true;
   do {
     queued = false;
-    const { owner, repo, workerUrl, senderDomain } = state.inputs;
+    const { owner, repo, workerUrl, pageUrl, senderDomain } = state.inputs;
     const jobs: Promise<void>[] = [];
     if (owner && repo) {
       jobs.push(probeFork(owner, repo, cache).then((r) => void (probes.fork = r)));
       jobs.push(probeRun(owner, repo, cache).then((r) => void (probes.run = r)));
+    }
+    if (owner && repo && (!workerUrl || !pageUrl)) {
+      jobs.push(
+        probeDeployInfo(owner, repo).then((info) => {
+          if (!info) return;
+          state.inputs.workerUrl = info.worker_url;
+          state.inputs.pageUrl = `${info.page_origin}${info.base_path}/`;
+          save(state);
+          queued = true; // let the health probe run on the next lap
+        }),
+      );
     }
     if (workerUrl) {
       jobs.push(probeHealth(workerUrl).then((r) => void (probes.health = r)));
@@ -391,13 +402,15 @@ async function poll(): Promise<void> {
 for (const [id, key] of [
   ["owner", "owner"],
   ["repo", "repo"],
-  ["worker", "workerUrl"],
 ] as const) {
   const field = input(id);
   field.value = state.inputs[key];
   field.addEventListener("change", () => {
     state.inputs[key] = field.value.trim();
-    // A changed target invalidates what was probed for the old one.
+    // A changed target invalidates what was probed — and discovered —
+    // for the old one.
+    state.inputs.workerUrl = "";
+    state.inputs.pageUrl = "";
     delete probes.fork;
     delete probes.run;
     delete probes.health;

@@ -74,8 +74,9 @@
     "kind": "secret",
     "group": "cloudflare",
     "label": "Account ID",
-    "help": "On your Cloudflare dashboard's overview page, right-hand column — 32 characters.",
-    "validate": "cloudflareAccountId"
+    "help": "Leave empty — the deploy reads it from the token. Needed only if your token can see several Cloudflare accounts (dashboard overview page, right-hand column, 32 characters).",
+    "validate": "cloudflareAccountId",
+    "optional": true
   },
   {
     "name": "BREVO_API_KEY",

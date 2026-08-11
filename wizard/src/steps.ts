@@ -32,7 +32,7 @@ function healthLine(name: string, sub: { ok: boolean; error?: string }): string 
 }
 
 export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): StepView[] {
-  const { owner, repo, workerUrl, senderDomain } = saved.inputs;
+  const { owner, repo, workerUrl, pageUrl, senderDomain } = saved.inputs;
   const fork = owner && repo ? `https://github.com/${owner}/${repo}` : null;
   const steps: StepView[] = [];
 
@@ -145,8 +145,11 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
   const healthBody: string[] = [];
   if (!workerUrl) {
     healthBody.push(
-      "Enter your Worker URL above — the deploy run prints it — and the " +
-        "wizard watches the API's own health report.",
+      owner
+        ? "Waiting for a finished deploy to publish the Worker's address " +
+          "on your page; the wizard picks it up by itself."
+        : "Once your fork has deployed, the wizard reads the Worker's " +
+          "address from your page and watches the API's own health report.",
     );
   } else if (!health || health.state === "unreachable") {
     healthBody.push("No answer from the Worker yet.");
@@ -169,7 +172,9 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
     id: "health",
     title: "The API reports healthy",
     status: !workerUrl
-      ? "open"
+      ? owner
+        ? "watch"
+        : "open"
       : health?.state === "answered"
         ? health.body.ok
           ? "green"
@@ -220,21 +225,9 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
       "Open your booking page, book a slot, open the confirmation email on " +
         "another device, and cancel from its link. That walk is the whole " +
         "system end to end.",
-      ...(owner
-        ? [
-            "If your account has a custom Pages domain, your page lives " +
-              "there instead of github.io.",
-          ]
-        : ["Enter your GitHub username above for the link."]),
+      ...(pageUrl ? [] : ["The link appears once the first deploy has published the page."]),
     ],
-    links: owner
-      ? [
-          {
-            label: "Your booking page",
-            href: `https://${owner}.github.io/${repo}/`,
-          },
-        ]
-      : [],
+    links: pageUrl ? [{ label: "Your booking page", href: pageUrl }] : [],
     manual: true,
   });
 

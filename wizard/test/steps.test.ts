@@ -9,6 +9,7 @@ function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, bo
       owner: "alice",
       repo: "openslots-caldav-appointments",
       workerUrl: "https://w.example",
+      pageUrl: "https://alice.github.io/openslots-caldav-appointments/",
       senderDomain: "p.fi",
       ...overrides,
     },
@@ -57,8 +58,9 @@ describe("deploy", () => {
 });
 
 describe("health", () => {
-  it("is open without a URL and watches an unreachable Worker", () => {
-    expect(step("health", saved({ workerUrl: "" })).status).toBe("open");
+  it("waits for the deploy to publish the Worker's address", () => {
+    expect(step("health", saved({ owner: "", workerUrl: "" })).status).toBe("open");
+    expect(step("health", saved({ workerUrl: "" })).status).toBe("watch");
     expect(step("health", saved(), { health: { state: "unreachable" } }).status).toBe("watch");
   });
 
