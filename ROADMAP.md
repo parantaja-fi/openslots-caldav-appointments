@@ -180,6 +180,13 @@ settled 2026-08-11:
    fresh account, account-ID auto-detection (dropping
    `CLOUDFLARE_ACCOUNT_ID` from the form), Pages' CORS on
    `deploy-info.json`, the exact PAT template parameters.
+   *Met 2026-08-11: all four verifications held (account-ID
+   derivation proven in a live run; `CLOUDFLARE_ACCOUNT_ID` demoted
+   to optional rather than dropped — it breaks ambiguity when a token
+   sees several accounts); the sealed box vendored and cross-checked
+   against tweetnacl; provisioning, the empty registering commit and
+   the dispatch retry covered by mocked-fetch tests; deployed green
+   with `deploy-info.json` live and the Worker-URL paste gone.*
 3. **M6.3 — Email provisioning.** Brevo key pasted, domain created
    over Brevo's CORS-open API, the authoritative records displayed
    with copy buttons, Brevo's per-record verdict and DoH both polled
