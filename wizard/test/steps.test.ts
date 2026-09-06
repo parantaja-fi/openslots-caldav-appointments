@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { FormGroups } from "../src/form";
 import type { ProbeState } from "../src/steps";
 import { allGreen, derivePhases, deriveSteps } from "../src/steps";
 import type { Saved } from "../src/state";
@@ -60,6 +61,12 @@ describe("fork", () => {
     expect(step("fork", saved()).status).toBe("watch");
     expect(step("fork", saved(), { fork: true }).status).toBe("green");
   });
+
+  it("offers the Done check exactly while a named fork is unproven", () => {
+    expect(step("fork", saved({ owner: "" })).check).toBe(false);
+    expect(step("fork", saved()).check).toBe(true);
+    expect(step("fork", saved(), { fork: true }).check).toBe(false);
+  });
 });
 
 describe("deploy", () => {
@@ -118,11 +125,40 @@ describe("health", () => {
   });
 });
 
-describe("secrets step", () => {
-  it("points at the form until it is complete, then at the review list", () => {
+const allGroups = (status: FormGroups[keyof FormGroups]): FormGroups => ({
+  calendars: status,
+  cloudflare: status,
+  email: status,
+  shape: status,
+});
+
+describe("configuration group steps", () => {
+  it("follow their group verdicts", () => {
+    const groups: FormGroups = { calendars: "green", cloudflare: "red", email: "open", shape: "open" };
+    const byId = new Map(deriveSteps(saved(), {}, groups).map((x) => [x.id, x.status]));
+    expect(byId.get("calendars")).toBe("green");
+    expect(byId.get("cloudflare")).toBe("red");
+    expect(byId.get("emailcfg")).toBe("open");
+    expect(byId.get("shape")).toBe("open");
+  });
+
+  it("stay green after the write even when the tab forgot the secrets", () => {
+    expect(step("calendars", saved({}, { secrets: true })).status).toBe("green");
+  });
+
+  it("go red on an invalid value even after the write", () => {
+    const groups: FormGroups = { ...allGroups("green"), calendars: "red" };
+    const s = deriveSteps(saved({}, { secrets: true }), {}, groups);
+    expect(s.find((x) => x.id === "calendars")!.status).toBe("red");
+  });
+});
+
+describe("the write step", () => {
+  it("waits for the group steps, then invites the token", () => {
     const before = deriveSteps(saved(), {}).find((x) => x.id === "secrets")!;
-    expect(before.body.join("\n")).toContain("Fill in the configuration form");
-    const after = deriveSteps(saved(), {}, true).find((x) => x.id === "secrets")!;
+    expect(before.status).toBe("open");
+    expect(before.body.join("\n")).toContain("Complete the configuration steps");
+    const after = deriveSteps(saved(), {}, allGroups("green")).find((x) => x.id === "secrets")!;
     expect(after.body.join("\n")).toContain("review list");
   });
 });

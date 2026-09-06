@@ -4,7 +4,7 @@
 // Secret values arrive as a parameter and are never persisted here —
 // main.ts holds them in module memory only.
 
-import type { ManifestEntry } from "./manifest";
+import type { Group, ManifestEntry } from "./manifest";
 import type { FormState, Provider } from "./state";
 import { VALIDATORS } from "./validators";
 
@@ -111,6 +111,24 @@ export function deriveForm(
 
 export function formComplete(fields: FieldView[]): boolean {
   return fields.every((f) => !f.visible || f.valid);
+}
+
+export type GroupStatus = "open" | "red" | "green";
+export type FormGroups = Record<Group, GroupStatus>;
+
+/** Per-group verdict for the journey's configuration cards: red the
+ * moment any visible value fails its validator, open while a required
+ * field is still empty, green when the whole group holds. A group with
+ * nothing visible (email switched off) is trivially green. */
+export function groupStatuses(fields: FieldView[]): FormGroups {
+  const out: FormGroups = { calendars: "green", cloudflare: "green", email: "green", shape: "green" };
+  for (const f of fields) {
+    if (!f.visible || f.valid) continue;
+    const g = f.entry.group;
+    if (f.value.trim()) out[g] = "red";
+    else if (out[g] !== "red") out[g] = "open";
+  }
+  return out;
 }
 
 export interface Effective {

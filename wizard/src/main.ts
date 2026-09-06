@@ -5,6 +5,7 @@ import {
   deriveForm,
   effectiveValues,
   formComplete,
+  groupStatuses,
   senderDomainOf,
 } from "./form";
 import { authenticate, createDomain, getDomain } from "./brevo";
@@ -56,14 +57,42 @@ function render(): void {
   renderSteps();
 }
 
-// Probe results touch only the checklist, so the poll never rebuilds the
-// form — a rebuild would wipe whatever is being typed into it.
+// The step cards are static skeleton in index.html; the poll updates
+// their status, text and open state in place. The containers inside
+// them (the form, the fork inputs, the Brevo records) are never
+// rebuilt here, so typing survives every poll.
+let currentId: string | null | undefined; // undefined until the first render
+const openOverride = new Map<string, boolean>();
+const lastSet = new Map<string, boolean>();
+
 function renderSteps(): void {
-  const formOk = formComplete(deriveForm(MANIFEST, state.form, secrets));
-  const steps = deriveSteps(state, probes, formOk);
+  const groups = groupStatuses(deriveForm(MANIFEST, state.form, secrets));
+  const steps = deriveSteps(state, probes, groups);
   renderRail(derivePhases(steps));
-  const list = document.getElementById("steps")!;
-  list.replaceChildren(...steps.map(renderStep));
+
+  // The current step — the first not yet green — opens by itself and
+  // wears the ring. A card toggled by hand stays as left until the
+  // journey moves on; then the accordion advances and follows.
+  const cur = steps.find((s) => s.status !== "green")?.id ?? null;
+  const moved = currentId !== undefined && currentId !== cur;
+  if (moved) openOverride.clear();
+
+  steps.forEach((step, i) => {
+    const li = document.getElementById(`step-${step.id}`)!;
+    li.className = `step ${step.status}${step.id === cur ? " current" : ""}`;
+    li.querySelector(".marker")!.textContent =
+      step.status === "green" ? BADGE.green : step.status === "red" ? BADGE.red : String(i + 1);
+    li.querySelector(".title")!.textContent = step.title;
+    fillStepBody(li, step);
+    const open = openOverride.get(step.id) ?? step.id === cur;
+    lastSet.set(step.id, open);
+    li.querySelector("details")!.open = open;
+  });
+
+  if (moved && cur) {
+    document.getElementById(`step-${cur}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  currentId = cur;
   (document.getElementById("alldone") as HTMLElement).hidden = !allGreen(steps);
 }
 
@@ -71,8 +100,9 @@ function renderRail(phases: PhaseView[]): void {
   const rail = document.getElementById("rail")!;
   rail.replaceChildren(
     ...phases.map((p) => {
-      const chip = document.createElement("span");
+      const chip = document.createElement("a");
       chip.className = `phase ${p.status}`;
+      chip.href = `#step-${p.anchor}`;
       chip.textContent = p.status === "green" ? `✓ ${p.label}` : p.label;
       return chip;
     }),
@@ -152,18 +182,25 @@ function toggle(labelText: string, checked: boolean, onChange: (on: boolean) => 
   return label;
 }
 
-function group(legendText: string, why: string, children: HTMLElement[]): HTMLFieldSetElement {
-  const set = document.createElement("fieldset");
-  const legend = document.createElement("legend");
-  legend.textContent = legendText;
-  set.append(legend);
+function why(text: string): HTMLParagraphElement {
   const p = document.createElement("p");
   p.className = "why";
-  p.textContent = why;
-  set.append(p, ...children);
-  return set;
+  p.textContent = text;
+  return p;
 }
 
+// Rebuilding mid-interaction (a change fired by clicking into the next
+// field) replaces the freshly focused element; give focus back to it.
+function replaceKeepingFocus(box: HTMLElement, children: HTMLElement[]): void {
+  const active =
+    document.activeElement instanceof HTMLElement && box.contains(document.activeElement)
+      ? document.activeElement.id
+      : null;
+  box.replaceChildren(...children);
+  if (active) document.getElementById(active)?.focus();
+}
+
+// Each configuration group renders into its own journey card.
 function renderConfig(fields: FieldView[]): void {
   const rows = (g: ManifestEntry["group"], advanced: boolean) =>
     fields
@@ -191,51 +228,48 @@ function renderConfig(fields: FieldView[]): void {
   });
   providerRow.append(providerLabel, select);
 
-  const providerHelp = PROVIDER_HELP[state.form.provider].map((text) => {
-    const p = document.createElement("p");
-    p.className = "why";
-    p.textContent = text;
-    return p;
-  });
+  const providerHelp = PROVIDER_HELP[state.form.provider].map(why);
 
-  const calendars = group(
-    "Your calendars",
-    "Availability is the calendar your OPEN events live in; bookings are " +
-      "written as ordinary events. One calendar can play both roles.",
-    [
-      providerRow,
-      toggle("One calendar for both — bookings are written into the availability calendar", state.form.sameCalendar, (on) => {
-        state.form.sameCalendar = on;
-        save(state);
-        render();
-      }),
-      ...providerHelp,
-      ...rows("calendars", false),
-    ],
-  );
+  replaceKeepingFocus(document.getElementById("cfg-calendars")!, [
+    why(
+      "Availability is the calendar your OPEN events live in; bookings are " +
+        "written as ordinary events. One calendar can play both roles.",
+    ),
+    providerRow,
+    toggle("One calendar for both — bookings are written into the availability calendar", state.form.sameCalendar, (on) => {
+      state.form.sameCalendar = on;
+      save(state);
+      render();
+    }),
+    ...providerHelp,
+    ...rows("calendars", false),
+  ]);
 
-  const cloudflare = group(
-    "Cloudflare — runs the booking API",
-    "The small program between your customers and your calendar runs on " +
-      "Cloudflare's free tier. Minting the token is guided in the deploy stage.",
-    rows("cloudflare", false),
-  );
+  replaceKeepingFocus(document.getElementById("cfg-cloudflare")!, [
+    why(
+      "The small program between your customers and your calendar runs on " +
+        "Cloudflare's free tier. Minting the token is guided in the deploy stage.",
+    ),
+    ...rows("cloudflare", false),
+  ]);
 
-  const email = group(
-    "Email — the confirmations",
-    "Brevo delivers the booking confirmation, which carries the customer's " +
-      "cancellation link. Off, bookings still work and nobody is emailed.",
-    [
-      toggle("Send confirmation emails", state.form.emailOn, (on) => {
-        state.form.emailOn = on;
-        save(state);
-        render();
-      }),
-      ...rows("email", false),
-    ],
-  );
+  replaceKeepingFocus(document.getElementById("cfg-emailcfg")!, [
+    why(
+      "Brevo delivers the booking confirmation, which carries the customer's " +
+        "cancellation link. Off, bookings still work and nobody is emailed.",
+    ),
+    toggle("Send confirmation emails", state.form.emailOn, (on) => {
+      state.form.emailOn = on;
+      save(state);
+      render();
+    }),
+    ...rows("email", false),
+  ]);
 
-  const shapeChildren: HTMLElement[] = rows("shape", false);
+  const shapeChildren: HTMLElement[] = [
+    why("How your OPEN blocks are cut into bookable slots."),
+    ...rows("shape", false),
+  ];
   const advancedRows = rows("shape", true);
   if (advancedRows.length) {
     const details = document.createElement("details");
@@ -246,21 +280,7 @@ function renderConfig(fields: FieldView[]): void {
     details.append(summary, ...advancedRows);
     shapeChildren.push(details);
   }
-  const shape = group(
-    "The shape of your bookings",
-    "How your OPEN blocks are cut into bookable slots.",
-    shapeChildren,
-  );
-
-  const cfg = document.getElementById("cfg")!;
-  // Rebuilding mid-interaction (a change fired by clicking into the next
-  // field) replaces the freshly focused element; give focus back to it.
-  const active =
-    document.activeElement instanceof HTMLElement && cfg.contains(document.activeElement)
-      ? document.activeElement.id
-      : null;
-  cfg.replaceChildren(calendars, cloudflare, email, shape);
-  if (active) document.getElementById(active)?.focus();
+  replaceKeepingFocus(document.getElementById("cfg-shape")!, shapeChildren);
 }
 
 // --- The sender domain at Brevo ---------------------------------------
@@ -313,9 +333,7 @@ function renderEmail(): void {
     return;
   }
 
-  const h = document.createElement("h3");
-  h.textContent = "Prove your sender domain";
-  const children: HTMLElement[] = [h];
+  const children: HTMLElement[] = [];
 
   if (!current) {
     const why = document.createElement("p");
@@ -429,7 +447,7 @@ async function provision(): Promise<void> {
     }
     say("Starting the deploy.");
     await startDeploy(owner, repo, pat, info.default_branch);
-    say("Deploy started — watch it run in the checklist below.", "ok");
+    say("Deploy started — watch it land in the deploy step below.", "ok");
     state.done["secrets"] = true;
     save(state);
     void poll();
@@ -566,53 +584,71 @@ function renderReview(formOk: boolean): void {
   );
 }
 
-// --- The checklist ----------------------------------------------------
+// --- The step cards ---------------------------------------------------
 
-function renderStep(step: StepView): HTMLLIElement {
-  const li = document.createElement("li");
-  li.className = step.status;
-
-  const badge = document.createElement("span");
-  badge.className = "badge";
-  badge.textContent = BADGE[step.status];
-  li.append(badge);
-
-  const title = document.createElement("span");
-  title.className = "title";
-  title.textContent = step.title;
-  li.append(title);
-
-  const body = document.createElement("div");
-  body.className = "body";
+// Body text and action links fill the card's head slot — links stacked,
+// styled as buttons. The confirming button (Mark done, or Done for a
+// checked step) sits alone in the foot, after whatever the card embeds
+// (the form, the inputs, the Brevo records).
+function fillStepBody(li: HTMLElement, step: StepView): void {
+  const children: HTMLElement[] = [];
   for (const text of step.body) {
     const p = document.createElement("p");
     p.textContent = text;
-    body.append(p);
+    children.push(p);
   }
-  if (step.links.length || step.manual) {
-    const p = document.createElement("p");
+  if (step.links.length) {
+    const links = document.createElement("div");
+    links.className = "links";
     for (const link of step.links) {
       const a = document.createElement("a");
+      a.className = "linkbtn";
       a.href = link.href;
       a.target = "_blank";
       a.rel = "noopener";
       a.textContent = link.label;
-      p.append(a, " ");
+      links.append(a);
     }
-    if (step.manual) {
-      const button = document.createElement("button");
-      button.textContent = state.done[step.id] ? "Not done after all" : "Mark done";
-      button.addEventListener("click", () => {
-        state.done[step.id] = !state.done[step.id];
-        save(state);
-        render();
-      });
-      p.append(button);
-    }
-    body.append(p);
+    children.push(links);
   }
-  li.append(body);
-  return li;
+  li.querySelector(".dyn")!.replaceChildren(...children);
+
+  const foot: HTMLElement[] = [];
+  if (step.check) {
+    const button = document.createElement("button");
+    button.textContent = "Done";
+    button.addEventListener("click", () => {
+      button.disabled = true;
+      button.textContent = "Checking…";
+      void poll(); // its render rebuilds this card with the verdict
+    });
+    foot.push(button);
+  }
+  if (step.manual) {
+    const button = document.createElement("button");
+    button.textContent = state.done[step.id] ? "Not done after all" : "Mark done";
+    button.addEventListener("click", () => {
+      state.done[step.id] = !state.done[step.id];
+      save(state);
+      render();
+    });
+    foot.push(button);
+  }
+  li.querySelector(".dynfoot")!.replaceChildren(...foot);
+}
+
+// A card toggled by hand records an override. The toggle event also
+// echoes programmatic opens; those are told apart by comparing against
+// what the render last set.
+for (const li of document.querySelectorAll<HTMLElement>("#journey .step")) {
+  const id = li.id.slice("step-".length);
+  const details = li.querySelector("details")!;
+  details.addEventListener("toggle", () => {
+    if (details.open !== lastSet.get(id)) {
+      lastSet.set(id, details.open);
+      openOverride.set(id, details.open);
+    }
+  });
 }
 
 // A poll requested while one is in flight runs right after it — an edited
@@ -701,8 +737,19 @@ for (const [id, key] of [
   });
 }
 
-document.getElementById("cfg")!.addEventListener("submit", (e) => e.preventDefault());
-document.getElementById("refresh")!.addEventListener("click", () => void poll());
+for (const form of document.querySelectorAll("form.cfg")) {
+  form.addEventListener("submit", (e) => e.preventDefault());
+}
+
+const refresh = document.getElementById("refresh") as HTMLButtonElement;
+refresh.addEventListener("click", () => {
+  refresh.disabled = true;
+  refresh.textContent = "Checking…";
+  void poll().finally(() => {
+    refresh.disabled = false;
+    refresh.textContent = "Check now";
+  });
+});
 
 render();
 void poll();

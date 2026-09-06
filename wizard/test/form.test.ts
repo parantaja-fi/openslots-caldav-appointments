@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveForm, effectiveValues, formComplete, senderDomainOf, visible } from "../src/form";
+import { deriveForm, effectiveValues, formComplete, groupStatuses, senderDomainOf, visible } from "../src/form";
 import type { ManifestEntry } from "../src/manifest";
 import { MANIFEST } from "../src/manifest";
 import type { FormState } from "../src/state";
@@ -118,5 +118,26 @@ describe("senderDomainOf", () => {
     expect(senderDomainOf(SECRETS)).toBe("practice.example");
     expect(senderDomainOf({ SENDER_EMAIL: "not-an-address" })).toBe("");
     expect(senderDomainOf({})).toBe("");
+  });
+});
+
+describe("groupStatuses", () => {
+  it("greens complete groups, opens missing ones, reds invalid values", () => {
+    const g = groupStatuses(
+      deriveForm(MANIFEST, form(), { ...SECRETS, AVAILABILITY_CALENDAR_URL: "not an address" }),
+    );
+    expect(g.calendars).toBe("red");
+    expect(g.cloudflare).toBe("green");
+    expect(g.email).toBe("green");
+    expect(g.shape).toBe("green");
+  });
+
+  it("opens a group with a required field still empty", () => {
+    const { AVAILABILITY_PASSWORD: _, ...rest } = SECRETS;
+    expect(groupStatuses(deriveForm(MANIFEST, form(), rest)).calendars).toBe("open");
+  });
+
+  it("greens the email group when email is off", () => {
+    expect(groupStatuses(deriveForm(MANIFEST, form({ emailOn: false }), {})).email).toBe("green");
   });
 });

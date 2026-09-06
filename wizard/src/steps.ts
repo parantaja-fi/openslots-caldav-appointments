@@ -3,6 +3,7 @@
 // stays in main.ts, which builds DOM nodes and never feeds user input
 // through HTML.
 
+import type { FormGroups } from "./form";
 import type { DnsProbe, HealthProbe, RunProbe } from "./probes";
 import type { Saved } from "./state";
 import { UPSTREAM_OWNER, UPSTREAM_REPO } from "./state";
@@ -25,13 +26,15 @@ export interface StepView {
   body: string[];
   links: { label: string; href: string }[];
   manual: boolean;
+  /** Offer a Done button that runs the probes right away. */
+  check?: boolean;
 }
 
 function healthLine(name: string, sub: { ok: boolean; error?: string }): string {
   return sub.ok ? `${name}: ok` : `${name}: ${sub.error ?? "failing"}`;
 }
 
-export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): StepView[] {
+export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroups): StepView[] {
   const { owner, repo, workerUrl, pageUrl, senderDomain } = saved.inputs;
   const fork = owner && repo ? `https://github.com/${owner}/${repo}` : null;
   const steps: StepView[] = [];
@@ -61,8 +64,8 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
         ? "Your fork exists."
         : owner
           ? "Watching for the fork to appear."
-          : "One click on GitHub's Fork button. Enter your GitHub username " +
-            "above and this step turns green the moment the fork exists.",
+          : "One click on GitHub's Fork button. Then enter your GitHub " +
+            "username below and press Done.",
     ],
     links: [
       {
@@ -71,28 +74,48 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
       },
     ],
     manual: false,
+    check: Boolean(owner) && !probes.fork,
   });
 
+  // The configuration, split into its groups — each its own card,
+  // checked separately as its fields validate. Once the values are
+  // written to the fork the deploy is their proof: a reload that forgot
+  // the tab-held secrets must not reopen the cards.
+  const g: FormGroups = groups ?? { calendars: "open", cloudflare: "open", email: "open", shape: "open" };
+  const wrote = Boolean(saved.done["secrets"]);
+  const groupStatus = (s: FormGroups[keyof FormGroups]): Status =>
+    s === "red" ? "red" : wrote || s === "green" ? "green" : "open";
+  const groupStep = (id: string, key: keyof FormGroups, title: string): StepView => ({
+    id,
+    title,
+    status: groupStatus(g[key]),
+    body: [],
+    links: [],
+    manual: false,
+  });
+  steps.push(groupStep("calendars", "calendars", "Your calendars"));
+  steps.push(groupStep("cloudflare", "cloudflare", "Your Cloudflare token"));
+  steps.push(groupStep("emailcfg", "email", "Email confirmations"));
+  steps.push(groupStep("shape", "shape", "The shape of your bookings"));
+
+  const groupsOk = (["calendars", "cloudflare", "email", "shape"] as const).every(
+    (k) => groupStatus(g[k]) === "green",
+  );
   steps.push({
     id: "secrets",
-    title: "Enter the configuration",
-    status: saved.done["secrets"] ? "green" : "open",
+    title: "Write it to your fork",
+    status: wrote ? "green" : "open",
     body: [
-      formOk
-        ? "The form above is complete. Paste a repo-scoped token beneath it " +
-          "and the wizard writes everything into your fork and starts the " +
-          "deploy — or copy the review list in by hand."
-        : "Fill in the configuration form above; once every required field " +
-          "is valid it becomes a copy-ready review list.",
+      groupsOk
+        ? "Everything checks out. Paste a repo-scoped token below and the " +
+          "wizard writes it all into your fork and starts the deploy — or " +
+          "copy the review list in by hand."
+        : "Complete the configuration steps above; once all four are " +
+          "green, one token paste writes everything into your fork at once.",
       "Secrets are write-only, so the wizard cannot watch this step; the " +
         "deploy run below is its proof.",
     ],
-    links: fork
-      ? [
-          { label: "Secrets", href: `${fork}/settings/secrets/actions` },
-          { label: "Variables", href: `${fork}/settings/variables/actions` },
-        ]
-      : [],
+    links: [],
     manual: true,
   });
 
@@ -196,7 +219,7 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
   const dohGreen = Boolean(dns && dns.dkim && dns.code && dns.dmarc);
   steps.push({
     id: "dns",
-    title: "Email DNS records",
+    title: "Prove your sender domain",
     status: !emailOn
       ? "green"
       : !senderDomain
@@ -208,8 +231,8 @@ export function deriveSteps(saved: Saved, probes: ProbeState, formOk = false): S
       ? ["Email is switched off in the configuration — nothing to prove in DNS."]
       : [
           !senderDomain
-            ? "Enter a valid sender address in the configuration form; its " +
-              "domain is what these records vouch for."
+            ? "Enter a valid sender address in the Email confirmations " +
+              "step above; its domain is what these records vouch for."
             : dns
               ? `Public DNS: DKIM ${dns.dkim ? "found" : "missing"}, brevo-code ` +
                 `${dns.code ? "found" : "missing"}, DMARC ${dns.dmarc ? "found" : "missing"}.`
@@ -253,12 +276,14 @@ export function allGreen(steps: StepView[]): boolean {
 export interface PhaseView {
   label: string;
   status: "green" | "current" | "todo";
+  /** The phase's first step — where its rail chip links to. */
+  anchor: string;
 }
 
 const PHASES: [string, string[]][] = [
   ["Accounts", ["accounts"]],
   ["Fork", ["fork"]],
-  ["Configure", ["secrets"]],
+  ["Configure", ["calendars", "cloudflare", "emailcfg", "shape", "secrets"]],
   ["Deploy", ["pages", "deploy", "health"]],
   ["Email", ["dns"]],
   ["Test drive", ["smoke"]],
@@ -271,9 +296,11 @@ export function derivePhases(steps: StepView[]): PhaseView[] {
   const byId = new Map(steps.map((s) => [s.id, s.status]));
   let currentFound = false;
   return PHASES.map(([label, ids]) => {
-    if (ids.every((id) => byId.get(id) === "green")) return { label, status: "green" as const };
-    if (currentFound) return { label, status: "todo" as const };
+    const anchor = ids[0]!;
+    if (ids.every((id) => byId.get(id) === "green"))
+      return { label, status: "green" as const, anchor };
+    if (currentFound) return { label, status: "todo" as const, anchor };
     currentFound = true;
-    return { label, status: "current" as const };
+    return { label, status: "current" as const, anchor };
   });
 }
