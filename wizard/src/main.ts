@@ -23,9 +23,25 @@ import {
 import type { ManifestEntry } from "./manifest";
 import { MANIFEST } from "./manifest";
 import type { GithubCache } from "./probes";
-import { probeDeployInfo, probeDns, probeFork, probeHealth, probeRecord, probeRun } from "./probes";
+import {
+  githubPaced,
+  probeDeployInfo,
+  probeDeployment,
+  probeDns,
+  probeFork,
+  probeHealth,
+  probeRecord,
+  probeRun,
+} from "./probes";
 import type { PhaseView, ProbeState, StepLink, StepView } from "./steps";
-import { allGreen, derivePhases, deriveSteps, settled } from "./steps";
+import {
+  allGreen,
+  derivePhases,
+  deriveSteps,
+  githubQuestions,
+  publishedAt,
+  settled,
+} from "./steps";
 import type { Provider } from "./state";
 import { UPSTREAM_OWNER, UPSTREAM_REPO, load, reset, save } from "./state";
 
@@ -37,7 +53,7 @@ const state = load();
 // it — a fresh visit has none.
 const resumedFrom = state.savedAt;
 const probes: ProbeState = {};
-const cache: GithubCache = {};
+const cache: GithubCache = { answers: {} };
 
 // Secret values never leave this map for anywhere but the clipboard —
 // not localStorage, not the network (index.html says so to the user).
@@ -85,7 +101,7 @@ let ackFresh = false;
 
 function renderSteps(): void {
   const groups = groupStatuses(deriveForm(MANIFEST, state.form, secrets));
-  const steps = deriveSteps(state, probes, groups);
+  const steps = deriveSteps(state, probes, groups, Boolean(pat));
   renderRail(derivePhases(steps));
 
   // The current step — the first not yet green — opens by itself and
@@ -365,10 +381,12 @@ function commitOwner(value: string): void {
   delete probes.fork;
   delete probes.run;
   delete probes.record;
+  delete probes.deployment;
   delete probes.health;
   delete probes.dns;
   save(state);
   renderAfterFocusMove();
+  asked = true;
   void poll();
 }
 
@@ -718,7 +736,7 @@ function renderEmail(): void {
 // GitHub pre-fills everything on the token form except the repository
 // pick (not supported as a URL parameter). The four permissions: secrets
 // and variables for the writes, actions for the dispatch, contents for
-// the empty registering commit.
+// the record file and the empty registering commit.
 const PAT_URL =
   "https://github.com/settings/personal-access-tokens/new" +
   "?name=Booking+setup+wizard" +
@@ -779,9 +797,7 @@ async function provision(): Promise<void> {
     // What was just written needs no read-back; the poll confirms it.
     probes.record = { state: "present", storedAt: storedAt.getTime() };
     say(`${RECORD_PATH} written — the dated record of this store.`, "ok");
-    say("Starting the deploy.");
-    await startDeploy(owner, repo, pat, info.default_branch);
-    say("Deploy started — watch it land in the deploy step below.", "ok");
+    say("Stored. The deploy follows below, once Pages is switched on.", "ok");
     void poll();
   } catch (e) {
     say(e instanceof Error ? e.message : String(e), "err");
@@ -817,9 +833,9 @@ function renderProvision(formOk: boolean): void {
     " on GitHub — the form comes pre-filled; under Repository access choose ",
     only,
     " and pick your fork. Paste the token here and the wizard writes " +
-      "every secret and variable to your fork itself, then starts the " +
-      "deploy. Prefer doing it by hand? The review list below has copy " +
-      "buttons for everything.",
+      "every secret and variable to your fork itself; the deploy is its " +
+      "own step below. Prefer doing it by hand? The review list below has " +
+      "copy buttons for everything.",
   );
 
   const row = document.createElement("div");
@@ -833,11 +849,12 @@ function renderProvision(formOk: boolean): void {
   field.spellcheck = false;
   const button = document.createElement("button");
   button.type = "button";
-  button.textContent = provisioning ? "Writing…" : "Write and deploy";
+  button.textContent = provisioning ? "Storing…" : "Store";
   button.disabled = !pat || provisioning;
   field.addEventListener("input", () => {
     pat = field.value.trim();
     button.disabled = !pat || provisioning;
+    renderSteps(); // the deploy step offers its button once a token is held
   });
   button.addEventListener("click", () => void provision());
   row.append(field, button);
@@ -946,7 +963,15 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
   // A ticked step that re-opened (the store step, after an edit) is
   // marked done afresh, not un-marked — the new tick covers the edit.
   const undoes = Boolean(state.done[step.id]) && step.status === "attested";
-  const shown = JSON.stringify([step.links, step.check, step.confirm?.label, step.manual, undoes, step.footnote]);
+  const shown = JSON.stringify([
+    step.links,
+    step.check,
+    step.confirm?.label,
+    step.manual,
+    undoes,
+    step.footnote,
+    step.deploy,
+  ]);
   if (footShown.get(step.id) === shown) return;
   footShown.set(step.id, shown);
 
@@ -967,6 +992,7 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
       button.disabled = true;
       button.textContent = "Checking…";
       // The poll's render rebuilds this card if the verdict changes it.
+      asked = true;
       void poll().finally(() => {
         button.disabled = false;
         button.textContent = "Done";
@@ -996,6 +1022,37 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
     const p = document.createElement("p");
     p.textContent = step.footnote;
     foot.push(p);
+  }
+  if (step.deploy) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Deploy";
+    let error: HTMLParagraphElement | null = null;
+    button.addEventListener("click", () => {
+      button.disabled = true;
+      button.textContent = "Starting…";
+      error?.remove();
+      const { owner, repo } = state.inputs;
+      // Stays disabled once started: the run takes a moment to show, and
+      // its appearance rebuilds this foot without the button.
+      void getRepo(owner, repo, pat)
+        .then((info) => startDeploy(owner, repo, pat, info.default_branch))
+        .then(
+          () => {
+            button.textContent = "Started";
+            void poll();
+          },
+          (e: unknown) => {
+            error = document.createElement("p");
+            error.className = "err";
+            error.textContent = e instanceof Error ? e.message : String(e);
+            button.after(error);
+            button.disabled = false;
+            button.textContent = "Deploy";
+          },
+        );
+    });
+    foot.push(button);
   }
   li.querySelector(".dynfoot")!.replaceChildren(...foot);
 }
@@ -1039,9 +1096,13 @@ for (const li of document.querySelectorAll<HTMLElement>("#journey .step")) {
 }
 
 // A poll requested while one is in flight runs right after it — an edited
-// input mid-poll must not wait for the next tick.
+// input mid-poll must not wait for the next tick. GitHub hears only the
+// journey's open questions: at once on the first look and on the
+// practitioner's presses (`asked`), otherwise paced to last the hour.
 let polling = false;
 let queued = false;
+let asked = true;
+let lastRound = 0;
 async function poll(): Promise<void> {
   if (polling) {
     queued = true;
@@ -1050,19 +1111,39 @@ async function poll(): Promise<void> {
   polling = true;
   do {
     queued = false;
-    const { owner, repo, workerUrl, pageUrl, senderDomain } = state.inputs;
+    const { owner, repo, workerUrl, senderDomain } = state.inputs;
     const jobs: Promise<void>[] = [];
-    if (owner && repo) {
-      jobs.push(probeFork(owner, repo, cache).then((r) => void (probes.fork = r)));
-      jobs.push(probeRun(owner, repo, cache).then((r) => void (probes.run = r)));
-      jobs.push(probeRecord(owner, repo, cache).then((r) => void (probes.record = r)));
+    const ask = asked;
+    asked = false;
+    const questions = githubQuestions(state, probes, ask);
+    const now = Date.now();
+    if (questions.length && (ask || githubPaced(cache, questions.length, lastRound, now))) {
+      lastRound = now;
+      if (questions.includes("fork")) {
+        jobs.push(probeFork(owner, repo, cache).then((r) => void (probes.fork = r)));
+      }
+      if (questions.includes("record")) {
+        jobs.push(probeRecord(owner, repo, cache).then((r) => void (probes.record = r)));
+      }
+      if (questions.includes("run")) {
+        jobs.push(probeRun(owner, repo, cache).then((r) => void (probes.run = r)));
+      }
+      if (questions.includes("deployment")) {
+        jobs.push(probeDeployment(owner, repo, cache).then((r) => void (probes.deployment = r)));
+      }
     }
-    if (owner && repo && (!workerUrl || !pageUrl)) {
+    // The Worker's address waits in the deploy's own note on the page, at
+    // the address the Pages deployment reports — read again once a later
+    // deploy publishes elsewhere.
+    const published = publishedAt(probes.run, probes.deployment);
+    if (published && published !== state.inputs.pageUrl) {
       jobs.push(
-        probeDeployInfo(owner, repo).then((info) => {
+        probeDeployInfo(published).then((info) => {
           if (!info) return;
+          const pageUrl = `${info.page_origin}${info.base_path}/`;
+          if (info.worker_url === workerUrl && pageUrl === state.inputs.pageUrl) return;
           state.inputs.workerUrl = info.worker_url;
-          state.inputs.pageUrl = `${info.page_origin}${info.base_path}/`;
+          state.inputs.pageUrl = pageUrl;
           save(state);
           queued = true; // let the health probe run on the next lap
         }),
@@ -1097,6 +1178,13 @@ async function poll(): Promise<void> {
       );
     }
     await Promise.all(jobs);
+    // An answer that opens a question of its own — a run just turned
+    // green leaves its page's address in its Pages deployment — is
+    // followed up at once, as after a press.
+    if (githubQuestions(state, probes).some((q) => !questions.includes(q))) {
+      asked = true;
+      queued = true;
+    }
     renderEmail();
     renderSteps();
   } while (queued);
@@ -1120,10 +1208,12 @@ async function poll(): Promise<void> {
     delete probes.fork;
     delete probes.run;
     delete probes.record;
+    delete probes.deployment;
     delete probes.health;
     delete probes.dns;
     save(state);
     render();
+    asked = true;
     void poll();
   });
 }
@@ -1162,6 +1252,7 @@ const refresh = document.getElementById("refresh") as HTMLButtonElement;
 refresh.addEventListener("click", () => {
   refresh.disabled = true;
   refresh.textContent = "Checking…";
+  asked = true;
   void poll().finally(() => {
     refresh.disabled = false;
     refresh.textContent = "Check again";

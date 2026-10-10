@@ -222,7 +222,7 @@ settled 2026-08-11:
    setup is changed in one card from a fresh browser with every other
    stored value intact. From the proxy walk (attempt 2, 2026-09-08):
    it is what makes the living-with-it closer's "come back here …
-   write and deploy again" cheap.
+   store and deploy again" cheap.
 6. **M6.6 — External acceptance.** The original bar: a practitioner
    who is not the author, observed (think-aloud where possible),
    completes setup in the wizard tab alone, `SETUP.md` open only as

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FormGroups } from "../src/form";
 import type { ProbeState } from "../src/steps";
-import { allGreen, derivePhases, deriveSteps } from "../src/steps";
+import { allGreen, derivePhases, deriveSteps, githubQuestions } from "../src/steps";
 import type { Saved } from "../src/state";
 
 const TICK = 1_757_000_000_000; // an arbitrary moment in 2025
@@ -23,8 +23,18 @@ function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, nu
   };
 }
 
-const FORK: ProbeState["fork"] = { state: "present" };
+const FORK: ProbeState["fork"] = { state: "present", pages: false };
+const PAGES_ON: ProbeState["fork"] = { state: "present", pages: true };
 const STORED: ProbeState["record"] = { state: "present", storedAt: TICK };
+const PAGE = "https://alice.github.io/openslots-caldav-appointments/";
+const PLAIN = "http://www.example.fi/openslots-caldav-appointments/";
+/** A green run after the store, and the Pages deployment it made. */
+const RUN: ProbeState["run"] = { state: "success", url: "u", at: TICK + 1 };
+const published = (url: string): ProbeState["deployment"] => ({
+  state: "present",
+  url,
+  at: TICK + 2,
+});
 
 function withBrevo(s: Saved, authenticated: boolean, domain = "p.fi"): Saved {
   const record = (label: string, status: boolean) => ({
@@ -61,13 +71,13 @@ describe("manual steps", () => {
   });
 
   it("name the tick's moment in the body", () => {
-    const ticked = step("pages", saved({}, { pages: TICK }));
+    const ticked = step("smoke", saved({}, { smoke: TICK }));
     expect(ticked.status).toBe("attested");
     expect(ticked.body.join("\n")).toContain("Marked done:");
   });
 
   it("carry a dateless attestation for ticks predating the timestamps", () => {
-    const ticked = step("pages", saved({}, { pages: 1 }));
+    const ticked = step("smoke", saved({}, { smoke: 1 }));
     expect(ticked.status).toBe("attested");
     expect(ticked.body.join("\n")).toContain("Marked done.");
   });
@@ -111,13 +121,80 @@ describe("fork", () => {
 describe("deploy", () => {
   it("follows the latest run", () => {
     expect(step("deploy", saved()).status).toBe("watch");
-    expect(step("deploy", saved(), { run: { state: "running", url: "u" } }).status).toBe("watch");
-    expect(step("deploy", saved(), { run: { state: "failure", url: "u" } }).status).toBe("red");
-    expect(step("deploy", saved(), { run: { state: "success", url: "u" } }).status).toBe("green");
+    const after = (state: "running" | "failure" | "success") =>
+      step("deploy", saved(), { run: { state, url: "u", at: TICK } }).status;
+    expect(step("deploy", saved(), { run: { state: "none" } }).status).toBe("open");
+    expect(after("running")).toBe("watch");
+    expect(after("failure")).toBe("red");
+    expect(after("success")).toBe("green");
+  });
+
+  it("offers its Deploy button after a store, while the token is in the tab", () => {
+    const deploy = (probes: ProbeState, token: boolean) =>
+      deriveSteps(saved(), probes, undefined, token).find((x) => x.id === "deploy")!;
+    const ready: ProbeState = { fork: PAGES_ON, record: STORED, run: { state: "none" } };
+    expect(deploy(ready, true).deploy).toBe(true);
+    const byHand = deploy(ready, false);
+    expect(byHand.deploy).toBe(false);
+    expect(byHand.body.join("\n")).toContain("Actions tab");
+    expect(deploy({ ...ready, record: undefined }, true).deploy).toBe(false);
+  });
+
+  it("holds the deploy until Pages is switched on", () => {
+    for (const fork of [undefined, FORK]) {
+      const probes: ProbeState = { fork, record: STORED, run: { state: "none" } };
+      const view = deriveSteps(saved(), probes, undefined, true).find((x) => x.id === "deploy")!;
+      expect(view.deploy).toBe(false);
+      expect(view.body.join("\n")).not.toContain("Actions tab");
+    }
+  });
+
+  it("shows the page's real address once the run's Pages deployment is read", () => {
+    const page = (probes: ProbeState) => step("deploy", saved(), probes).links.find((l) => l.bare);
+    expect(page({ run: RUN, deployment: published(PAGE) })).toMatchObject({ href: PAGE });
+    // An earlier run's deployment says nothing about this run's.
+    const earlier = { state: "present", url: PAGE, at: TICK } as const;
+    expect(page({ run: RUN, deployment: earlier })).toBeUndefined();
+    const running = { state: "running", url: "u", at: TICK + 1 } as const;
+    expect(page({ run: running, deployment: published(PAGE) })).toBeUndefined();
+  });
+
+  it("re-opens when the last run started before the last store", () => {
+    const stale = deriveSteps(
+      saved(),
+      { fork: PAGES_ON, record: STORED, run: { state: "success", url: "u", at: TICK - 1 } },
+      undefined,
+      true,
+    ).find((x) => x.id === "deploy")!;
+    expect(stale.status).toBe("open");
+    expect(stale.body[0]).toContain("stored after the last deploy");
+    expect(stale.deploy).toBe(true);
+    const fresh = { state: "success", url: "u", at: TICK + 1 } as const;
+    expect(step("deploy", saved(), { record: STORED, run: fresh }).status).toBe("green");
+  });
+
+  it("turns red on a plain-HTTP page, pointing at the fork's Pages settings", () => {
+    const probes: ProbeState = {
+      fork: PAGES_ON,
+      record: STORED,
+      run: RUN,
+      deployment: published(PLAIN),
+    };
+    const view = deriveSteps(saved(), probes, undefined, true).find((x) => x.id === "deploy")!;
+    expect(view.status).toBe("red");
+    expect(view.body[0]).toContain(`published your page at ${PLAIN} — plain HTTP`);
+    expect(view.body[0]).toContain("“Enforce HTTPS” in your fork's Pages settings");
+    expect(view.deploy).toBe(true);
+    expect(view.links.map((l) => l.href)).toContain(
+      "https://github.com/alice/openslots-caldav-appointments/settings/pages",
+    );
+    expect(view.links.find((l) => l.bare)).toBeUndefined();
+    const secure: ProbeState = { ...probes, deployment: published(PAGE) };
+    expect(step("deploy", saved(), secure).status).toBe("green");
   });
 
   it("links the run once one exists", () => {
-    const links = step("deploy", saved(), { run: { state: "failure", url: "u" } }).links;
+    const links = step("deploy", saved(), { run: { state: "failure", url: "u", at: TICK } }).links;
     expect(links.map((l) => l.label)).toContain("The run");
   });
 
@@ -309,13 +386,78 @@ describe("the write step", () => {
 });
 
 describe("pages", () => {
-  it("greys the guessed page address until the deploy reveals the real one", () => {
-    const dimmed = step("pages", saved({ pageUrl: "" })).links.find((l) => l.bare);
-    expect(dimmed?.dim).toBe(true);
-    expect(dimmed?.href).toBe("https://alice.github.io/openslots-caldav-appointments/");
-    const live = step("pages", saved()).links.find((l) => l.bare);
-    expect(live?.dim).toBeFalsy();
-    expect(live?.href).toBe("https://alice.github.io/openslots-caldav-appointments/");
+  it("is green once the fork reports Pages switched on", () => {
+    const view = step("pages", saved(), { fork: PAGES_ON });
+    expect(view.status).toBe("green");
+    expect(view.body[0]).toContain("deploy below");
+    expect(view.check).toBe(false);
+  });
+
+  it("asks for the switch, and for HTTPS, while Pages is off", () => {
+    const off = step("pages", saved(), { fork: FORK });
+    expect(off.status).toBe("open");
+    expect(off.check).toBe(true);
+    expect(off.body[0]).toContain("Source: GitHub Actions");
+    expect(off.body[0]).toContain("“Enforce HTTPS”");
+    expect(off.links.map((l) => l.href)).toContain(
+      "https://github.com/alice/openslots-caldav-appointments/settings/pages",
+    );
+  });
+
+  it("is unknown when GitHub cannot be asked, saying why", () => {
+    const view = step("pages", saved(), { fork: { state: "blind", reason: "GitHub is down." } });
+    expect(view.status).toBe("unknown");
+    expect(view.body[0]).toContain("GitHub is down.");
+  });
+});
+
+describe("githubQuestions", () => {
+  it("asks everything once, then nothing settled — nor the deploy's facts before a store", () => {
+    expect(githubQuestions(saved({ owner: "" }), {})).toEqual([]);
+    expect(githubQuestions(saved(), {})).toEqual(["fork", "record", "run", "deployment"]);
+    expect(githubQuestions(saved(), { fork: { state: "absent" } })).toEqual(["fork"]);
+    const looked: ProbeState = {
+      fork: FORK,
+      record: { state: "absent" },
+      run: { state: "none" },
+      deployment: { state: "none" },
+    };
+    expect(githubQuestions(saved(), looked)).toEqual([]);
+    expect(githubQuestions(saved(), looked, true)).toEqual(["fork", "run"]);
+    const blind = { state: "blind", reason: "r" } as const;
+    expect(githubQuestions(saved(), { ...looked, record: blind, deployment: blind })).toEqual([
+      "record",
+      "deployment",
+    ]);
+  });
+
+  it("watches Pages, then the run, once the configuration is stored", () => {
+    const stored: ProbeState = {
+      fork: FORK,
+      record: STORED,
+      run: { state: "none" },
+      deployment: { state: "none" },
+    };
+    expect(githubQuestions(saved(), stored)).toEqual(["fork", "run"]);
+    expect(githubQuestions(saved(), { ...stored, fork: PAGES_ON })).toEqual(["run"]);
+    const after = (at: number): ProbeState => ({
+      ...stored,
+      fork: PAGES_ON,
+      run: { state: "success", url: "u", at },
+      deployment: published(PAGE),
+    });
+    expect(githubQuestions(saved(), after(TICK + 1))).toEqual([]);
+    expect(githubQuestions(saved(), after(TICK - 1))).toEqual(["run"]);
+  });
+
+  it("reads a green run's Pages deployment, and watches for a redeploy of a plain-HTTP page", () => {
+    const green: ProbeState = { fork: PAGES_ON, record: STORED, run: RUN };
+    expect(githubQuestions(saved(), { ...green, deployment: { state: "none" } })).toEqual([
+      "deployment",
+    ]);
+    const earlier = { state: "present", url: PAGE, at: TICK } as const;
+    expect(githubQuestions(saved(), { ...green, deployment: earlier })).toEqual(["deployment"]);
+    expect(githubQuestions(saved(), { ...green, deployment: published(PLAIN) })).toEqual(["run"]);
   });
 });
 
@@ -377,18 +519,21 @@ describe("phases", () => {
   });
 
   it("is current on Deploy while any of its three steps lags", () => {
-    const done = { accounts: TICK, secrets: TICK, pages: TICK };
+    const done = { accounts: TICK, secrets: TICK };
     const phases = derivePhases(
-      deriveSteps(saved({}, done), { fork: FORK, run: { state: "running", url: "u" } }),
+      deriveSteps(saved({}, done), {
+        fork: PAGES_ON,
+        run: { state: "running", url: "u", at: TICK + 1 },
+      }),
     );
     expect(phases.find((p) => p.label === "Deploy")?.status).toBe("current");
   });
 
   it("is green throughout exactly when the checklist is", () => {
-    const done = { accounts: TICK, secrets: TICK, pages: TICK, smoke: TICK };
+    const done = { accounts: TICK, secrets: TICK, smoke: TICK };
     const probes: ProbeState = {
-      fork: FORK,
-      run: { state: "success", url: "u" },
+      fork: PAGES_ON,
+      run: { state: "success", url: "u", at: TICK + 1 },
       health: { state: "answered", body: { ok: true, config: { ok: true } } },
       dns: { state: "answered", dkim: true, code: true, dmarc: true },
     };
@@ -399,10 +544,10 @@ describe("phases", () => {
 
 describe("allGreen", () => {
   it("holds exactly when every step is settled — attested counts", () => {
-    const done = { accounts: TICK, secrets: TICK, pages: TICK, smoke: TICK };
+    const done = { accounts: TICK, secrets: TICK, smoke: TICK };
     const probes: ProbeState = {
-      fork: FORK,
-      run: { state: "success", url: "u" },
+      fork: PAGES_ON,
+      run: { state: "success", url: "u", at: TICK + 1 },
       health: { state: "answered", body: { ok: true, config: { ok: true } } },
       dns: { state: "answered", dkim: true, code: true, dmarc: true },
     };

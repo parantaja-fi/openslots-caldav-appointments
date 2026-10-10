@@ -19,10 +19,11 @@ Three parts, nothing else:
 
 Beside the system, not in it: the **setup wizard** (`wizard/`,
 `ROADMAP.md` M5–M6), a second static page served at `/wizard/`. Its
-verifier stage only watches — public GitHub REST unauthenticated, the
-token-less health endpoint (§3), DNS over HTTPS — and holds no
-credential. Its provisioning stage adds one file to the fork beside the
-Actions secrets and variables it writes: `.wizard/fork.json`, the fork's
+verifier stage only watches — public GitHub REST unauthenticated, paced
+to the sixty questions an hour GitHub answers that way, the token-less
+health endpoint (§3), DNS over HTTPS — and holds no credential. Its
+provisioning stage adds one file to the fork beside the Actions secrets
+and variables it writes: `.wizard/fork.json`, the fork's
 provenance and when its configuration was last stored — public facts
 only, so any browser can tell a configured fork without a token.
 

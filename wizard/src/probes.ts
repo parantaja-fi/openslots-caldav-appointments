@@ -6,9 +6,31 @@
 import type { ForkRecord } from "./github";
 import { RECORD_PATH } from "./github";
 
-/** Conditional-request cache: unauthenticated GitHub calls are limited to
- * 60/h per IP, but a 304 answered from an ETag does not count. */
-export type GithubCache = Record<string, { etag: string; body: unknown }>;
+/** What the wizard keeps between GitHub questions: the last answer per
+ * URL — served again when asking fails — and the hour's allowance as
+ * GitHub last reported it. Unauthenticated, GitHub answers sixty
+ * questions an hour per internet address, and every one counts, a 304
+ * included. */
+export interface GithubCache {
+  answers: Record<string, { etag: string; body: unknown }>;
+  /** Questions left this hour. */
+  remaining?: number;
+  /** When the hour restarts (epoch ms). */
+  reset?: number;
+}
+
+/** Questions held back for the practitioner's own presses. */
+const RESERVE = 10;
+
+/** Whether a background round of `n` questions may go out now, the last
+ * one having gone at `since`: what is left of the hour's allowance, less
+ * the reserve, spread evenly over what is left of the hour. */
+export function githubPaced(cache: GithubCache, n: number, since: number, now: number): boolean {
+  const { remaining, reset } = cache;
+  if (remaining === undefined || reset === undefined || now >= reset) return true;
+  const spare = remaining - RESERVE;
+  return spare >= n && now - since >= ((reset - now) * n) / spare;
+}
 
 /** What an unauthenticated GitHub read can honestly say: an answer (live,
  * 304-refreshed, or the last known one when today's ask failed), a proven
@@ -34,7 +56,7 @@ function blindReason(res: Response): string {
 }
 
 async function github(url: string, cache: GithubCache): Promise<GithubAnswer> {
-  const cached = cache[url];
+  const cached = cache.answers[url];
   let res: Response;
   try {
     res = await fetch(url, {
@@ -48,6 +70,12 @@ async function github(url: string, cache: GithubCache): Promise<GithubAnswer> {
       ? { kind: "answer", body: cached.body }
       : { kind: "blind", reason: "GitHub could not be reached — no network, or GitHub is down." };
   }
+  const remaining = res.headers.get("x-ratelimit-remaining");
+  const reset = res.headers.get("x-ratelimit-reset");
+  if (remaining !== null && reset !== null) {
+    cache.remaining = Number(remaining);
+    cache.reset = Number(reset) * 1000;
+  }
   if (res.status === 304 && cached) return { kind: "answer", body: cached.body };
   if (res.status === 404) return { kind: "absent" };
   if (!res.ok) {
@@ -57,12 +85,14 @@ async function github(url: string, cache: GithubCache): Promise<GithubAnswer> {
   }
   const body: unknown = await res.json();
   const etag = res.headers.get("etag");
-  if (etag) cache[url] = { etag, body };
+  if (etag) cache.answers[url] = { etag, body };
   return { kind: "answer", body };
 }
 
+/** `pages`: whether Pages is switched on — all an unauthenticated read
+ * sees of it. Its source and its address show only in a deploy. */
 export type ForkProbe =
-  | { state: "present" }
+  | { state: "present"; pages: boolean }
   | { state: "absent" }
   | { state: "blind"; reason: string };
 
@@ -74,14 +104,16 @@ export async function probeFork(
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const answer = await github(url, cache);
   if (answer.kind === "blind") return { state: "blind", reason: answer.reason };
-  return { state: answer.kind === "answer" ? "present" : "absent" };
+  if (answer.kind === "absent") return { state: "absent" };
+  return { state: "present", pages: (answer.body as { has_pages?: boolean }).has_pages === true };
 }
 
+/** `at`: when the run last started (epoch ms) — a re-run restarts it. */
 export type RunProbe =
   | { state: "none" }
-  | { state: "running"; url: string }
-  | { state: "success"; url: string }
-  | { state: "failure"; url: string }
+  | { state: "running"; url: string; at: number }
+  | { state: "success"; url: string; at: number }
+  | { state: "failure"; url: string; at: number }
   | { state: "blind"; reason: string };
 
 export async function probeRun(
@@ -95,14 +127,20 @@ export async function probeRun(
   const answer = await github(url, cache);
   if (answer.kind === "blind") return { state: "blind", reason: answer.reason };
   const body = (answer.kind === "answer" ? answer.body : null) as {
-    workflow_runs?: { status: string; conclusion: string | null; html_url: string }[];
+    workflow_runs?: {
+      status: string;
+      conclusion: string | null;
+      html_url: string;
+      run_started_at: string;
+    }[];
   } | null;
   const run = body?.workflow_runs?.[0];
   if (!run) return { state: "none" };
-  if (run.status !== "completed") return { state: "running", url: run.html_url };
+  const seen = { url: run.html_url, at: Date.parse(run.run_started_at) };
+  if (run.status !== "completed") return { state: "running", ...seen };
   return run.conclusion === "success"
-    ? { state: "success", url: run.html_url }
-    : { state: "failure", url: run.html_url };
+    ? { state: "success", ...seen }
+    : { state: "failure", ...seen };
 }
 
 /** The wizard's record of the last store — this fork's own, that is: a
@@ -138,23 +176,53 @@ export async function probeRecord(
   }
 }
 
+/** The fork's latest Pages deployment, which GitHub lists publicly — its
+ * Pages settings it does not. `at`: when it was made (epoch ms); `url`:
+ * where it published the page, under the account's custom domain if it
+ * has one — empty until the deployment has finished. Two questions: the
+ * deployment, then its latest status. */
+export type DeploymentProbe =
+  | { state: "none" }
+  | { state: "present"; url: string; at: number }
+  | { state: "blind"; reason: string };
+
+export async function probeDeployment(
+  owner: string,
+  repo: string,
+  cache: GithubCache,
+): Promise<DeploymentProbe> {
+  const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const list = await github(`${base}/deployments?environment=github-pages&per_page=1`, cache);
+  if (list.kind === "blind") return { state: "blind", reason: list.reason };
+  const deployment =
+    list.kind === "answer" ? (list.body as { id: number; created_at: string }[])[0] : undefined;
+  if (!deployment) return { state: "none" };
+  const statuses = await github(`${base}/deployments/${deployment.id}/statuses?per_page=1`, cache);
+  if (statuses.kind === "blind") return { state: "blind", reason: statuses.reason };
+  const status =
+    statuses.kind === "answer"
+      ? (statuses.body as { environment_url?: string | null }[])[0]
+      : undefined;
+  return {
+    state: "present",
+    url: status?.environment_url ?? "",
+    at: Date.parse(deployment.created_at),
+  };
+}
+
 /** Where the fork's deploy landed, published by the deploy workflow into
- * the Pages artifact. Fetched from the constructed github.io URL — the
- * one place construction is safe, since Pages redirects it to any custom
- * domain and serves CORS-* throughout; the values inside are the real
- * ones, read from the deploy itself. */
+ * the Pages artifact and fetched from the address its Pages deployment
+ * reports — never from a github.io address built from the username,
+ * whose redirect to a custom domain carries no CORS header. */
 export interface DeployInfo {
   worker_url: string;
   page_origin: string;
   base_path: string;
 }
 
-export async function probeDeployInfo(owner: string, repo: string): Promise<DeployInfo | null> {
-  if (!/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo)) return null;
+export async function probeDeployInfo(pageUrl: string): Promise<DeployInfo | null> {
   try {
-    const res = await fetch(`https://${owner}.github.io/${repo}/deploy-info.json`, {
-      cache: "no-cache",
-    });
+    const res = await fetch(new URL("deploy-info.json", pageUrl), { cache: "no-cache" });
     if (!res.ok) return null;
     const body = (await res.json()) as Partial<DeployInfo>;
     return typeof body.worker_url === "string" &&

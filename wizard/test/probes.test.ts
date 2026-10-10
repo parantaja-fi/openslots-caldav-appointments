@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GithubCache } from "../src/probes";
-import { probeDns, probeFork, probeHealth, probeRecord, probeRun } from "../src/probes";
+import {
+  githubPaced,
+  probeDeployInfo,
+  probeDeployment,
+  probeDns,
+  probeFork,
+  probeHealth,
+  probeRecord,
+  probeRun,
+} from "../src/probes";
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -12,38 +21,46 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 afterEach(() => vi.unstubAllGlobals());
 
 describe("probeFork", () => {
-  it("is present when the repository answers", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => json({ name: "fork" })));
-    expect(await probeFork("alice", "fork", {})).toEqual({ state: "present" });
+  it("is present when the repository answers, saying whether Pages is on", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ name: "fork", has_pages: false })));
+    expect(await probeFork("alice", "fork", { answers: {} })).toEqual({
+      state: "present",
+      pages: false,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => json({ name: "fork", has_pages: true })));
+    expect(await probeFork("alice", "fork", { answers: {} })).toEqual({
+      state: "present",
+      pages: true,
+    });
   });
 
   it("is absent on 404 — a proven no, not blindness", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "Not Found" }, 404)));
-    expect(await probeFork("alice", "fork", {})).toEqual({ state: "absent" });
+    expect(await probeFork("alice", "fork", { answers: {} })).toEqual({ state: "absent" });
   });
 
   it("answers a 304 from the ETag cache without re-reading the body", async () => {
-    const cache: GithubCache = {};
+    const cache: GithubCache = { answers: {} };
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(json({ name: "fork" }, 200, { etag: 'W/"abc"' }))
       .mockResolvedValueOnce(new Response(null, { status: 304 }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
-    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present", pages: false });
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present", pages: false });
     const second = fetchMock.mock.calls[1]![1] as RequestInit;
     expect(new Headers(second.headers).get("if-none-match")).toBe('W/"abc"');
   });
 
   it("keeps the last answer when rate-limited", async () => {
-    const cache: GithubCache = {};
+    const cache: GithubCache = { answers: {} };
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(json({ name: "fork" }, 200, { etag: 'W/"abc"' }))
       .mockResolvedValueOnce(json({ message: "rate limited" }, 403));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
-    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present", pages: false });
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present", pages: false });
   });
 
   it("is blind, naming the reset time, when rate-limited with a cold cache", async () => {
@@ -56,7 +73,7 @@ describe("probeFork", () => {
         }),
       ),
     );
-    const probe = await probeFork("alice", "fork", {});
+    const probe = await probeFork("alice", "fork", { answers: {} });
     expect(probe.state).toBe("blind");
     if (probe.state === "blind") {
       expect(probe.reason).toContain("sixty unauthenticated questions");
@@ -66,48 +83,143 @@ describe("probeFork", () => {
 
   it("is blind when the network is down and nothing is cached", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("offline"))));
-    const probe = await probeFork("alice", "fork", {});
+    const probe = await probeFork("alice", "fork", { answers: {} });
     expect(probe.state).toBe("blind");
     if (probe.state === "blind") expect(probe.reason).toContain("could not be reached");
   });
 });
 
+describe("the hour's allowance", () => {
+  it("is read from every answer, a 304 included", async () => {
+    const cache: GithubCache = { answers: {} };
+    const limit = { "x-ratelimit-remaining": "41", "x-ratelimit-reset": "1791660000" };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json({ name: "fork" }, 200, { etag: 'W/"abc"', ...limit }))
+        .mockResolvedValueOnce(
+          new Response(null, { status: 304, headers: { ...limit, "x-ratelimit-remaining": "40" } }),
+        ),
+    );
+    await probeFork("alice", "fork", cache);
+    expect(cache).toMatchObject({ remaining: 41, reset: 1_791_660_000_000 });
+    await probeFork("alice", "fork", cache);
+    expect(cache.remaining).toBe(40);
+  });
+
+  it("paces background rounds to last the hour, holding ten back for presses", () => {
+    const now = 1_000_000_000;
+    const hour = (remaining: number) => ({ answers: {}, remaining, reset: now + 3_600_000 });
+    expect(githubPaced({ answers: {} }, 4, now, now)).toBe(true);
+    // 50 spare over the hour: one question per 72 s, a round of two per 144 s.
+    expect(githubPaced(hour(60), 1, now - 71_000, now)).toBe(false);
+    expect(githubPaced(hour(60), 1, now - 72_000, now)).toBe(true);
+    expect(githubPaced(hour(60), 2, now - 72_000, now)).toBe(false);
+    expect(githubPaced(hour(10), 1, 0, now)).toBe(false);
+    expect(githubPaced({ ...hour(0), reset: now }, 1, now, now)).toBe(true);
+  });
+});
+
+describe("probeDeployment", () => {
+  it("reports where the latest Pages deployment published the page, and when", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json([{ id: 7, created_at: "2026-10-10T19:21:56Z" }]))
+      .mockResolvedValueOnce(
+        json([{ state: "success", environment_url: "https://www.example.fi/fork/" }]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await probeDeployment("alice", "fork", { answers: {} })).toEqual({
+      state: "present",
+      url: "https://www.example.fi/fork/",
+      at: Date.parse("2026-10-10T19:21:56Z"),
+    });
+    expect(String(fetchMock.mock.calls[0]![0])).toContain(
+      "/repos/alice/fork/deployments?environment=github-pages&per_page=1",
+    );
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("/deployments/7/statuses?per_page=1");
+  });
+
+  it("has no address while the deployment is in progress", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json([{ id: 7, created_at: "2026-10-10T19:21:56Z" }]))
+        .mockResolvedValueOnce(json([{ state: "in_progress", environment_url: "" }])),
+    );
+    expect(await probeDeployment("alice", "fork", { answers: {} })).toMatchObject({ url: "" });
+  });
+
+  it("is none before the first deploy, asking once", async () => {
+    const fetchMock = vi.fn(async () => json([]));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await probeDeployment("alice", "fork", { answers: {} })).toEqual({ state: "none" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("probeDeployInfo", () => {
+  it("reads the deploy's note at the page's real address", async () => {
+    const info = {
+      worker_url: "https://w.example",
+      page_origin: "https://www.example.fi",
+      base_path: "/fork",
+    };
+    const fetchMock = vi.fn(async () => json(info));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await probeDeployInfo("https://www.example.fi/fork/")).toEqual(info);
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe(
+      "https://www.example.fi/fork/deploy-info.json",
+    );
+  });
+});
+
 describe("probeRun", () => {
   const run = (status: string, conclusion: string | null) => ({
-    workflow_runs: [{ status, conclusion, html_url: "https://github.com/run/1" }],
+    workflow_runs: [
+      {
+        status,
+        conclusion,
+        html_url: "https://github.com/run/1",
+        run_started_at: "2026-10-10T14:18:27Z",
+      },
+    ],
   });
 
   it("maps a finished successful run", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json(run("completed", "success"))));
-    expect(await probeRun("alice", "fork", {})).toEqual({
+    expect(await probeRun("alice", "fork", { answers: {} })).toEqual({
       state: "success",
       url: "https://github.com/run/1",
+      at: Date.parse("2026-10-10T14:18:27Z"),
     });
   });
 
   it("maps a failed run", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json(run("completed", "failure"))));
-    expect((await probeRun("alice", "fork", {})).state).toBe("failure");
+    expect((await probeRun("alice", "fork", { answers: {} })).state).toBe("failure");
   });
 
   it("maps an in-progress run", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json(run("in_progress", null))));
-    expect((await probeRun("alice", "fork", {})).state).toBe("running");
+    expect((await probeRun("alice", "fork", { answers: {} })).state).toBe("running");
   });
 
   it("is none when no run exists", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ workflow_runs: [] })));
-    expect((await probeRun("alice", "fork", {})).state).toBe("none");
+    expect((await probeRun("alice", "fork", { answers: {} })).state).toBe("none");
   });
 
   it("is none while the workflow is not yet registered (404)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "Not Found" }, 404)));
-    expect((await probeRun("alice", "fork", {})).state).toBe("none");
+    expect((await probeRun("alice", "fork", { answers: {} })).state).toBe("none");
   });
 
   it("is blind when it cannot ask and holds no cached answer", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "rate limited" }, 403)));
-    expect((await probeRun("alice", "fork", {})).state).toBe("blind");
+    expect((await probeRun("alice", "fork", { answers: {} })).state).toBe("blind");
   });
 });
 
@@ -125,7 +237,7 @@ describe("probeRecord", () => {
 
   it("reads the store moment from this fork's own record", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => file(record)));
-    expect(await probeRecord("alice", "fork", {})).toEqual({
+    expect(await probeRecord("alice", "fork", { answers: {} })).toEqual({
       state: "present",
       storedAt: Date.parse(record.stored_at),
     });
@@ -133,22 +245,22 @@ describe("probeRecord", () => {
 
   it("is absent before any store (404)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "Not Found" }, 404)));
-    expect(await probeRecord("alice", "fork", {})).toEqual({ state: "absent" });
+    expect(await probeRecord("alice", "fork", { answers: {} })).toEqual({ state: "absent" });
   });
 
   it("ignores a record inherited from the fork's parent", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => file({ ...record, repository: "bob/fork" })));
-    expect(await probeRecord("alice", "fork", {})).toEqual({ state: "absent" });
+    expect(await probeRecord("alice", "fork", { answers: {} })).toEqual({ state: "absent" });
   });
 
   it("takes an unreadable record for none", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => file("not a record")));
-    expect(await probeRecord("alice", "fork", {})).toEqual({ state: "absent" });
+    expect(await probeRecord("alice", "fork", { answers: {} })).toEqual({ state: "absent" });
   });
 
   it("is blind when it cannot ask and holds no cached answer", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "rate limited" }, 403)));
-    expect((await probeRecord("alice", "fork", {})).state).toBe("blind");
+    expect((await probeRecord("alice", "fork", { answers: {} })).state).toBe("blind");
   });
 });
 

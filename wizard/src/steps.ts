@@ -4,7 +4,14 @@
 // through HTML.
 
 import type { FormGroups } from "./form";
-import type { DnsProbe, ForkProbe, HealthProbe, RecordProbe, RunProbe } from "./probes";
+import type {
+  DeploymentProbe,
+  DnsProbe,
+  ForkProbe,
+  HealthProbe,
+  RecordProbe,
+  RunProbe,
+} from "./probes";
 import type { Saved } from "./state";
 import { UPSTREAM_OWNER, UPSTREAM_REPO } from "./state";
 
@@ -12,6 +19,7 @@ export interface ProbeState {
   fork?: ForkProbe;
   run?: RunProbe;
   record?: RecordProbe;
+  deployment?: DeploymentProbe;
   health?: HealthProbe;
   dns?: DnsProbe;
 }
@@ -70,13 +78,80 @@ export interface StepView {
   /** A line at the foot of the card, where the hand is when a press
    * needs acknowledging. */
   footnote?: string;
+  /** Offer the wizard's Deploy button, which starts the run with the
+   * token held in the tab. */
+  deploy?: boolean;
+}
+
+/** When the fork last matched the form: the later of the wizard's record
+ * in the fork and the practitioner's tick for a store by hand. */
+function storeMomentOf(saved: Saved, probes: ProbeState): number {
+  const recorded = probes.record?.state === "present" ? probes.record.storedAt : 0;
+  return Math.max(recorded, saved.done["secrets"] ?? 0);
+}
+
+/** A run that started before the last store ran on the configuration
+ * before it. */
+function staleRun(run: RunProbe | undefined, storeMoment: number): boolean {
+  return storeMoment > 0 && run !== undefined && "at" in run && run.at < storeMoment;
+}
+
+/** Where the latest run published the page, once it is green and its
+ * Pages deployment has been read; empty until then. */
+export function publishedAt(
+  run: RunProbe | undefined,
+  deployment: DeploymentProbe | undefined,
+): string {
+  return run?.state === "success" && deployment?.state === "present" && deployment.at >= run.at
+    ? deployment.url
+    : "";
+}
+
+export type GithubQuestion = "fork" | "record" | "run" | "deployment";
+
+/** The GitHub questions worth asking now. Each costs one of the sixty an
+ * hour GitHub answers unauthenticated, so a settled fact is not asked
+ * again. A press asks every open question; unpressed, the deploy's facts
+ * wait until the configuration is stored. */
+export function githubQuestions(
+  saved: Saved,
+  probes: ProbeState,
+  pressed = false,
+): GithubQuestion[] {
+  const { owner, repo } = saved.inputs;
+  if (!owner || !repo) return [];
+  const { fork, run, deployment } = probes;
+  if (fork?.state === "absent") return ["fork"];
+  const storeMoment = storeMomentOf(saved, probes);
+  const deploying = pressed || storeMoment > 0;
+  const unsure = (probe?: { state: string }) => probe === undefined || probe.state === "blind";
+  const published = publishedAt(run, deployment);
+  const out: GithubQuestion[] = [];
+  // The fork's own record tells whether Pages is on.
+  if (fork?.state !== "present" || (deploying && !fork.pages)) out.push("fork");
+  if (unsure(probes.record)) out.push("record");
+  if (
+    unsure(run) ||
+    run?.state === "running" ||
+    (deploying &&
+      (run?.state !== "success" || staleRun(run, storeMoment) || published.startsWith("http:")))
+  ) {
+    out.push("run");
+  }
+  if (unsure(deployment) || (run?.state === "success" && !published)) out.push("deployment");
+  return out;
 }
 
 function healthLine(name: string, sub: { ok: boolean; error?: string }): string {
   return sub.ok ? `${name}: ok` : `${name}: ${sub.error ?? "failing"}`;
 }
 
-export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroups): StepView[] {
+export function deriveSteps(
+  saved: Saved,
+  probes: ProbeState,
+  groups?: FormGroups,
+  tokenHeld = false,
+): StepView[] {
   const { owner, repo, workerUrl, pageUrl, senderDomain } = saved.inputs;
   const fork = owner && repo ? `https://github.com/${owner}/${repo}` : null;
   const steps: StepView[] = [];
@@ -149,7 +224,7 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
   const recordProbe = probes.record;
   const recorded = recordProbe?.state === "present" ? recordProbe.storedAt : 0;
   const writeTick = saved.done["secrets"] ?? 0;
-  const storeMoment = Math.max(recorded, writeTick);
+  const storeMoment = storeMomentOf(saved, probes);
   const editedSince = (key: keyof FormGroups): boolean =>
     (saved.edited?.[key] ?? 0) > storeMoment;
   const byRecord = recorded > 0 && recorded >= writeTick;
@@ -249,7 +324,8 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
                 .join(", ")} — not yet in your fork.`,
               groupsOk
                 ? "Everything checks out. Paste a repo-scoped token below and " +
-                  "the wizard stores the whole configuration afresh and redeploys."
+                  "the wizard stores the whole configuration afresh; then deploy " +
+                  "again below."
                 : "The wizard stores the whole configuration at once — " +
                   "re-enter the values still missing above, then paste a " +
                   "token here (or use the review list by hand).",
@@ -261,8 +337,8 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
                 : []),
               groupsOk
                 ? "Everything checks out. Paste a repo-scoped token below and the " +
-                  "wizard writes it all into your fork and starts the deploy — or " +
-                  "copy the review list in by hand."
+                  "wizard writes it all into your fork — or copy the review list " +
+                  "in by hand."
                 : "Complete the configuration steps above; once all four check " +
                   "out, one token paste writes everything into your fork at once.",
               "A store by hand leaves nothing the wizard can see — mark it done " +
@@ -274,36 +350,48 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
     manual: !(storeStatus === "attested" && byRecord),
   });
 
-  // The page's address: guessed (greyed) until the first deploy reveals
-  // the real one — which may sit under the account's own Pages domain.
-  const pageGuess = owner && repo ? `https://${owner}.github.io/${repo}/` : null;
+  // Pages as an unauthenticated read sees it: on or off. Its source and
+  // its address show in the deploy below.
+  const pagesOn = forkProbe?.state === "present" && forkProbe.pages;
   steps.push({
     id: "pages",
     title: "Switch GitHub Pages to build using GitHub Actions",
-    status: saved.done["pages"] ? "attested" : "open",
-    body: [
-      "In your fork: Settings → Pages → Source: GitHub Actions. One click, " +
-        "unreadable from here, proven by the deploy run below.",
-      "Leave “Custom domain” empty and “Enforce HTTPS” as it is. By default " +
-        "your page publishes at the github.io address below; if your GitHub " +
-        "account already serves a site under a custom domain, GitHub puts " +
-        "this page under that domain instead — nothing is overwritten, and " +
-        "the wizard reads the real address from the first deploy, turning " +
-        "it into a link.",
-      ...(saved.done["pages"] ? [tickLine(saved.done["pages"])] : []),
-    ],
-    links: [
-      ...(fork ? [{ label: "Pages settings", href: `${fork}/settings/pages` }] : []),
-      ...(pageUrl
-        ? [{ label: "Your page:", href: pageUrl, bare: true }]
-        : pageGuess
-          ? [{ label: "Your page:", href: pageGuess, bare: true, dim: true }]
-          : []),
-    ],
-    manual: true,
+    status: !owner
+      ? "open"
+      : forkProbe?.state === "blind"
+        ? "unknown"
+        : pagesOn
+          ? "green"
+          : "open",
+    body:
+      forkProbe?.state === "blind"
+        ? [`Not known whether Pages is switched on: ${forkProbe.reason}`]
+        : pagesOn
+          ? ["Switched on. Where GitHub publishes your page shows once the deploy below has run."]
+          : [
+              "In your fork: Settings → Pages → Source: GitHub Actions; further " +
+                "down, tick “Enforce HTTPS” unless it is ticked already. Then " +
+                "press Done.",
+              "Leave “Custom domain” empty: if your GitHub account already " +
+                "serves a site under a custom domain, GitHub publishes this " +
+                "page under it too, and nothing there is overwritten. HTTPS, " +
+                "though, the fork decides for itself.",
+            ],
+    links: !pagesOn && fork ? [{ label: "Pages settings", href: `${fork}/settings/pages` }] : [],
+    manual: false,
+    check: Boolean(owner) && !pagesOn,
   });
 
+  // The deploy starts here, not at the store: its first job needs the
+  // Pages switch above. A run that started before the last store ran on
+  // the configuration before it, so every store re-opens this step; so
+  // does a green run whose Pages deployment reports a plain-HTTP page.
   const run = probes.run;
+  const stale = staleRun(run, storeMoment);
+  const published = publishedAt(run, probes.deployment);
+  const plain = published.startsWith("http:");
+  const due = stale || plain || run?.state === "none" || run?.state === "failure";
+  const deployButton = due && tokenHeld && storeMoment > 0 && pagesOn;
   steps.push({
     id: "deploy",
     title: "Run the deploy",
@@ -311,25 +399,38 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
       ? "open"
       : run?.state === "blind"
         ? "unknown"
-        : run?.state === "success"
-          ? "green"
-          : run?.state === "failure"
+        : stale || run?.state === "none"
+          ? "open"
+          : plain || run?.state === "failure"
             ? "red"
-            : "watch",
+            : run?.state === "success"
+              ? "green"
+              : "watch",
     body: [
       run?.state === "blind"
         ? `Not known whether a deploy has run: ${run.reason}`
-        : run?.state === "failure"
-          ? "The last run failed. Its log ends with the health report naming " +
-            "what is missing — fix that secret or variable and run it again."
-          : run?.state === "running"
-            ? "A run is in progress."
-            : run?.state === "success"
-              ? "The deploy is green: Worker deployed, page published, health " +
-                "probe passed."
-              : "On your fork's Actions tab, choose Deploy and press Run " +
-                "workflow. The run deploys the Worker and the page, then " +
-                "gates on the health check.",
+        : stale
+          ? "The configuration was stored after the last deploy — deploy again " +
+            "to put it to work."
+          : plain
+            ? `GitHub published your page at ${published} — plain HTTP, which a ` +
+              "browser upgrades to HTTPS by itself, and the booking service " +
+              "then refuses it. Tick “Enforce HTTPS” in your fork's Pages " +
+              "settings, then deploy again."
+            : run?.state === "failure"
+              ? "The last run failed. Its log ends with the health report naming " +
+                "what is missing — fix that secret or variable and run it again."
+              : run?.state === "running"
+                ? "A run is in progress."
+                : run?.state === "success"
+                  ? "The deploy is green: Worker deployed, page published, health " +
+                    "probe passed."
+                  : "Once the configuration is stored and Pages switched on above, " +
+                    "start the deploy. The run deploys the Worker and the page, " +
+                    "then gates on the health check.",
+      ...(due && pagesOn && !deployButton
+        ? ["On your fork's Actions tab, choose Deploy and press Run workflow."]
+        : []),
     ],
     links: [
       ...(fork
@@ -338,8 +439,12 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
       ...(run && run.state !== "none" && run.state !== "blind"
         ? [{ label: "The run", href: run.url }]
         : []),
+      ...(plain && fork ? [{ label: "Pages settings", href: `${fork}/settings/pages` }] : []),
+      // The page's real address, as its Pages deployment reports it.
+      ...(published && !plain ? [{ label: "Your page:", href: published, bare: true }] : []),
     ],
     manual: false,
+    deploy: deployButton,
   });
 
   const health = probes.health;
@@ -376,7 +481,7 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
   }
   steps.push({
     id: "health",
-    title: "The API reports healthy",
+    title: "Your booking service health check",
     status: !workerUrl
       ? owner
         ? "watch"
