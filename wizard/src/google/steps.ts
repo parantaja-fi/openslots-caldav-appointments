@@ -250,6 +250,8 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
           "Done. Then, on the account, Keys → Add key → Create new key → JSON. " +
           "A file downloads; 3.5 takes it.",
         "The file is the account's password: keep it to yourself.",
+        "A Google Workspace organisation may have key creation switched off " +
+          "for its projects; its admin can allow it for this one.",
         ...waitsForProject,
       ],
       [

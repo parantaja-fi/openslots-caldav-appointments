@@ -70,7 +70,12 @@ step 3 of the main list — in the main wizard's vocabulary throughout
   CalDAV one by health.
 - **3.4 Service account.** Link to the create page. "Any name; no
   role, no user access — Done. Then Keys → Add key → Create new key →
-  JSON. A file downloads." Attested.
+  JSON. A file downloads." Attested. A Workspace organisation created
+  since 2024 has service-account key creation switched off by default
+  (the `iam.disableServiceAccountKeyCreation` policy); the card says
+  an admin can allow it for the project, and the Workspace walk of §8
+  step 6 is where this gets observed. A personal account has no
+  organisation and no such policy.
 - **3.5 Key.** Paste the file. Synchronously: JSON, `client_email`,
   `private_key` (the validator that exists), then the pkcs8 import.
   Then the token exchange, for `calendar.readonly` — the narrowest
