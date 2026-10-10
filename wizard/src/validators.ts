@@ -66,7 +66,7 @@ export const VALIDATORS: Record<string, Validator> = {
     } catch {
       return bad("not valid JSON — paste the whole key file, unchanged");
     }
-    const record = parsed as Record<string, unknown>;
+    const record = (parsed ?? {}) as Record<string, unknown>;
     return typeof record["client_email"] === "string" &&
       typeof record["private_key"] === "string"
       ? ok(raw.trim())

@@ -57,6 +57,7 @@ describe("googleJson", () => {
     const key = JSON.stringify({ client_email: "sa@p.iam", private_key: "---" });
     expect(v("googleJson", key).ok).toBe(true);
     expect(v("googleJson", "{}").ok).toBe(false);
+    expect(v("googleJson", "null").ok).toBe(false);
     expect(v("googleJson", "not json").ok).toBe(false);
   });
 });
