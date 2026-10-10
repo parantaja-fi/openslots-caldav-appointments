@@ -19,12 +19,12 @@ function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, nu
     },
     form: { provider: "nextcloud", providerUrl: "", sameCalendar: true, emailOn: true, values: {} },
     done,
-    wrote: null,
     brevo: null,
   };
 }
 
 const FORK: ProbeState["fork"] = { state: "present" };
+const STORED: ProbeState["record"] = { state: "present", storedAt: TICK };
 
 function withBrevo(s: Saved, authenticated: boolean, domain = "p.fi"): Saved {
   const record = (label: string, status: boolean) => ({
@@ -199,12 +199,10 @@ describe("configuration group steps", () => {
     expect(view.body.join("\n")).toContain("Use the fields below");
   });
 
-  it("cite the write record when the wizard itself stored", () => {
-    const s = { ...saved({}, { secrets: TICK }), wrote: { at: TICK, secrets: 9, variables: 8 } };
-    const view = step("calendars", s);
+  it("cite the fork's record when the wizard itself stored", () => {
+    const view = step("calendars", saved(), { record: STORED });
     expect(view.status).toBe("attested");
     expect(view.body.join("\n")).toContain("Stored into your GitHub fork");
-    expect(view.body.join("\n")).toContain("9 secrets and 8 variables");
   });
 
   it("let data in the tab speak over the attestation", () => {
@@ -220,12 +218,8 @@ describe("configuration group steps", () => {
   });
 
   it("re-open, with the store step, when a value changes after the store", () => {
-    const s: Saved = {
-      ...saved({}, { secrets: TICK }),
-      wrote: { at: TICK, secrets: 9, variables: 8 },
-      edited: { calendars: TICK + 1 },
-    };
-    const views = deriveSteps(s, {});
+    const s: Saved = { ...saved(), edited: { calendars: TICK + 1 } };
+    const views = deriveSteps(s, { record: STORED });
     const card = views.find((x) => x.id === "calendars")!;
     expect(card.status).toBe("open");
     expect(card.body.join("\n")).toContain("Changed since the last store");
@@ -236,23 +230,15 @@ describe("configuration group steps", () => {
   });
 
   it("keep edits made before the store attested", () => {
-    const s: Saved = {
-      ...saved({}, { secrets: TICK }),
-      wrote: { at: TICK, secrets: 9, variables: 8 },
-      edited: { calendars: TICK - 1 },
-    };
-    const views = deriveSteps(s, {});
+    const s: Saved = { ...saved(), edited: { calendars: TICK - 1 } };
+    const views = deriveSteps(s, { record: STORED });
     expect(views.find((x) => x.id === "calendars")!.status).toBe("attested");
     expect(views.find((x) => x.id === "secrets")!.status).toBe("attested");
   });
 
   it("settle again once a fresh manual tick covers the edit", () => {
-    const s: Saved = {
-      ...saved({}, { secrets: TICK + 2 }),
-      wrote: { at: TICK, secrets: 9, variables: 8 },
-      edited: { calendars: TICK + 1 },
-    };
-    const views = deriveSteps(s, {});
+    const s: Saved = { ...saved({}, { secrets: TICK + 2 }), edited: { calendars: TICK + 1 } };
+    const views = deriveSteps(s, { record: STORED });
     expect(views.find((x) => x.id === "secrets")!.status).toBe("attested");
     expect(views.find((x) => x.id === "secrets")!.body.join("\n")).toContain(
       "Marked stored by you",
@@ -267,6 +253,23 @@ describe("the write step", () => {
     expect(before.body.join("\n")).toContain("Complete the configuration steps");
     const after = deriveSteps(saved(), {}, allGroups("green")).find((x) => x.id === "secrets")!;
     expect(after.body.join("\n")).toContain("review list");
+  });
+
+  it("lets the later of record and tick speak, offering no tick button for a record", () => {
+    const later: ProbeState["record"] = { state: "present", storedAt: TICK + 1 };
+    const recorded = step("secrets", saved({}, { secrets: TICK }), { record: later });
+    expect(recorded.status).toBe("attested");
+    expect(recorded.body.join("\n")).toContain("Stored into your GitHub fork");
+    expect(recorded.manual).toBe(false);
+    const ticked = step("secrets", saved({}, { secrets: TICK + 2 }), { record: later });
+    expect(ticked.body.join("\n")).toContain("Marked stored by you");
+    expect(ticked.manual).toBe(true);
+  });
+
+  it("is unknown, saying why, when it cannot see the record and holds no tick", () => {
+    const view = step("secrets", saved(), { record: { state: "blind", reason: "GitHub is down." } });
+    expect(view.status).toBe("unknown");
+    expect(view.body[0]).toContain("GitHub is down.");
   });
 });
 

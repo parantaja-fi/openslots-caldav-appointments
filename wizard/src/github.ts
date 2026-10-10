@@ -51,6 +51,10 @@ function repoPath(owner: string, repo: string): string {
 
 export interface RepoInfo {
   default_branch: string;
+  full_name: string;
+  created_at: string;
+  /** Present on a fork: the repository it was forked from. */
+  parent?: { full_name: string };
 }
 
 /** Doubles as token verification: a token that cannot see the fork gets a
@@ -122,6 +126,51 @@ export async function putVariable(
       value,
     });
   }
+}
+
+/** The one file the wizard keeps in the fork. */
+export const RECORD_PATH = ".wizard/fork.json";
+
+/** Public facts about the fork and the moment of the last store — never
+ * configuration — so that any browser, without a token, can tell a
+ * configured fork from a fresh one. */
+export interface ForkRecord {
+  repository: string;
+  forked_from: string | null;
+  forked_at: string | null;
+  stored_at: string;
+}
+
+const RECORD_ABOUT =
+  "Written by the setup wizard each time it stores this fork's configuration. " +
+  "The configuration itself lives in the fork's encrypted Actions secrets and " +
+  "variables, never in this repository; nothing private is recorded here.";
+
+/** One commit per store: the file is created the first time and replaced
+ * after — the contents API wants the replaced blob's sha for that. */
+export async function writeRecord(
+  owner: string,
+  repo: string,
+  token: string,
+  branch: string,
+  record: ForkRecord,
+): Promise<void> {
+  const path = `${repoPath(owner, repo)}/contents/${RECORD_PATH}`;
+  let sha: string | undefined;
+  try {
+    ({ sha } = (await api(token, "GET", `${path}?ref=${encodeURIComponent(branch)}`)) as {
+      sha: string;
+    });
+  } catch (e) {
+    if (!(e instanceof GithubError && e.status === 404)) throw e;
+  }
+  const text = `${JSON.stringify({ about: RECORD_ABOUT, ...record }, null, 2)}\n`;
+  await api(token, "PUT", path, {
+    message: "Record when the configuration was stored",
+    content: toB64(new TextEncoder().encode(text)),
+    branch,
+    ...(sha ? { sha } : {}),
+  });
 }
 
 /** A fresh fork lists no workflows until a commit lands after forking

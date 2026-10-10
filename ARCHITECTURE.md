@@ -21,7 +21,10 @@ Beside the system, not in it: the **setup wizard** (`wizard/`,
 `ROADMAP.md` M5–M6), a second static page served at `/wizard/`. Its
 verifier stage only watches — public GitHub REST unauthenticated, the
 token-less health endpoint (§3), DNS over HTTPS — and holds no
-credential.
+credential. Its provisioning stage adds one file to the fork beside the
+Actions secrets and variables it writes: `.wizard/fork.json`, the fork's
+provenance and when its configuration was last stored — public facts
+only, so any browser can tell a configured fork without a token.
 
 ## 2. Calendar model
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GithubCache } from "../src/probes";
-import { probeDns, probeFork, probeHealth, probeRun } from "../src/probes";
+import { probeDns, probeFork, probeHealth, probeRecord, probeRun } from "../src/probes";
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -108,6 +108,47 @@ describe("probeRun", () => {
   it("is blind when it cannot ask and holds no cached answer", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "rate limited" }, 403)));
     expect((await probeRun("alice", "fork", {})).state).toBe("blind");
+  });
+});
+
+describe("probeRecord", () => {
+  const record = {
+    about: "Written by the setup wizard",
+    repository: "Alice/fork",
+    forked_from: "parantaja-fi/openslots-caldav-appointments",
+    forked_at: "2026-09-07T07:10:12Z",
+    stored_at: "2026-10-10T08:15:00.000Z",
+  };
+  // GitHub wraps the base64 at sixty characters.
+  const file = (body: unknown) =>
+    json({ content: Buffer.from(JSON.stringify(body)).toString("base64").replace(/.{60}/g, "$&\n") });
+
+  it("reads the store moment from this fork's own record", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => file(record)));
+    expect(await probeRecord("alice", "fork", {})).toEqual({
+      state: "present",
+      storedAt: Date.parse(record.stored_at),
+    });
+  });
+
+  it("is absent before any store (404)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ message: "Not Found" }, 404)));
+    expect(await probeRecord("alice", "fork", {})).toEqual({ state: "absent" });
+  });
+
+  it("ignores a record inherited from the fork's parent", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => file({ ...record, repository: "bob/fork" })));
+    expect(await probeRecord("alice", "fork", {})).toEqual({ state: "absent" });
+  });
+
+  it("takes an unreadable record for none", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => file("not a record")));
+    expect(await probeRecord("alice", "fork", {})).toEqual({ state: "absent" });
+  });
+
+  it("is blind when it cannot ask and holds no cached answer", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ message: "rate limited" }, 403)));
+    expect((await probeRecord("alice", "fork", {})).state).toBe("blind");
   });
 });
 

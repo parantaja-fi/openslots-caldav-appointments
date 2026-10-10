@@ -10,11 +10,20 @@ import {
 } from "./form";
 import { authenticate, createDomain, getDomain } from "./brevo";
 import type { RepoInfo } from "./github";
-import { GithubError, getPublicKey, getRepo, putSecret, putVariable, startDeploy } from "./github";
+import {
+  GithubError,
+  RECORD_PATH,
+  getPublicKey,
+  getRepo,
+  putSecret,
+  putVariable,
+  startDeploy,
+  writeRecord,
+} from "./github";
 import type { ManifestEntry } from "./manifest";
 import { MANIFEST } from "./manifest";
 import type { GithubCache } from "./probes";
-import { probeDeployInfo, probeDns, probeFork, probeHealth, probeRun } from "./probes";
+import { probeDeployInfo, probeDns, probeFork, probeHealth, probeRecord, probeRun } from "./probes";
 import type { PhaseView, ProbeState, StepLink, StepView } from "./steps";
 import { allGreen, derivePhases, deriveSteps, settled } from "./steps";
 import type { Provider } from "./state";
@@ -332,6 +341,7 @@ function commitOwner(value: string): void {
   state.inputs.pageUrl = "";
   delete probes.fork;
   delete probes.run;
+  delete probes.record;
   delete probes.health;
   delete probes.dns;
   save(state);
@@ -695,16 +705,19 @@ async function provision(): Promise<void> {
       await putVariable(owner, repo, pat, name, value);
       say(`${name} written.`, "ok");
     }
+    const storedAt = new Date();
+    await writeRecord(owner, repo, pat, info.default_branch, {
+      repository: info.full_name,
+      forked_from: info.parent?.full_name ?? null,
+      forked_at: info.parent ? info.created_at : null,
+      stored_at: storedAt.toISOString(),
+    });
+    // What was just written needs no read-back; the poll confirms it.
+    probes.record = { state: "present", storedAt: storedAt.getTime() };
+    say(`${RECORD_PATH} written — the dated record of this store.`, "ok");
     say("Starting the deploy.");
     await startDeploy(owner, repo, pat, info.default_branch);
     say("Deploy started — watch it land in the deploy step below.", "ok");
-    state.done["secrets"] = Date.now();
-    state.wrote = {
-      at: Date.now(),
-      secrets: Object.keys(eff.secrets).length,
-      variables: Object.keys(eff.variables).length,
-    };
-    save(state);
     void poll();
   } catch (e) {
     say(e instanceof Error ? e.message : String(e), "err");
@@ -928,6 +941,7 @@ async function poll(): Promise<void> {
     if (owner && repo) {
       jobs.push(probeFork(owner, repo, cache).then((r) => void (probes.fork = r)));
       jobs.push(probeRun(owner, repo, cache).then((r) => void (probes.run = r)));
+      jobs.push(probeRecord(owner, repo, cache).then((r) => void (probes.record = r)));
     }
     if (owner && repo && (!workerUrl || !pageUrl)) {
       jobs.push(
@@ -991,6 +1005,7 @@ async function poll(): Promise<void> {
     state.inputs.pageUrl = "";
     delete probes.fork;
     delete probes.run;
+    delete probes.record;
     delete probes.health;
     delete probes.dns;
     save(state);

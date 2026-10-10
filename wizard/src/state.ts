@@ -51,21 +51,12 @@ export interface BrevoState {
   records: BrevoRecord[];
 }
 
-/** What the wizard's own write left in the fork — counts and moment only,
- * never values. It is what an attested card can honestly cite. */
-export interface WroteRecord {
-  at: number;
-  secrets: number;
-  variables: number;
-}
-
 export interface Saved {
   inputs: Inputs;
   /** Manual steps the practitioner has ticked off themselves: epoch ms
    * of the tick (1 for ticks predating the timestamps). Absent = not
    * done — the values are attestations, not observations. */
   done: Record<string, number>;
-  wrote: WroteRecord | null;
   /** Per configuration group, when a value last changed (epoch ms) —
    * compared against the store moment to tell unstored edits apart. */
   edited?: Record<string, number>;
@@ -82,7 +73,6 @@ export function load(): Saved {
   const fallback: Saved = {
     inputs: { owner: "", repo: UPSTREAM_REPO, workerUrl: "", pageUrl: "", senderDomain: "", cfEmail: "" },
     done: {},
-    wrote: null,
     form: { provider: "nextcloud", providerUrl: "", sameCalendar: true, emailOn: true, values: {} },
     brevo: null,
   };
@@ -99,7 +89,6 @@ export function load(): Saved {
     return {
       inputs: { ...fallback.inputs, ...parsed.inputs },
       done,
-      wrote: parsed.wrote ?? null,
       ...(parsed.edited ? { edited: parsed.edited } : {}),
       form: {
         ...fallback.form,

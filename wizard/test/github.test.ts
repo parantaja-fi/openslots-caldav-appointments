@@ -8,6 +8,7 @@ import {
   putSecret,
   putVariable,
   startDeploy,
+  writeRecord,
 } from "../src/github";
 
 interface Call {
@@ -123,6 +124,37 @@ describe("putVariable", () => {
     await expect(putVariable("alice", "fork", "tok", "X", "1")).rejects.toBeInstanceOf(
       GithubError,
     );
+  });
+});
+
+describe("writeRecord", () => {
+  const path = "/repos/alice/fork/contents/.wizard/fork.json";
+  const record = {
+    repository: "alice/fork",
+    forked_from: "parantaja-fi/openslots-caldav-appointments",
+    forked_at: "2026-09-07T07:10:12Z",
+    stored_at: "2026-10-10T08:15:00.000Z",
+  };
+  const decoded = (call: Call) =>
+    JSON.parse(Buffer.from((call.body as { content: string }).content, "base64").toString());
+
+  it("creates the file on the first store", async () => {
+    const calls = stubGithub((c) =>
+      c.method === "GET" ? { status: 404, body: { message: "Not Found" } } : { status: 201, body: {} },
+    );
+    await writeRecord("alice", "fork", "tok", "main", record);
+    expect(calls[0]).toMatchObject({ method: "GET", path: `${path}?ref=main` });
+    expect(calls[1]).toMatchObject({ method: "PUT", path, body: { branch: "main" } });
+    expect(calls[1]!.body).not.toHaveProperty("sha");
+    expect(decoded(calls[1]!)).toMatchObject(record);
+  });
+
+  it("replaces it on later stores, naming the replaced blob", async () => {
+    const calls = stubGithub((c) =>
+      c.method === "GET" ? { status: 200, body: { sha: "blob1" } } : { status: 200, body: {} },
+    );
+    await writeRecord("alice", "fork", "tok", "main", record);
+    expect(calls[1]!.body).toMatchObject({ sha: "blob1" });
   });
 });
 

@@ -4,13 +4,14 @@
 // through HTML.
 
 import type { FormGroups } from "./form";
-import type { DnsProbe, ForkProbe, HealthProbe, RunProbe } from "./probes";
+import type { DnsProbe, ForkProbe, HealthProbe, RecordProbe, RunProbe } from "./probes";
 import type { Saved } from "./state";
 import { UPSTREAM_OWNER, UPSTREAM_REPO } from "./state";
 
 export interface ProbeState {
   fork?: ForkProbe;
   run?: RunProbe;
+  record?: RecordProbe;
   health?: HealthProbe;
   dns?: DnsProbe;
 }
@@ -135,19 +136,21 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
   // made after the store breaks the attestation: the card re-opens,
   // and so does the store step, until the change is stored too.
   const g: FormGroups = groups ?? { calendars: "open", cloudflare: "open", email: "open", shape: "open" };
+  // The wizard's own stores leave a record in the fork, readable from any
+  // browser; a by-hand store leaves only the practitioner's tick. The
+  // later of the two is when the fork last matched the form.
+  const recordProbe = probes.record;
+  const recorded = recordProbe?.state === "present" ? recordProbe.storedAt : 0;
   const writeTick = saved.done["secrets"] ?? 0;
-  // A by-hand re-store ticks done afresh; the later of the tick and the
-  // wizard's own write is when the fork last matched the form.
-  const storeMoment = Math.max(saved.wrote?.at ?? 0, writeTick);
+  const storeMoment = Math.max(recorded, writeTick);
   const editedSince = (key: keyof FormGroups): boolean =>
     (saved.edited?.[key] ?? 0) > storeMoment;
-  const storedLine =
-    saved.wrote && saved.wrote.at >= writeTick
-      ? `Stored into your GitHub fork ${when(saved.wrote.at)} — ${saved.wrote.secrets} secrets ` +
-        `and ${saved.wrote.variables} variables.`
-      : writeTick > 1
-        ? `Marked stored by you, ${when(writeTick)}.`
-        : "Marked stored by you.";
+  const byRecord = recorded > 0 && recorded >= writeTick;
+  const storedLine = byRecord
+    ? `Stored into your GitHub fork ${when(recorded)}.`
+    : writeTick > 1
+      ? `Marked stored by you, ${when(writeTick)}.`
+      : "Marked stored by you.";
   const groupStep = (id: string, key: keyof FormGroups, title: string): StepView => {
     const s = g[key];
     const status: Status =
@@ -155,7 +158,7 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
         ? "red"
         : s === "green"
           ? "green"
-          : writeTick && !editedSince(key)
+          : storeMoment && !editedSince(key)
             ? "attested"
             : "open";
     return {
@@ -165,7 +168,7 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
       body:
         status === "attested"
           ? [storedLine, "Use the fields below to change the stored configuration."]
-          : writeTick && editedSince(key)
+          : storeMoment && editedSince(key)
             ? [
                 "Changed since the last store — the change reaches your fork " +
                   "at the store step below.",
@@ -188,13 +191,19 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
 
   const groupKeys = ["calendars", "cloudflare", "email", "shape"] as const;
   const groupsOk = groupKeys.every((k) => g[k] === "green");
-  const changed = writeTick ? groupKeys.filter(editedSince) : [];
+  const changed = storeMoment ? groupKeys.filter(editedSince) : [];
+  const storeStatus: Status =
+    storeMoment && changed.length === 0
+      ? "attested"
+      : !storeMoment && recordProbe?.state === "blind"
+        ? "unknown"
+        : "open";
   steps.push({
     id: "secrets",
     title: "Store the configuration into your GitHub fork",
-    status: writeTick && changed.length === 0 ? "attested" : "open",
+    status: storeStatus,
     body:
-      writeTick && changed.length === 0
+      storeStatus === "attested"
         ? [
             storedLine,
             "Secrets are write-only — the wizard cannot read them back. " +
@@ -214,17 +223,22 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
               storedLine,
             ]
           : [
+              ...(recordProbe?.state === "blind"
+                ? [`Not known whether your configuration is already stored: ${recordProbe.reason}`]
+                : []),
               groupsOk
                 ? "Everything checks out. Paste a repo-scoped token below and the " +
                   "wizard writes it all into your fork and starts the deploy — or " +
                   "copy the review list in by hand."
                 : "Complete the configuration steps above; once all four are " +
                   "green, one token paste writes everything into your fork at once.",
-              "Secrets are write-only, so the wizard cannot watch this step; the " +
-                "deploy run below is its proof.",
+              "A store by hand leaves nothing the wizard can see — mark it done " +
+                "yourself; the deploy run below is its proof.",
             ],
     links: [],
-    manual: true,
+    // A record in the fork is a fact no tick can undo; the button serves
+    // the by-hand path, and un-marking a tick.
+    manual: !(storeStatus === "attested" && byRecord),
   });
 
   // The page's address: guessed (greyed) until the first deploy reveals

@@ -3,6 +3,9 @@
 // endpoint, and DNS over HTTPS. All probes swallow network failure into
 // their "not there yet" state — the wizard polls, it never crashes.
 
+import type { ForkRecord } from "./github";
+import { RECORD_PATH } from "./github";
+
 /** Conditional-request cache: unauthenticated GitHub calls are limited to
  * 60/h per IP, but a 304 answered from an ETag does not count. */
 export type GithubCache = Record<string, { etag: string; body: unknown }>;
@@ -100,6 +103,39 @@ export async function probeRun(
   return run.conclusion === "success"
     ? { state: "success", url: run.html_url }
     : { state: "failure", url: run.html_url };
+}
+
+/** The wizard's record of the last store — this fork's own, that is: a
+ * fork of a fork inherits its parent's, which says nothing about this
+ * one. A record that cannot be read is no record. */
+export type RecordProbe =
+  | { state: "present"; storedAt: number }
+  | { state: "absent" }
+  | { state: "blind"; reason: string };
+
+export async function probeRecord(
+  owner: string,
+  repo: string,
+  cache: GithubCache,
+): Promise<RecordProbe> {
+  const url =
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}` +
+    `/contents/${RECORD_PATH}`;
+  const answer = await github(url, cache);
+  if (answer.kind === "blind") return { state: "blind", reason: answer.reason };
+  if (answer.kind === "absent") return { state: "absent" };
+  try {
+    const { content } = answer.body as { content: string };
+    const record = JSON.parse(
+      new TextDecoder().decode(Uint8Array.from(atob(content), (c) => c.charCodeAt(0))),
+    ) as ForkRecord;
+    const storedAt = Date.parse(record.stored_at);
+    return record.repository.toLowerCase() === `${owner}/${repo}`.toLowerCase() && storedAt
+      ? { state: "present", storedAt }
+      : { state: "absent" };
+  } catch {
+    return { state: "absent" };
+  }
 }
 
 /** Where the fork's deploy landed, published by the deploy workflow into
