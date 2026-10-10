@@ -216,6 +216,14 @@ settled 2026-08-11:
    unorthodox, but no second practitioner is at hand and the release
    should not wait; what trips them becomes 0.1.x fixes.
 
+From the proxy-walk feedback (2026-09-08, `docs/m6.4-walk-notes.md`):
+the guided Google-credentials page — a page of the wizard's own
+creating the Cloud project, service account and key — follows in a
+session soon after; M6.4 ships a visible placeholder button in its
+place. Per-role calendar providers (availability and booking store on
+different backends; today one provider choice serves both) are
+deferred to M6.5.
+
 *Exit for 0.1.0: M6.4 — the proxy walk passes end to end. M6.5 keeps
 the unchanged external bar and closes M6 itself.*
 
