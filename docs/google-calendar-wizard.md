@@ -69,8 +69,8 @@ step 3 of the main list — in the main wizard's vocabulary throughout
   Attested here; the Calendar one is proven by 3.6's first call, the
   CalDAV one by health.
 - **3.4 Service account.** Link to the create page. "Any name; no
-  role, no user access — Done. Then Keys → Add key → JSON. A file
-  downloads." Attested.
+  role, no user access — Done. Then Keys → Add key → Create new key →
+  JSON. A file downloads." Attested.
 - **3.5 Key.** Paste the file. Synchronously: JSON, `client_email`,
   `private_key` (the validator that exists), then the pkcs8 import.
   Then the token exchange, for `calendar.readonly` — the narrowest
@@ -78,17 +78,19 @@ step 3 of the main list — in the main wizard's vocabulary throughout
   12:34", red with Google's own `error_description` quoted otherwise
   (every refusal is a 400 `invalid_grant`; the wording is the only
   distinction and Google does not promise it). Green says the key is
-  live, nothing about 3.3. Derived and persisted: `client_email`,
-  `project_id` (cross-checked against 3.2). The key itself stays in
-  tab memory like every secret; the token too, with its expiry.
+  live, nothing about 3.3. Derived: `client_email`, persisted, and
+  `project_id`, cross-checked against 3.2 and kept with the probe
+  result. The key itself stays in tab memory like every secret; the
+  token too, with its expiry.
 - **3.6 Calendars.** One row per role, one when `sameCalendar`. Paste
   the calendar ID (Settings → the calendar → Integrate calendar; a
   pasted full CalDAV address is accepted and reduced). From it the
   address, `@` as `%40`. Below it the sharing instruction with the
   service account's address and a copy button, the required level
   named — "See all event details" for availability, "Make changes to
-  events" for the store — and a link into that calendar's settings
-  page. Verification, as the service account, by one metadata-only
+  events" for the store — and a link to Google Calendar's settings
+  (a deep link to that calendar's own page is unverified, §10).
+  Verification, as the service account, by one metadata-only
   `events.list` per calendar (name, time zone, access level) and a
   `calendars.get` for the owner: "that is your “Vastaanotto”", the
   level at least the requirement on the order free-busy < reader <
@@ -109,11 +111,11 @@ Where each mistake surfaces, and what the practitioner reads:
 | Key from another project | 3.5 | "This key belongs to project X, 3.2 says Y" |
 | Key revoked, account or project deleted | 3.5, token exchange 400 `invalid_grant` | "Google no longer accepts this key — make a new one", Google's words beneath |
 | Clock badly off on this machine | 3.5, the same 400, its description naming `iat` and `exp` | "…check this computer's clock", Google's words beneath |
-| Calendar API not enabled | 3.6, 403 `SERVICE_DISABLED`, naming the project by *number* and carrying the enable link | "Enable the Google Calendar API in project X" — X from 3.2, the link from the body |
+| Calendar API not enabled | 3.6, 403 `SERVICE_DISABLED`, naming the project by *number* and carrying the enable link | "Enable the Google Calendar API in project X" — X the key's project ID: the project the API is off in, and 3.2's once 3.5 is green; the link from the body |
 | Wrong calendar ID, or not shared at all | 3.6, 404 (seen for an unknown ID; expected for an unshared one, §10 check 5) | "Google finds no such calendar for the service account — check the ID, then the sharing" |
 | A calendar the service account created | 3.6, owner is the account itself | "This calendar belongs to the service account, not to you — pick one of your own" |
 | Shared, but only free/busy or only to see | 3.6, access level | "Shared, but only to see events — the booking store needs “Make changes to events”" |
-| Workspace forbids sharing details outside the domain | 3.6, free-busy level | "Your Google Workspace lets outsiders see free/busy only — an admin loosens it, or use a personal Google account" |
+| Workspace forbids sharing details outside the domain | 3.6, free-busy level | beneath the row above's line, as a condition, since the level alone cannot tell the two apart: "If “See all event details” is not on offer when you share, your Google Workspace lets outsiders see free/busy only — an admin loosens it, or use a personal Google account" |
 | CalDAV API not enabled | health card, `CalDAV REPORT failed: 403` | a Google-specific hint with the library link (today's health body, provider-aware) |
 
 ## 4. Where it lives
@@ -142,8 +144,9 @@ item of the calendars card is the other way to lose, visually.
   `error.code`, then the ErrorInfo `reason` where present, else
   `errors[0].reason`.
 - `validators.ts` gains `googleProjectId` and `googleCalendarId`
-  (reducing a pasted address to its ID); `googleJson` also yields the
-  non-secret fields it already parses.
+  (reducing a pasted address to its ID); `googleJson` stays as it is,
+  and `parseGoogleKey` in `google/steps.ts` yields the key's
+  non-secret fields, never the private key.
 - Rendering joins `main.ts` through whatever §7 lifts out; the Google
   branch of `renderConfig` becomes the summary plus the live button.
 
@@ -503,7 +506,7 @@ curl, with a new connection each time:
 4. **A disabled API shows only at 3.6, and by project number.**
    - Token issuance checks neither API enablement nor IAM, and scope is checked before enablement. So a green 3.5 says nothing about 3.3, and a disabled Calendar API first shows at 3.6 as `SERVICE_DISABLED` (inferred from Drive).
    - That body names the project number, which neither the key nor 3.2 yields. So the red text:
-     - names the project by 3.2's ID;
+     - names the project by ID — the key's, which 3.5 holds to 3.2's;
      - links either `metadata.activationUrl` or 3.3's own `?project=<id>` page.
    - Detection keys on ErrorInfo `reason: "SERVICE_DISABLED"`, or in the legacy part `errors[0].reason: "accessNotConfigured"`.
 5. **Every `invalid_grant` is a 400, not a 401.**

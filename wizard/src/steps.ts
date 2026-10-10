@@ -49,7 +49,7 @@ function when(at: number): string {
     : "earlier";
 }
 
-function tickLine(at: number): string {
+export function tickLine(at: number): string {
   return at > 1 ? `Marked done: ${when(at)}.` : "Marked done.";
 }
 
