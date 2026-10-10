@@ -60,6 +60,9 @@ export interface Saved {
   /** Per configuration group, when a value last changed (epoch ms) —
    * compared against the store moment to tell unstored edits apart. */
   edited?: Record<string, number>;
+  /** Per configuration group, when its Done was last pressed (epoch ms)
+   * — the card settles only on a press later than the group's last edit. */
+  confirmed?: Record<string, number>;
   form: FormState;
   brevo: BrevoState | null;
   /** When this state last hit localStorage — lets a resumed visit say
@@ -90,6 +93,7 @@ export function load(): Saved {
       inputs: { ...fallback.inputs, ...parsed.inputs },
       done,
       ...(parsed.edited ? { edited: parsed.edited } : {}),
+      ...(parsed.confirmed ? { confirmed: parsed.confirmed } : {}),
       form: {
         ...fallback.form,
         ...parsed.form,

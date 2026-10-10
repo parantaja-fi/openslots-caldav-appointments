@@ -63,6 +63,13 @@ export interface StepView {
   manual: boolean;
   /** Offer a Done button that runs the probes right away. */
   check?: boolean;
+  /** The configuration cards' button — Done before the first store,
+   * Reconfigure after it. Without `commits` there is nothing to confirm
+   * yet: the press only puts the cursor in the card. */
+  confirm?: { group: keyof FormGroups; label: string; commits: boolean };
+  /** A line at the foot of the card, where the hand is when a press
+   * needs acknowledging. */
+  footnote?: string;
 }
 
 function healthLine(name: string, sub: { ok: boolean; error?: string }): string {
@@ -129,12 +136,12 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
   });
 
   // The configuration, split into its groups — each its own card,
-  // checked separately as its fields validate. The data in the tab
-  // speaks first; a card whose values were stored in the fork but are
-  // no longer held here is attested, not verified — secrets are
-  // write-only, so verification is impossible in principle. An edit
-  // made after the store breaks the attestation: the card re-opens,
-  // and so does the store step, until the change is stored too.
+  // settled when the practitioner confirms its values with Done; an edit
+  // after the press asks for another. A card whose values were stored in
+  // the fork but are no longer held here is attested, not verified —
+  // secrets are write-only, so verification is impossible in principle.
+  // An edit made after the store breaks the attestation: the card
+  // re-opens, and so does the store step, until the change is stored too.
   const g: FormGroups = groups ?? { calendars: "open", cloudflare: "open", email: "open", shape: "open" };
   // The wizard's own stores leave a record in the fork, readable from any
   // browser; a by-hand store leaves only the practitioner's tick. The
@@ -146,36 +153,62 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
   const editedSince = (key: keyof FormGroups): boolean =>
     (saved.edited?.[key] ?? 0) > storeMoment;
   const byRecord = recorded > 0 && recorded >= writeTick;
-  const storedLine = byRecord
-    ? `Stored into your GitHub fork ${when(recorded)}.`
+  const storedPhrase = byRecord
+    ? `stored into your GitHub fork ${when(recorded)}`
     : writeTick > 1
-      ? `Marked stored by you, ${when(writeTick)}.`
-      : "Marked stored by you.";
+      ? `marked stored by you ${when(writeTick)}`
+      : "marked stored by you";
+  const storedLine = `${storedPhrase.charAt(0).toUpperCase()}${storedPhrase.slice(1)}.`;
+  const useFields = "Use the fields below to change the stored configuration.";
+  // The press that confirmed the group's current values, or 0.
+  const checkedAt = (key: keyof FormGroups): number => {
+    const at = saved.confirmed?.[key] ?? 0;
+    return g[key] === "green" && at >= (saved.edited?.[key] ?? 0) ? at : 0;
+  };
   const groupStep = (id: string, key: keyof FormGroups, title: string): StepView => {
-    const s = g[key];
+    const checked = checkedAt(key);
+    const changed = storeMoment > 0 && editedSince(key);
+    // Confirmed but not yet in the fork: the press's acknowledgment shows.
+    const pending = checked > 0 && (!storeMoment || changed);
     const status: Status =
-      s === "red"
+      g[key] === "red"
         ? "red"
-        : s === "green"
+        : checked
           ? "green"
-          : storeMoment && !editedSince(key)
+          : storeMoment && !changed
             ? "attested"
             : "open";
     return {
       id,
       title,
       status,
-      body:
-        status === "attested"
-          ? [storedLine, "Use the fields below to change the stored configuration."]
-          : storeMoment && editedSince(key)
-            ? [
-                "Changed since the last store — the change reaches your fork " +
-                  "at the store step below.",
-              ]
-            : [],
+      body: pending
+        ? []
+        : status === "green"
+          ? [`Configured ${when(checked)}; ${storedPhrase}.`, useFields]
+          : status === "attested"
+            ? [storedLine, useFields]
+            : changed
+              ? [
+                  "Changed since the last store — the change reaches your fork " +
+                    "at the store step below.",
+                ]
+              : [],
       links: [],
       manual: false,
+      ...(pending
+        ? {
+            footnote:
+              `Checked ${when(checked)}. ${changed ? "The change is not" : "Not"} stored ` +
+              "yet — that happens at the “Store the configuration” step below.",
+          }
+        : {
+            confirm: {
+              group: key,
+              label: storeMoment ? "Reconfigure" : "Done",
+              commits: !storeMoment || changed,
+            },
+          }),
     };
   };
   const GROUP_TITLES: Record<keyof FormGroups, string> = {
@@ -230,8 +263,8 @@ export function deriveSteps(saved: Saved, probes: ProbeState, groups?: FormGroup
                 ? "Everything checks out. Paste a repo-scoped token below and the " +
                   "wizard writes it all into your fork and starts the deploy — or " +
                   "copy the review list in by hand."
-                : "Complete the configuration steps above; once all four are " +
-                  "green, one token paste writes everything into your fork at once.",
+                : "Complete the configuration steps above; once all four check " +
+                  "out, one token paste writes everything into your fork at once.",
               "A store by hand leaves nothing the wizard can see — mark it done " +
                 "yourself; the deploy run below is its proof.",
             ],

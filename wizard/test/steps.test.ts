@@ -183,13 +183,31 @@ const allGroups = (status: FormGroups[keyof FormGroups]): FormGroups => ({
 });
 
 describe("configuration group steps", () => {
-  it("follow their group verdicts", () => {
-    const groups: FormGroups = { calendars: "green", cloudflare: "red", email: "open", shape: "open" };
-    const byId = new Map(deriveSteps(saved(), {}, groups).map((x) => [x.id, x.status]));
+  it("follow their group verdicts, green only once confirmed", () => {
+    const groups: FormGroups = { calendars: "green", cloudflare: "red", email: "open", shape: "green" };
+    const s: Saved = { ...saved(), confirmed: { calendars: TICK } };
+    const byId = new Map(deriveSteps(s, {}, groups).map((x) => [x.id, x.status]));
     expect(byId.get("calendars")).toBe("green");
     expect(byId.get("cloudflare")).toBe("red");
     expect(byId.get("emailcfg")).toBe("open");
     expect(byId.get("shape")).toBe("open");
+  });
+
+  it("offer Done until pressed, then acknowledge that nothing is stored yet", () => {
+    const groups: FormGroups = { ...allGroups("open"), calendars: "green" };
+    const before = deriveSteps(saved(), {}, groups).find((x) => x.id === "calendars")!;
+    expect(before.confirm).toEqual({ group: "calendars", label: "Done", commits: true });
+    expect(before.footnote).toBeUndefined();
+    const s: Saved = { ...saved(), confirmed: { calendars: TICK } };
+    const after = deriveSteps(s, {}, groups).find((x) => x.id === "calendars")!;
+    expect(after.confirm).toBeUndefined();
+    expect(after.footnote).toContain("Not stored yet");
+  });
+
+  it("ask for a fresh Done after an edit", () => {
+    const groups: FormGroups = { ...allGroups("open"), calendars: "green" };
+    const s: Saved = { ...saved(), confirmed: { calendars: TICK }, edited: { calendars: TICK + 1 } };
+    expect(deriveSteps(s, {}, groups).find((x) => x.id === "calendars")!.status).toBe("open");
   });
 
   it("turn attested after the store when the tab forgot the secrets", () => {
@@ -205,10 +223,27 @@ describe("configuration group steps", () => {
     expect(view.body.join("\n")).toContain("Stored into your GitHub fork");
   });
 
-  it("let data in the tab speak over the attestation", () => {
+  it("name when the values were configured and when stored, once both happened", () => {
     const groups: FormGroups = { ...allGroups("open"), calendars: "green" };
-    const s = deriveSteps(saved({}, { secrets: TICK }), {}, groups);
-    expect(s.find((x) => x.id === "calendars")!.status).toBe("green");
+    const s: Saved = { ...saved(), confirmed: { calendars: TICK - 5 } };
+    const view = deriveSteps(s, { record: STORED }, groups).find((x) => x.id === "calendars")!;
+    expect(view.status).toBe("green");
+    expect(view.body[0]).toMatch(/^Configured .*; stored into your GitHub fork /);
+  });
+
+  it("offer Reconfigure once stored, confirming only once something changed", () => {
+    const unchanged = step("calendars", saved(), { record: STORED });
+    expect(unchanged.confirm).toEqual({ group: "calendars", label: "Reconfigure", commits: false });
+    const s: Saved = { ...saved(), edited: { calendars: TICK + 1 } };
+    expect(step("calendars", s, { record: STORED }).confirm?.commits).toBe(true);
+  });
+
+  it("acknowledge a confirmed change as not yet stored", () => {
+    const groups: FormGroups = { ...allGroups("open"), calendars: "green" };
+    const s: Saved = { ...saved(), edited: { calendars: TICK + 1 }, confirmed: { calendars: TICK + 2 } };
+    const view = deriveSteps(s, { record: STORED }, groups).find((x) => x.id === "calendars")!;
+    expect(view.status).toBe("green");
+    expect(view.footnote).toContain("The change is not stored yet");
   });
 
   it("go red on an invalid value even after the store", () => {

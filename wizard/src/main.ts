@@ -77,6 +77,11 @@ function render(): void {
 let currentId: string | null | undefined; // undefined until the first render
 const openOverride = new Map<string, boolean>();
 const lastSet = new Map<string, boolean>();
+// The card whose Done was pressed last: it stays open beside its
+// acknowledgment until the journey moves on without it. `ackFresh` lets
+// the press's own render, which moves the journey, keep it.
+let acked: string | null = null;
+let ackFresh = false;
 
 function renderSteps(): void {
   const groups = groupStatuses(deriveForm(MANIFEST, state.form, secrets));
@@ -91,7 +96,11 @@ function renderSteps(): void {
   // order; the accordion catches up once focus leaves it.
   const cur = steps.find((s) => !settled(s.status))?.id ?? null;
   const moved = currentId !== undefined && currentId !== cur;
-  if (moved) openOverride.clear();
+  if (moved) {
+    openOverride.clear();
+    if (!ackFresh) acked = null;
+  }
+  ackFresh = false;
   const focused =
     document.activeElement instanceof HTMLElement
       ? (document.activeElement.closest(".step")?.id.slice("step-".length) ?? null)
@@ -106,12 +115,17 @@ function renderSteps(): void {
         : String(i + 1);
     li.querySelector(".title")!.textContent = step.title;
     fillStepBody(li, step);
-    const open = openOverride.get(step.id) ?? (step.id === cur || step.id === focused);
+    const open =
+      openOverride.get(step.id) ?? (step.id === cur || step.id === focused || step.id === acked);
     lastSet.set(step.id, open);
     li.querySelector("details")!.open = open;
   });
 
-  if (moved && cur && (!focused || focused === cur)) {
+  // The new current card scrolls into view — but never under a typist,
+  // not even when their edit re-opens their own card (the scroll would
+  // pull the button their press is on away from the pointer), and not
+  // after a Done press, whose next card opens right below.
+  if (moved && cur && !acked && !focused) {
     document.getElementById(`step-${cur}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   currentId = cur;
@@ -170,7 +184,7 @@ function commitField(entry: ManifestEntry, value: string): void {
   // A key pasted on resume lets the poll ask Brevo again straight away.
   if (entry.name === "BREVO_API_KEY" && value) void poll();
   save(state);
-  render();
+  renderAfterFocusMove();
 }
 
 function fieldRow(view: FieldView, labelText?: string): HTMLElement {
@@ -269,8 +283,17 @@ function bareLink(l: StepLink): HTMLElement {
 
 // The accounts card: signup button, echo field and the tick, laid out
 // as aligned rows — filling in who you are here matches the mental
-// model, and the fork step picks the username up ready-made.
+// model, and the fork step picks the username up ready-made. The rows
+// are rebuilt only when the tick changes — the fields hold their own
+// values — so the click on Mark done right after typing lands.
+let accountsBuilt = false;
+let accountsDone: number | undefined;
+
 function renderAccounts(): void {
+  const done = state.done["accounts"];
+  if (accountsBuilt && done === accountsDone) return;
+  accountsBuilt = true;
+  accountsDone = done;
   const box = document.getElementById("accounts-rows")!;
 
   const echo = (id: string, value: string, commit: (v: string) => void): HTMLInputElement => {
@@ -293,10 +316,9 @@ function renderAccounts(): void {
   const emailField = echo("acc-cf-email", state.inputs.cfEmail, (v) => {
     state.inputs.cfEmail = v;
     save(state);
-    render();
+    renderAfterFocusMove();
   });
 
-  const done = state.done["accounts"];
   const tick = document.createElement("button");
   tick.type = "button";
   tick.textContent = done ? "Mark not done" : "Mark done";
@@ -337,6 +359,7 @@ function whenShort(at: number): string {
 function commitOwner(value: string): void {
   state.inputs.owner = value;
   input("owner").value = value;
+  input("acc-owner").value = value;
   state.inputs.workerUrl = "";
   state.inputs.pageUrl = "";
   delete probes.fork;
@@ -345,8 +368,49 @@ function commitOwner(value: string): void {
   delete probes.health;
   delete probes.dns;
   save(state);
-  render();
+  renderAfterFocusMove();
   void poll();
+}
+
+// A text field's change event fires while the focus is still moving on,
+// by Tab or by a click; a render then would rebuild the box the focus is
+// headed into, its target with it. The render waits for the focus to
+// land (focusin, before any keystroke can follow), or for the next task
+// when nothing takes the focus; replaceKeepingFocus then carries the
+// focus over to the rebuilt field. A press on a card's own button waits
+// on until its click is delivered: the render would re-word the card
+// above the button and so move it from under the pointer.
+let renderPending = false;
+let pressing = false;
+function renderAfterFocusMove(): void {
+  renderPending = true;
+  setTimeout(flushRender);
+}
+function flushRender(): void {
+  if (!renderPending || pressing) return;
+  renderPending = false;
+  render();
+}
+document.addEventListener("focusin", flushRender);
+document.addEventListener(
+  "pointerdown",
+  (e) => {
+    pressing =
+      e.button === 0 &&
+      e.target instanceof Element &&
+      e.target.closest(".dynfoot button, #accounts-rows button") !== null;
+  },
+  true,
+);
+for (const type of ["pointerup", "pointercancel", "contextmenu"]) {
+  document.addEventListener(
+    type,
+    () => {
+      pressing = false;
+      setTimeout(flushRender);
+    },
+    true,
+  );
 }
 
 // Rebuilding mid-interaction (a change fired by clicking into the next
@@ -385,7 +449,7 @@ function nextcloudChildren(fields: FieldView[]): HTMLElement[] {
   field.addEventListener("change", () => {
     state.form.providerUrl = field.value.trim().replace(/\/+$/, "");
     save(state);
-    render();
+    renderAfterFocusMove();
   });
   const help = document.createElement("span");
   help.className = "help";
@@ -860,10 +924,16 @@ function renderReview(formOk: boolean): void {
 // --- The step cards ---------------------------------------------------
 
 // Body text fills the card's head slot; the action links (styled as
-// buttons, in a row) and the confirming button (Mark done, or Done for
-// a checked step) sit in the foot, after whatever the card embeds (the
-// form, the fork inputs, the Brevo records) — so the fork step's
-// Fork-it lands below the username it needs.
+// buttons, in a row) and the confirming button (Mark done; Done for a
+// checked step or a configuration card, Reconfigure once it is stored)
+// sit in the foot, after whatever the card embeds (the form, the fork
+// inputs, the Brevo records) — so the fork step's Fork-it lands below
+// the username it needs.
+//
+// A foot is rebuilt only when what it shows changes: a rebuild after
+// tabbing onto its button would drop the focus.
+const footShown = new Map<string, string>();
+
 function fillStepBody(li: HTMLElement, step: StepView): void {
   const children: HTMLElement[] = [];
   for (const text of step.body) {
@@ -872,6 +942,13 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
     children.push(p);
   }
   li.querySelector(".dyn")!.replaceChildren(...children);
+
+  // A ticked step that re-opened (the store step, after an edit) is
+  // marked done afresh, not un-marked — the new tick covers the edit.
+  const undoes = Boolean(state.done[step.id]) && step.status === "attested";
+  const shown = JSON.stringify([step.links, step.check, step.confirm?.label, step.manual, undoes, step.footnote]);
+  if (footShown.get(step.id) === shown) return;
+  footShown.set(step.id, shown);
 
   const foot: HTMLElement[] = [];
   if (step.links.length) {
@@ -889,14 +966,22 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
     button.addEventListener("click", () => {
       button.disabled = true;
       button.textContent = "Checking…";
-      void poll(); // its render rebuilds this card with the verdict
+      // The poll's render rebuilds this card if the verdict changes it.
+      void poll().finally(() => {
+        button.disabled = false;
+        button.textContent = "Done";
+      });
     });
     foot.push(button);
   }
+  if (step.confirm) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = step.confirm.label;
+    button.addEventListener("click", () => pressConfirm(step.id));
+    foot.push(button);
+  }
   if (step.manual) {
-    // A ticked step that re-opened (the store step, after an edit) is
-    // marked done afresh, not un-marked — the new tick covers the edit.
-    const undoes = Boolean(state.done[step.id]) && step.status === "attested";
     const button = document.createElement("button");
     button.textContent = undoes ? "Mark not done" : "Mark done";
     button.addEventListener("click", () => {
@@ -907,7 +992,36 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
     });
     foot.push(button);
   }
+  if (step.footnote) {
+    const p = document.createElement("p");
+    p.textContent = step.footnote;
+    foot.push(p);
+  }
   li.querySelector(".dynfoot")!.replaceChildren(...foot);
+}
+
+// Done confirms the card's values when they all hold, and otherwise puts
+// the cursor on the first that does not. Reconfigure on a stored card
+// nobody has changed has nothing to confirm: it only puts the cursor in
+// the card. The card is asked afresh at the press: an edit made on the
+// way to the button changes the answer without rebuilding the button.
+function pressConfirm(stepId: string): void {
+  const fields = deriveForm(MANIFEST, state.form, secrets);
+  const confirm = deriveSteps(state, probes, groupStatuses(fields)).find((s) => s.id === stepId)?.confirm;
+  if (!confirm) return;
+  const bad = fields.find((f) => f.visible && f.entry.group === confirm.group && !f.valid);
+  if (bad || !confirm.commits) {
+    const target = bad
+      ? document.getElementById(`f-${bad.entry.name}`)
+      : document.getElementById(`cfg-${stepId}`)?.querySelector<HTMLElement>("input, select, textarea");
+    target?.focus();
+    return;
+  }
+  (state.confirmed ??= {})[confirm.group] = Date.now();
+  save(state);
+  acked = stepId;
+  ackFresh = true;
+  render();
 }
 
 // A card toggled by hand records an override. The toggle event also
