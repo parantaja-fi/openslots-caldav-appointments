@@ -61,6 +61,56 @@ describe("googleJson", () => {
   });
 });
 
+describe("googleProjectId", () => {
+  it("wants 6–30 letters, digits and hyphens, a letter first and no hyphen last", () => {
+    expect(v("googleProjectId", " Practice-Bookings ")).toEqual({
+      ok: true,
+      value: "practice-bookings",
+    });
+    expect(v("googleProjectId", "abcdef").ok).toBe(true);
+    expect(v("googleProjectId", `a${"0".repeat(29)}`).ok).toBe(true);
+    expect(v("googleProjectId", "abcde").ok).toBe(false);
+    expect(v("googleProjectId", `a${"0".repeat(30)}`).ok).toBe(false);
+    expect(v("googleProjectId", "1practice").ok).toBe(false);
+    expect(v("googleProjectId", "practice-").ok).toBe(false);
+  });
+
+  it("refuses the project's name and its number", () => {
+    expect(v("googleProjectId", "My Project").ok).toBe(false);
+    expect(v("googleProjectId", "123456789012").ok).toBe(false);
+  });
+});
+
+describe("googleCalendarId", () => {
+  const ID = "c_0a1b2c3d4e5f@group.calendar.google.com";
+  const ADDRESS =
+    "https://apidata.googleusercontent.com/caldav/v2/c_0a1b2c3d4e5f%40group.calendar.google.com";
+
+  it("accepts a calendar ID — for a main calendar, its account's address", () => {
+    expect(v("googleCalendarId", ` ${ID} `)).toEqual({ ok: true, value: ID });
+    expect(v("googleCalendarId", "anna@gmail.com")).toEqual({ ok: true, value: "anna@gmail.com" });
+  });
+
+  it("reduces a pasted CalDAV address to its decoded ID, with or without events/", () => {
+    for (const tail of ["/events/", "/events", "/", ""]) {
+      expect(v("googleCalendarId", `${ADDRESS}${tail}`)).toEqual({ ok: true, value: ID });
+    }
+    expect(v("googleCalendarId", ADDRESS.replace("%40", "@"))).toEqual({ ok: true, value: ID });
+  });
+
+  it("refuses anything not shaped local@domain", () => {
+    for (const raw of [
+      "Vastaanotto",
+      "anna@localhost",
+      `${ADDRESS}/events/x`,
+      "https://calendar.google.com/calendar/ical/c_0a1b2c3d4e5f%40group.calendar.google.com/public/basic.ics",
+      "https://apidata.googleusercontent.com/caldav/v2/%E0%A4%A/",
+    ]) {
+      expect(v("googleCalendarId", raw).ok, raw).toBe(false);
+    }
+  });
+});
+
 describe("nonEmpty and text", () => {
   it("trim and verdict as named", () => {
     expect(v("nonEmpty", "  x ")).toEqual({ ok: true, value: "x" });

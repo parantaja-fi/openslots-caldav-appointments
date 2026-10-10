@@ -9,6 +9,9 @@ type Validator = (raw: string) => Verdict;
 const ok = (value: string): Verdict => ({ ok: true, value });
 const bad = (message: string): Verdict => ({ ok: false, message });
 
+const GOOGLE_CALDAV =
+  /^https:\/\/apidata\.googleusercontent\.com\/caldav\/v2\/([^/]+)(?:\/(?:events\/?)?)?$/;
+
 export const VALIDATORS: Record<string, Validator> = {
   text: (raw) => ok(raw.trim()),
 
@@ -68,5 +71,32 @@ export const VALIDATORS: Record<string, Validator> = {
       typeof record["private_key"] === "string"
       ? ok(raw.trim())
       : bad("JSON, but not a service-account key — no client_email or private_key in it");
+  },
+
+  googleProjectId: (raw) => {
+    const value = raw.trim().toLowerCase();
+    return /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(value)
+      ? ok(value)
+      : bad(
+          "expected the project ID — 6–30 letters, digits and hyphens, " +
+            "starting with a letter and not ending with a hyphen",
+        );
+  },
+
+  // A pasted Google CalDAV address reduces to the calendar ID inside it.
+  googleCalendarId: (raw) => {
+    const value = raw.trim();
+    const inAddress = GOOGLE_CALDAV.exec(value);
+    const refusal = bad(
+      "not a calendar ID — copy “Calendar ID” from the calendar's settings, " +
+        "under “Integrate calendar”",
+    );
+    let id: string;
+    try {
+      id = decodeURIComponent(inAddress?.[1] ?? value);
+    } catch {
+      return refusal;
+    }
+    return /^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(id) ? ok(id) : refusal;
   },
 };
