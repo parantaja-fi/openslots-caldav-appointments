@@ -30,6 +30,15 @@ export interface FormState {
   emailOn: boolean;
   /** Values of kind: "variable" manifest entries. */
   values: Record<string, string>;
+  /** The Google sub-wizard's answers, each a validated value or empty:
+   * the project its console links open in, the service account's
+   * address from the key, the calendars by ID. Identity, not credential,
+   * like providerUrl — the key itself stays with the secrets. */
+  google: {
+    projectId: string;
+    clientEmail: string;
+    calendarIds: { availability: string; store: string };
+  };
 }
 
 /** One DNS record Brevo wants placed, with its last-known verdict.
@@ -76,7 +85,14 @@ export function load(): Saved {
   const fallback: Saved = {
     inputs: { owner: "", repo: UPSTREAM_REPO, workerUrl: "", pageUrl: "", senderDomain: "", cfEmail: "" },
     done: {},
-    form: { provider: "nextcloud", providerUrl: "", sameCalendar: true, emailOn: true, values: {} },
+    form: {
+      provider: "nextcloud",
+      providerUrl: "",
+      sameCalendar: true,
+      emailOn: true,
+      values: {},
+      google: { projectId: "", clientEmail: "", calendarIds: { availability: "", store: "" } },
+    },
     brevo: null,
   };
   try {

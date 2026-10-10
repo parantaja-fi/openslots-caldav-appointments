@@ -17,7 +17,7 @@ testable as a derivation must never be tested through the DOM.
 ## Layer 1 — pure derivations (exists; the backbone)
 
 Files: `test/steps.test.ts`, `test/form.test.ts`,
-`test/validators.test.ts`, `test/manifest.test.ts`.
+`test/validators.test.ts`, `test/manifest.test.ts`, `test/state.test.ts`.
 
 The contract: every status a step can wear, every body line that
 carries a decision ("Not known: …", provenance lines, group verdicts),
@@ -33,12 +33,9 @@ Covered today, and to be kept covered on any change:
   record beats nothing);
 - phase-rail compression and `allGreen` counting attested as settled;
 - manifest ↔ `deploy.yml` name-set equality (`manifest.test.ts`) — the
-  cross-check that fails when either side forgets the other.
-
-Gap worth closing here: `state.ts` has no test. `load()` now migrates
-boolean ticks to timestamps and tolerates missing fields; that
-migration deserves a small `state.test.ts` (vitest with jsdom supplies
-`localStorage`).
+  cross-check that fails when either side forgets the other;
+- `load()` migrating boolean ticks to timestamps and filling in fields
+  a saved state predates (`state.test.ts`, `localStorage` stubbed).
 
 ## Layer 2 — probes and clients over mocked `fetch` (exists)
 

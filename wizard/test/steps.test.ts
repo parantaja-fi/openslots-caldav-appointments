@@ -17,7 +17,14 @@ function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, nu
       cfEmail: "",
       ...overrides,
     },
-    form: { provider: "nextcloud", providerUrl: "", sameCalendar: true, emailOn: true, values: {} },
+    form: {
+      provider: "nextcloud",
+      providerUrl: "",
+      sameCalendar: true,
+      emailOn: true,
+      values: {},
+      google: { projectId: "", clientEmail: "", calendarIds: { availability: "", store: "" } },
+    },
     done,
     brevo: null,
   };

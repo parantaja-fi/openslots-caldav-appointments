@@ -11,6 +11,7 @@ function form(overrides: Partial<FormState> = {}): FormState {
     sameCalendar: true,
     emailOn: true,
     values: { DISPLAY_TIMEZONE: "Europe/Helsinki" },
+    google: { projectId: "", clientEmail: "", calendarIds: { availability: "", store: "" } },
     ...overrides,
   };
 }

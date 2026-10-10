@@ -148,10 +148,11 @@ item of the calendars card is the other way to lose, visually.
   branch of `renderConfig` becomes the summary plus the live button.
 
 **State.** `FormState` gains `google: { projectId, clientEmail,
-calendarIds: { availability, appointments } }` — persisted; IDs and
-addresses of the practitioner's own calendars are identity, not
-credential, like `providerUrl` (§9 D2). Ticks reuse `Saved.done` under
-`google-…` ids, so the attestation mechanics are the existing ones.
+calendarIds: { availability, store } }`, each a validated value or
+empty — persisted; IDs and addresses of the practitioner's own
+calendars are identity, not credential, like `providerUrl` (§9 D2).
+Ticks reuse `Saved.done` under `google-…` ids, so the attestation
+mechanics are the existing ones.
 Tab memory: the key in the existing `secrets` map, the token beside
 it, probe results in the poll loop's memory like every other probe.
 
