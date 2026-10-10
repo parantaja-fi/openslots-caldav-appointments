@@ -208,7 +208,22 @@ settled 2026-08-11:
    walk with the author acting the `SCOPE.md` §2 practitioner —
    pretending not to know what GitHub is — from a fresh browser
    profile to a real booking. 0.1.0 releases on this passing.
-5. **M6.5 — External acceptance.** The original bar: a practitioner
+5. **M6.5 — Reconfiguration.** Changing one setting later without
+   re-entering the rest. Today the store writes the whole
+   configuration from the tab, so once the tab has forgotten the
+   secrets a single change means re-entering every credential — a new
+   Cloudflare token and Brevo key among them, both shown only once —
+   and in a browser that has forgotten the form as well, the
+   booking-shape settings fall back to their defaults and the next
+   store overwrites the stored ones without a word. After the first
+   store, the store step instead writes only the cards changed in
+   this tab and leaves the rest as stored; what a calendar-provider
+   switch must then delete is part of the design. Done when a stored
+   setup is changed in one card from a fresh browser with every other
+   stored value intact. From the proxy walk (attempt 2, 2026-09-08):
+   it is what makes the living-with-it closer's "come back here …
+   write and deploy again" cheap.
+6. **M6.6 — External acceptance.** The original bar: a practitioner
    who is not the author, observed (think-aloud where possible),
    completes setup in the wizard tab alone, `SETUP.md` open only as
    reference, and takes a real booking. Deliberately scheduled
@@ -222,16 +237,16 @@ creating the Cloud project, service account and key — follows in a
 session soon after; M6.4 ships a visible placeholder button in its
 place. Per-role calendar providers (availability and booking store on
 different backends; today one provider choice serves both) are
-deferred to M6.5.
+deferred to M6.6.
 
-*Exit for 0.1.0: M6.4 — the proxy walk passes end to end. M6.5 keeps
+*Exit for 0.1.0: M6.4 — the proxy walk passes end to end. M6.6 keeps
 the unchanged external bar and closes M6 itself.*
 
 ## 0.1.0
 
 M0–M6.4 done (M4 descoped along the way): the wizard's proxy
-acceptance passed. M6.5, the external acceptance, deliberately
-follows the release.
+acceptance passed. M6.5, reconfiguration, and M6.6, the external
+acceptance, follow the release — the latter deliberately.
 
 ## 0.2.0
 
