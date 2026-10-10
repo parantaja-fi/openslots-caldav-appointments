@@ -15,15 +15,18 @@ import type { ManifestEntry } from "./manifest";
 import { MANIFEST } from "./manifest";
 import type { GithubCache } from "./probes";
 import { probeDeployInfo, probeDns, probeFork, probeHealth, probeRun } from "./probes";
-import type { PhaseView, ProbeState, StepView } from "./steps";
-import { allGreen, derivePhases, deriveSteps } from "./steps";
+import type { PhaseView, ProbeState, StepLink, StepView } from "./steps";
+import { allGreen, derivePhases, deriveSteps, settled } from "./steps";
 import type { Provider } from "./state";
-import { UPSTREAM_OWNER, UPSTREAM_REPO, load, save } from "./state";
+import { UPSTREAM_OWNER, UPSTREAM_REPO, load, reset, save } from "./state";
 
 const POLL_MS = 20_000;
-const BADGE = { open: "○", watch: "◌", green: "✓", red: "✗" } as const;
+const BADGE = { open: "○", watch: "◌", unknown: "?", green: "✓", attested: "✓", red: "✗" } as const;
 
 const state = load();
+// The loaded state's age, captured before this session's saves restamp
+// it — a fresh visit has none.
+const resumedFrom = state.savedAt;
 const probes: ProbeState = {};
 const cache: GithubCache = {};
 
@@ -50,6 +53,7 @@ function input(id: string): HTMLInputElement {
 function render(): void {
   const fields = deriveForm(MANIFEST, state.form, secrets);
   const formOk = formComplete(fields);
+  renderAccounts();
   renderConfig(fields);
   renderEmail();
   renderProvision(formOk);
@@ -72,24 +76,33 @@ function renderSteps(): void {
 
   // The current step — the first not yet green — opens by itself and
   // wears the ring. A card toggled by hand stays as left until the
-  // journey moves on; then the accordion advances and follows.
-  const cur = steps.find((s) => s.status !== "green")?.id ?? null;
+  // journey moves on; then the accordion advances and follows. A card
+  // holding the keyboard focus never closes under the typist — turning
+  // green mid-form must not steal the remaining fields from the tab
+  // order; the accordion catches up once focus leaves it.
+  const cur = steps.find((s) => !settled(s.status))?.id ?? null;
   const moved = currentId !== undefined && currentId !== cur;
   if (moved) openOverride.clear();
+  const focused =
+    document.activeElement instanceof HTMLElement
+      ? (document.activeElement.closest(".step")?.id.slice("step-".length) ?? null)
+      : null;
 
   steps.forEach((step, i) => {
     const li = document.getElementById(`step-${step.id}`)!;
     li.className = `step ${step.status}${step.id === cur ? " current" : ""}`;
     li.querySelector(".marker")!.textContent =
-      step.status === "green" ? BADGE.green : step.status === "red" ? BADGE.red : String(i + 1);
+      settled(step.status) || step.status === "red" || step.status === "unknown"
+        ? BADGE[step.status]
+        : String(i + 1);
     li.querySelector(".title")!.textContent = step.title;
     fillStepBody(li, step);
-    const open = openOverride.get(step.id) ?? step.id === cur;
+    const open = openOverride.get(step.id) ?? (step.id === cur || step.id === focused);
     lastSet.set(step.id, open);
     li.querySelector("details")!.open = open;
   });
 
-  if (moved && cur) {
+  if (moved && cur && (!focused || focused === cur)) {
     document.getElementById(`step-${cur}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   currentId = cur;
@@ -113,12 +126,29 @@ function renderRail(phases: PhaseView[]): void {
 
 let advancedOpen = false;
 
+// A changed value is what breaks a stored group's attestation — the
+// stamp is compared against the store moment in steps.ts.
+function stampEdited(group: string): void {
+  (state.edited ??= {})[group] = Date.now();
+}
+
 function commitField(entry: ManifestEntry, value: string): void {
+  stampEdited(entry.group);
   if (entry.kind === "secret") {
     if (value) secrets[entry.name] = value;
     else delete secrets[entry.name];
   } else {
     state.form.values[entry.name] = value;
+  }
+  // A Nextcloud internal link pasted before the server address fills
+  // the server in backwards — everything before /remote.php is it.
+  if (
+    (entry.name === "AVAILABILITY_CALENDAR_URL" || entry.name === "BOOKING_STORE_URL") &&
+    state.form.provider === "nextcloud" &&
+    !state.form.providerUrl
+  ) {
+    const cut = value.indexOf("/remote.php");
+    if (cut > 0) state.form.providerUrl = value.slice(0, cut);
   }
   if (entry.name === "SENDER_EMAIL") {
     const domain = senderDomainOf(secrets);
@@ -134,14 +164,14 @@ function commitField(entry: ManifestEntry, value: string): void {
   render();
 }
 
-function fieldRow(view: FieldView): HTMLElement {
+function fieldRow(view: FieldView, labelText?: string): HTMLElement {
   const { entry } = view;
   const row = document.createElement("div");
   row.className = view.value && !view.valid ? "fieldrow invalid" : "fieldrow";
 
   const label = document.createElement("label");
   label.htmlFor = `f-${entry.name}`;
-  label.textContent = entry.label + (view.required ? "" : " (optional)");
+  label.textContent = (labelText ?? entry.label) + (view.required ? "" : " (optional)");
   row.append(label);
 
   const field = entry.multiline
@@ -189,6 +219,126 @@ function why(text: string): HTMLParagraphElement {
   return p;
 }
 
+// A button-styled link; without an address it renders greyed out,
+// waiting for the input that completes it.
+function linkBtn(label: string, href: string | null): HTMLAnchorElement {
+  const a = document.createElement("a");
+  a.className = href ? "linkbtn" : "linkbtn disabled";
+  if (href) {
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener";
+  }
+  a.textContent = label;
+  return a;
+}
+
+function linksRow(...links: HTMLElement[]): HTMLElement {
+  const div = document.createElement("div");
+  div.className = "links";
+  div.append(...links);
+  return div;
+}
+
+// A labelled plain link — "Fork: https://…" — or, dimmed, the same
+// address as grey text while the destination is not yet live.
+function bareLink(l: StepLink): HTMLElement {
+  const span = document.createElement("span");
+  span.className = l.dim ? "bare dim" : "bare";
+  if (l.dim) {
+    span.textContent = `${l.label} ${l.href}`;
+  } else {
+    const a = document.createElement("a");
+    a.href = l.href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = l.href;
+    span.append(`${l.label} `, a);
+  }
+  return span;
+}
+
+// The accounts card: signup button, echo field and the tick, laid out
+// as aligned rows — filling in who you are here matches the mental
+// model, and the fork step picks the username up ready-made.
+function renderAccounts(): void {
+  const box = document.getElementById("accounts-rows")!;
+
+  const echo = (id: string, value: string, commit: (v: string) => void): HTMLInputElement => {
+    const field = document.createElement("input");
+    field.id = id;
+    field.value = value;
+    field.spellcheck = false;
+    field.autocomplete = "off";
+    field.addEventListener("change", () => commit(field.value.trim()));
+    return field;
+  };
+  const labelFor = (id: string, text: string): HTMLLabelElement => {
+    const label = document.createElement("label");
+    label.htmlFor = id;
+    label.textContent = text;
+    return label;
+  };
+
+  const ownerField = echo("acc-owner", state.inputs.owner, commitOwner);
+  const emailField = echo("acc-cf-email", state.inputs.cfEmail, (v) => {
+    state.inputs.cfEmail = v;
+    save(state);
+    render();
+  });
+
+  const done = state.done["accounts"];
+  const tick = document.createElement("button");
+  tick.type = "button";
+  tick.textContent = done ? "Mark not done" : "Mark done";
+  tick.addEventListener("click", () => {
+    if (state.done["accounts"]) delete state.done["accounts"];
+    else state.done["accounts"] = Date.now();
+    save(state);
+    render();
+  });
+  const tickNote = document.createElement("span");
+  tickNote.className = "ticknote";
+  if (done) tickNote.textContent = done > 1 ? `Marked done: ${whenShort(done)}` : "Marked done";
+
+  replaceKeepingFocus(box, [
+    linkBtn("GitHub signup", "https://github.com/signup"),
+    labelFor("acc-owner", "Username"),
+    ownerField,
+    linkBtn("Cloudflare signup", "https://dash.cloudflare.com/sign-up"),
+    labelFor("acc-cf-email", "Email"),
+    emailField,
+    tick,
+    ...(done ? [tickNote] : []),
+  ]);
+}
+
+function whenShort(at: number): string {
+  return new Date(at).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// The GitHub username is asked on the accounts card and shown again on
+// the fork card — one value behind both fields; changing either
+// invalidates whatever was probed for the old one.
+function commitOwner(value: string): void {
+  state.inputs.owner = value;
+  input("owner").value = value;
+  state.inputs.workerUrl = "";
+  state.inputs.pageUrl = "";
+  delete probes.fork;
+  delete probes.run;
+  delete probes.health;
+  delete probes.dns;
+  save(state);
+  render();
+  void poll();
+}
+
 // Rebuilding mid-interaction (a change fired by clicking into the next
 // field) replaces the freshly focused element; give focus back to it.
 function replaceKeepingFocus(box: HTMLElement, children: HTMLElement[]): void {
@@ -200,12 +350,79 @@ function replaceKeepingFocus(box: HTMLElement, children: HTMLElement[]): void {
   if (active) document.getElementById(active)?.focus();
 }
 
+// Nextcloud's card walks its own instance: the server address first —
+// never written to the fork — because it completes the deep links; the
+// instructions sit right above the field each one feeds.
+function nextcloudChildren(fields: FieldView[]): HTMLElement[] {
+  const byName = new Map(fields.map((f) => [f.entry.name, f]));
+  const row = (name: string, label?: string): HTMLElement[] => {
+    const f = byName.get(name)!;
+    return f.visible ? [fieldRow(f, label)] : [];
+  };
+
+  const serverRow = document.createElement("div");
+  serverRow.className = "fieldrow";
+  const label = document.createElement("label");
+  label.htmlFor = "f-provider-url";
+  label.textContent = "Nextcloud server address";
+  const field = document.createElement("input");
+  field.id = "f-provider-url";
+  field.type = "text";
+  field.value = state.form.providerUrl;
+  field.placeholder = "https://cloud.example.com";
+  field.spellcheck = false;
+  field.autocomplete = "off";
+  field.addEventListener("change", () => {
+    state.form.providerUrl = field.value.trim().replace(/\/+$/, "");
+    save(state);
+    render();
+  });
+  const help = document.createElement("span");
+  help.className = "help";
+  help.textContent =
+    "The address you sign in at. It stays in this browser and unlocks " +
+    "the links below; pasting a calendar address first fills it in too.";
+  serverRow.append(label, field, help);
+
+  const server = /^https?:\/\/./.test(state.form.providerUrl) ? state.form.providerUrl : null;
+
+  const children: HTMLElement[] = [
+    serverRow,
+    why(
+      "Find the calendar address: open your calendars, click the pen " +
+        "beside the calendar, and copy “Internal link” into the field below.",
+    ),
+    linksRow(linkBtn("Open your calendars", server && `${server}/apps/calendar/`)),
+    ...row("AVAILABILITY_CALENDAR_URL"),
+    why(
+      "Create an app password for it: Security → “Create new app " +
+        "password”. The login stays your ordinary Nextcloud login; only " +
+        "the password is minted for this.",
+    ),
+    linksRow(linkBtn("Create an app password", server && `${server}/settings/user/security`)),
+    ...row("AVAILABILITY_USERNAME", "Availability login"),
+    ...row("AVAILABILITY_PASSWORD"),
+  ];
+  if (!state.form.sameCalendar) {
+    children.push(
+      why(
+        "The booking calendar, the same way — one app password serves " +
+          "both when the calendars live in the same account.",
+      ),
+      ...row("BOOKING_STORE_URL"),
+      ...row("BOOKING_STORE_USERNAME", "Booking login"),
+      ...row("BOOKING_STORE_PASSWORD"),
+    );
+  }
+  return children;
+}
+
 // Each configuration group renders into its own journey card.
 function renderConfig(fields: FieldView[]): void {
   const rows = (g: ManifestEntry["group"], advanced: boolean) =>
     fields
       .filter((f) => f.visible && f.entry.group === g && Boolean(f.entry.advanced) === advanced)
-      .map(fieldRow);
+      .map((f) => fieldRow(f));
 
   const providerRow = document.createElement("div");
   providerRow.className = "fieldrow";
@@ -222,49 +439,82 @@ function renderConfig(fields: FieldView[]): void {
     select.append(option);
   }
   select.addEventListener("change", () => {
+    stampEdited("calendars");
     state.form.provider = select.value as Provider;
     save(state);
     render();
   });
   providerRow.append(providerLabel, select);
 
-  const providerHelp = PROVIDER_HELP[state.form.provider].map(why);
-
-  replaceKeepingFocus(document.getElementById("cfg-calendars")!, [
+  const calendarChildren: HTMLElement[] = [
     why(
       "Availability is the calendar your OPEN events live in; bookings are " +
         "written as ordinary events. One calendar can play both roles.",
     ),
-    providerRow,
     toggle("One calendar for both — bookings are written into the availability calendar", state.form.sameCalendar, (on) => {
+      stampEdited("calendars");
       state.form.sameCalendar = on;
       save(state);
       render();
     }),
-    ...providerHelp,
-    ...rows("calendars", false),
-  ]);
+    providerRow,
+  ];
+  if (state.form.provider === "nextcloud") {
+    calendarChildren.push(...nextcloudChildren(fields));
+  } else {
+    calendarChildren.push(...PROVIDER_HELP[state.form.provider].map(why));
+    if (state.form.provider === "google") {
+      // The visible marker for the guided path to come (ROADMAP.md M6):
+      // a page of its own creating the project, service account and key.
+      const marker = document.createElement("p");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.disabled = true;
+      btn.textContent = "Create Google credentials";
+      marker.append(btn);
+      calendarChildren.push(
+        marker,
+        why("Not implemented yet — until it is, the steps above are by hand."),
+      );
+    }
+    calendarChildren.push(...rows("calendars", false));
+  }
+  replaceKeepingFocus(document.getElementById("cfg-calendars")!, calendarChildren);
 
   replaceKeepingFocus(document.getElementById("cfg-cloudflare")!, [
     why(
       "The small program between your customers and your calendar runs on " +
-        "Cloudflare's free tier. Minting the token is guided in the deploy stage.",
+        "Cloudflare's free tier. Create the token from the “Edit Cloudflare " +
+        "Workers” template — by hand: Dashboard → Manage account → Account " +
+        "API tokens → Create Token.",
     ),
+    linksRow(linkBtn("Create an API token", "https://dash.cloudflare.com/?to=/:account/api-tokens/create")),
     ...rows("cloudflare", false),
   ]);
 
-  replaceKeepingFocus(document.getElementById("cfg-emailcfg")!, [
+  const emailChildren: HTMLElement[] = [
     why(
       "Brevo delivers the booking confirmation, which carries the customer's " +
         "cancellation link. Off, bookings still work and nobody is emailed.",
     ),
     toggle("Send confirmation emails", state.form.emailOn, (on) => {
+      stampEdited("email");
       state.form.emailOn = on;
       save(state);
       render();
     }),
-    ...rows("email", false),
-  ]);
+  ];
+  if (state.form.emailOn) {
+    emailChildren.push(
+      why(
+        "The key: Brevo → Settings → SMTP & API → API keys → “Generate " +
+          "a new API key”.",
+      ),
+      linksRow(linkBtn("Generate a Brevo API key", "https://app.brevo.com/settings/keys/api")),
+    );
+  }
+  emailChildren.push(...rows("email", false));
+  replaceKeepingFocus(document.getElementById("cfg-emailcfg")!, emailChildren);
 
   const shapeChildren: HTMLElement[] = [
     why("How your OPEN blocks are cut into bookable slots."),
@@ -448,7 +698,12 @@ async function provision(): Promise<void> {
     say("Starting the deploy.");
     await startDeploy(owner, repo, pat, info.default_branch);
     say("Deploy started — watch it land in the deploy step below.", "ok");
-    state.done["secrets"] = true;
+    state.done["secrets"] = Date.now();
+    state.wrote = {
+      at: Date.now(),
+      secrets: Object.keys(eff.secrets).length,
+      variables: Object.keys(eff.variables).length,
+    };
     save(state);
     void poll();
   } catch (e) {
@@ -467,7 +722,7 @@ function renderProvision(formOk: boolean): void {
   }
 
   const h = document.createElement("h3");
-  h.textContent = "Write it to your fork";
+  h.textContent = "Store the configuration";
 
   const why = document.createElement("p");
   why.className = "why";
@@ -476,13 +731,18 @@ function renderProvision(formOk: boolean): void {
   mint.target = "_blank";
   mint.rel = "noopener";
   mint.textContent = "Mint an access token";
+  // “Only select repositories” carries the whole least-privilege point —
+  // and went unnoticed in the M6.4 walk until set in bold.
+  const only = document.createElement("strong");
+  only.textContent = "“Only select repositories”";
   why.append(
     mint,
-    " on GitHub — the form comes pre-filled; under Repository access " +
-      "choose “Only select repositories” and pick your fork. Paste the " +
-      "token here and the wizard writes every secret and variable to " +
-      "your fork itself, then starts the deploy. Prefer doing it by " +
-      "hand? The review list below has copy buttons for everything.",
+    " on GitHub — the form comes pre-filled; under Repository access choose ",
+    only,
+    " and pick your fork. Paste the token here and the wizard writes " +
+      "every secret and variable to your fork itself, then starts the " +
+      "deploy. Prefer doing it by hand? The review list below has copy " +
+      "buttons for everything.",
   );
 
   const row = document.createElement("div");
@@ -586,10 +846,11 @@ function renderReview(formOk: boolean): void {
 
 // --- The step cards ---------------------------------------------------
 
-// Body text and action links fill the card's head slot — links stacked,
-// styled as buttons. The confirming button (Mark done, or Done for a
-// checked step) sits alone in the foot, after whatever the card embeds
-// (the form, the inputs, the Brevo records).
+// Body text fills the card's head slot; the action links (styled as
+// buttons, in a row) and the confirming button (Mark done, or Done for
+// a checked step) sit in the foot, after whatever the card embeds (the
+// form, the fork inputs, the Brevo records) — so the fork step's
+// Fork-it lands below the username it needs.
 function fillStepBody(li: HTMLElement, step: StepView): void {
   const children: HTMLElement[] = [];
   for (const text of step.body) {
@@ -597,23 +858,18 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
     p.textContent = text;
     children.push(p);
   }
-  if (step.links.length) {
-    const links = document.createElement("div");
-    links.className = "links";
-    for (const link of step.links) {
-      const a = document.createElement("a");
-      a.className = "linkbtn";
-      a.href = link.href;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.textContent = link.label;
-      links.append(a);
-    }
-    children.push(links);
-  }
   li.querySelector(".dyn")!.replaceChildren(...children);
 
   const foot: HTMLElement[] = [];
+  if (step.links.length) {
+    foot.push(
+      linksRow(
+        ...step.links.map((l) =>
+          l.bare ? bareLink(l) : linkBtn(l.label, l.dim ? null : l.href),
+        ),
+      ),
+    );
+  }
   if (step.check) {
     const button = document.createElement("button");
     button.textContent = "Done";
@@ -625,10 +881,14 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
     foot.push(button);
   }
   if (step.manual) {
+    // A ticked step that re-opened (the store step, after an edit) is
+    // marked done afresh, not un-marked — the new tick covers the edit.
+    const undoes = Boolean(state.done[step.id]) && step.status === "attested";
     const button = document.createElement("button");
-    button.textContent = state.done[step.id] ? "Not done after all" : "Mark done";
+    button.textContent = undoes ? "Mark not done" : "Mark done";
     button.addEventListener("click", () => {
-      state.done[step.id] = !state.done[step.id];
+      if (undoes) delete state.done[step.id];
+      else state.done[step.id] = Date.now();
       save(state);
       render();
     });
@@ -715,14 +975,16 @@ async function poll(): Promise<void> {
   polling = false;
 }
 
-for (const [id, key] of [
-  ["owner", "owner"],
-  ["repo", "repo"],
-] as const) {
-  const field = input(id);
-  field.value = state.inputs[key];
+{
+  const field = input("owner");
+  field.value = state.inputs.owner;
+  field.addEventListener("change", () => commitOwner(field.value.trim()));
+}
+{
+  const field = input("repo");
+  field.value = state.inputs.repo;
   field.addEventListener("change", () => {
-    state.inputs[key] = field.value.trim();
+    state.inputs.repo = field.value.trim();
     // A changed target invalidates what was probed — and discovered —
     // for the old one.
     state.inputs.workerUrl = "";
@@ -741,13 +1003,39 @@ for (const form of document.querySelectorAll("form.cfg")) {
   form.addEventListener("submit", (e) => e.preventDefault());
 }
 
+// A visit running on remembered state says so, with the memory's age,
+// and offers the clean break — the cure for state gone strange (an old
+// test run, another journey's leftovers).
+if (resumedFrom) {
+  const note = document.getElementById("resume")!;
+  note.hidden = false;
+  note.textContent = `Resuming your visit from ${new Date(resumedFrom).toLocaleDateString(
+    undefined,
+    { day: "numeric", month: "short" },
+  )}.`;
+  const resetBtn = document.getElementById("reset") as HTMLButtonElement;
+  resetBtn.hidden = false;
+  resetBtn.addEventListener("click", () => {
+    if (
+      confirm(
+        "Forget everything this browser remembers about this setup — ticks, " +
+          "form values, discovered addresses — and start afresh? Whatever was " +
+          "already written to your fork stays there.",
+      )
+    ) {
+      reset();
+      location.reload();
+    }
+  });
+}
+
 const refresh = document.getElementById("refresh") as HTMLButtonElement;
 refresh.addEventListener("click", () => {
   refresh.disabled = true;
   refresh.textContent = "Checking…";
   void poll().finally(() => {
     refresh.disabled = false;
-    refresh.textContent = "Check now";
+    refresh.textContent = "Check again";
   });
 });
 

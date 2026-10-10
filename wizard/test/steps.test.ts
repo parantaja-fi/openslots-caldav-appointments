@@ -4,7 +4,9 @@ import type { ProbeState } from "../src/steps";
 import { allGreen, derivePhases, deriveSteps } from "../src/steps";
 import type { Saved } from "../src/state";
 
-function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, boolean> = {}): Saved {
+const TICK = 1_757_000_000_000; // an arbitrary moment in 2025
+
+function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, number> = {}): Saved {
   return {
     inputs: {
       owner: "alice",
@@ -12,13 +14,17 @@ function saved(overrides: Partial<Saved["inputs"]> = {}, done: Record<string, bo
       workerUrl: "https://w.example",
       pageUrl: "https://alice.github.io/openslots-caldav-appointments/",
       senderDomain: "p.fi",
+      cfEmail: "",
       ...overrides,
     },
-    form: { provider: "nextcloud", sameCalendar: true, emailOn: true, values: {} },
+    form: { provider: "nextcloud", providerUrl: "", sameCalendar: true, emailOn: true, values: {} },
     done,
+    wrote: null,
     brevo: null,
   };
 }
+
+const FORK: ProbeState["fork"] = { state: "present" };
 
 function withBrevo(s: Saved, authenticated: boolean, domain = "p.fi"): Saved {
   const record = (label: string, status: boolean) => ({
@@ -49,9 +55,21 @@ function step(id: string, s: Saved, probes: ProbeState = {}) {
 }
 
 describe("manual steps", () => {
-  it("stay open until ticked, then are green", () => {
+  it("stay open until ticked, then are attested", () => {
     expect(step("accounts", saved()).status).toBe("open");
-    expect(step("accounts", saved({}, { accounts: true })).status).toBe("green");
+    expect(step("accounts", saved({}, { accounts: TICK })).status).toBe("attested");
+  });
+
+  it("name the tick's moment in the body", () => {
+    const ticked = step("pages", saved({}, { pages: TICK }));
+    expect(ticked.status).toBe("attested");
+    expect(ticked.body.join("\n")).toContain("Marked done:");
+  });
+
+  it("carry a dateless attestation for ticks predating the timestamps", () => {
+    const ticked = step("pages", saved({}, { pages: 1 }));
+    expect(ticked.status).toBe("attested");
+    expect(ticked.body.join("\n")).toContain("Marked done.");
   });
 });
 
@@ -59,13 +77,34 @@ describe("fork", () => {
   it("is open without a username, watches with one, greens on the probe", () => {
     expect(step("fork", saved({ owner: "" })).status).toBe("open");
     expect(step("fork", saved()).status).toBe("watch");
-    expect(step("fork", saved(), { fork: true }).status).toBe("green");
+    expect(step("fork", saved(), { fork: FORK }).status).toBe("green");
+  });
+
+  it("stays watching on a proven absence", () => {
+    expect(step("fork", saved(), { fork: { state: "absent" } }).status).toBe("watch");
+  });
+
+  it("is unknown when the probe is blind, saying why", () => {
+    const view = step("fork", saved(), {
+      fork: { state: "blind", reason: "GitHub answers sixty… at 08:03." },
+    });
+    expect(view.status).toBe("unknown");
+    expect(view.body.join("\n")).toContain("Not known");
+    expect(view.body.join("\n")).toContain("at 08:03");
+  });
+
+  it("shows the fork's URL as a plain link and dims the button once proven", () => {
+    const links = step("fork", saved(), { fork: FORK }).links;
+    const bare = links.find((l) => l.bare);
+    expect(bare?.href).toBe("https://github.com/alice/openslots-caldav-appointments");
+    expect(links.find((l) => l.label === "Fork it")?.dim).toBe(true);
+    expect(step("fork", saved()).links.find((l) => l.label === "Fork it")?.dim).toBeFalsy();
   });
 
   it("offers the Done check exactly while a named fork is unproven", () => {
     expect(step("fork", saved({ owner: "" })).check).toBe(false);
     expect(step("fork", saved()).check).toBe(true);
-    expect(step("fork", saved(), { fork: true }).check).toBe(false);
+    expect(step("fork", saved(), { fork: FORK }).check).toBe(false);
   });
 });
 
@@ -81,13 +120,24 @@ describe("deploy", () => {
     const links = step("deploy", saved(), { run: { state: "failure", url: "u" } }).links;
     expect(links.map((l) => l.label)).toContain("The run");
   });
+
+  it("is unknown when the run probe is blind, saying why", () => {
+    const view = step("deploy", saved(), { run: { state: "blind", reason: "GitHub is down." } });
+    expect(view.status).toBe("unknown");
+    expect(view.body.join("\n")).toContain("Not known");
+  });
 });
 
 describe("health", () => {
   it("waits for the deploy to publish the Worker's address", () => {
     expect(step("health", saved({ owner: "", workerUrl: "" })).status).toBe("open");
     expect(step("health", saved({ workerUrl: "" })).status).toBe("watch");
-    expect(step("health", saved(), { health: { state: "unreachable" } }).status).toBe("watch");
+  });
+
+  it("is unknown, not failing, when a known Worker gives no answer", () => {
+    const view = step("health", saved(), { health: { state: "unreachable" } });
+    expect(view.status).toBe("unknown");
+    expect(view.body.join("\n")).toContain("Not known");
   });
 
   it("greens on ok and reds on a failing subsystem, naming it", () => {
@@ -142,14 +192,71 @@ describe("configuration group steps", () => {
     expect(byId.get("shape")).toBe("open");
   });
 
-  it("stay green after the write even when the tab forgot the secrets", () => {
-    expect(step("calendars", saved({}, { secrets: true })).status).toBe("green");
+  it("turn attested after the store when the tab forgot the secrets", () => {
+    const view = step("calendars", saved({}, { secrets: TICK }));
+    expect(view.status).toBe("attested");
+    expect(view.body.join("\n")).toContain("Marked stored by you");
+    expect(view.body.join("\n")).toContain("Use the fields below");
   });
 
-  it("go red on an invalid value even after the write", () => {
+  it("cite the write record when the wizard itself stored", () => {
+    const s = { ...saved({}, { secrets: TICK }), wrote: { at: TICK, secrets: 9, variables: 8 } };
+    const view = step("calendars", s);
+    expect(view.status).toBe("attested");
+    expect(view.body.join("\n")).toContain("Stored into your GitHub fork");
+    expect(view.body.join("\n")).toContain("9 secrets and 8 variables");
+  });
+
+  it("let data in the tab speak over the attestation", () => {
+    const groups: FormGroups = { ...allGroups("open"), calendars: "green" };
+    const s = deriveSteps(saved({}, { secrets: TICK }), {}, groups);
+    expect(s.find((x) => x.id === "calendars")!.status).toBe("green");
+  });
+
+  it("go red on an invalid value even after the store", () => {
     const groups: FormGroups = { ...allGroups("green"), calendars: "red" };
-    const s = deriveSteps(saved({}, { secrets: true }), {}, groups);
+    const s = deriveSteps(saved({}, { secrets: TICK }), {}, groups);
     expect(s.find((x) => x.id === "calendars")!.status).toBe("red");
+  });
+
+  it("re-open, with the store step, when a value changes after the store", () => {
+    const s: Saved = {
+      ...saved({}, { secrets: TICK }),
+      wrote: { at: TICK, secrets: 9, variables: 8 },
+      edited: { calendars: TICK + 1 },
+    };
+    const views = deriveSteps(s, {});
+    const card = views.find((x) => x.id === "calendars")!;
+    expect(card.status).toBe("open");
+    expect(card.body.join("\n")).toContain("Changed since the last store");
+    const store = views.find((x) => x.id === "secrets")!;
+    expect(store.status).toBe("open");
+    expect(store.body.join("\n")).toContain("Your calendars");
+    expect(views.find((x) => x.id === "cloudflare")!.status).toBe("attested");
+  });
+
+  it("keep edits made before the store attested", () => {
+    const s: Saved = {
+      ...saved({}, { secrets: TICK }),
+      wrote: { at: TICK, secrets: 9, variables: 8 },
+      edited: { calendars: TICK - 1 },
+    };
+    const views = deriveSteps(s, {});
+    expect(views.find((x) => x.id === "calendars")!.status).toBe("attested");
+    expect(views.find((x) => x.id === "secrets")!.status).toBe("attested");
+  });
+
+  it("settle again once a fresh manual tick covers the edit", () => {
+    const s: Saved = {
+      ...saved({}, { secrets: TICK + 2 }),
+      wrote: { at: TICK, secrets: 9, variables: 8 },
+      edited: { calendars: TICK + 1 },
+    };
+    const views = deriveSteps(s, {});
+    expect(views.find((x) => x.id === "secrets")!.status).toBe("attested");
+    expect(views.find((x) => x.id === "secrets")!.body.join("\n")).toContain(
+      "Marked stored by you",
+    );
   });
 });
 
@@ -160,6 +267,17 @@ describe("the write step", () => {
     expect(before.body.join("\n")).toContain("Complete the configuration steps");
     const after = deriveSteps(saved(), {}, allGroups("green")).find((x) => x.id === "secrets")!;
     expect(after.body.join("\n")).toContain("review list");
+  });
+});
+
+describe("pages", () => {
+  it("greys the guessed page address until the deploy reveals the real one", () => {
+    const dimmed = step("pages", saved({ pageUrl: "" })).links.find((l) => l.bare);
+    expect(dimmed?.dim).toBe(true);
+    expect(dimmed?.href).toBe("https://alice.github.io/openslots-caldav-appointments/");
+    const live = step("pages", saved()).links.find((l) => l.bare);
+    expect(live?.dim).toBeFalsy();
+    expect(live?.href).toBe("https://alice.github.io/openslots-caldav-appointments/");
   });
 });
 
@@ -176,15 +294,23 @@ describe("dns", () => {
 
   it("greens only when all three records are present", () => {
     expect(
-      step("dns", saved(), { dns: { dkim: true, code: true, dmarc: false } }).status,
+      step("dns", saved(), { dns: { state: "answered", dkim: true, code: true, dmarc: false } })
+        .status,
     ).toBe("watch");
     expect(
-      step("dns", saved(), { dns: { dkim: true, code: true, dmarc: true } }).status,
+      step("dns", saved(), { dns: { state: "answered", dkim: true, code: true, dmarc: true } })
+        .status,
     ).toBe("green");
   });
 
+  it("is unknown when the lookup service is unreachable", () => {
+    const view = step("dns", saved(), { dns: { state: "blind" } });
+    expect(view.status).toBe("unknown");
+    expect(view.body.join("\n")).toContain("Not known");
+  });
+
   it("demands Brevo's verdict too once the domain is registered there", () => {
-    const doh = { dns: { dkim: true, code: true, dmarc: true } };
+    const doh: ProbeState = { dns: { state: "answered", dkim: true, code: true, dmarc: true } };
     const waiting = step("dns", withBrevo(saved(), false), doh);
     expect(waiting.status).toBe("watch");
     expect(waiting.body.join("\n")).toContain("1 of 2 records confirmed");
@@ -194,14 +320,14 @@ describe("dns", () => {
   });
 
   it("ignores a Brevo registration for a domain the form no longer names", () => {
-    const doh = { dns: { dkim: true, code: true, dmarc: true } };
+    const doh: ProbeState = { dns: { state: "answered", dkim: true, code: true, dmarc: true } };
     expect(step("dns", withBrevo(saved(), false, "old.example"), doh).status).toBe("green");
   });
 });
 
 describe("phases", () => {
   it("greens finished phases and points at the first unfinished one", () => {
-    const phases = derivePhases(deriveSteps(saved({}, { accounts: true }), { fork: true }));
+    const phases = derivePhases(deriveSteps(saved({}, { accounts: TICK }), { fork: FORK }));
     expect(phases.map((p) => `${p.label}:${p.status}`)).toEqual([
       "Accounts:green",
       "Fork:green",
@@ -213,20 +339,20 @@ describe("phases", () => {
   });
 
   it("is current on Deploy while any of its three steps lags", () => {
-    const done = { accounts: true, secrets: true, pages: true };
+    const done = { accounts: TICK, secrets: TICK, pages: TICK };
     const phases = derivePhases(
-      deriveSteps(saved({}, done), { fork: true, run: { state: "running", url: "u" } }),
+      deriveSteps(saved({}, done), { fork: FORK, run: { state: "running", url: "u" } }),
     );
     expect(phases.find((p) => p.label === "Deploy")?.status).toBe("current");
   });
 
   it("is green throughout exactly when the checklist is", () => {
-    const done = { accounts: true, secrets: true, pages: true, smoke: true };
+    const done = { accounts: TICK, secrets: TICK, pages: TICK, smoke: TICK };
     const probes: ProbeState = {
-      fork: true,
+      fork: FORK,
       run: { state: "success", url: "u" },
       health: { state: "answered", body: { ok: true, config: { ok: true } } },
-      dns: { dkim: true, code: true, dmarc: true },
+      dns: { state: "answered", dkim: true, code: true, dmarc: true },
     };
     const phases = derivePhases(deriveSteps(saved({}, done), probes));
     expect(phases.every((p) => p.status === "green")).toBe(true);
@@ -234,15 +360,16 @@ describe("phases", () => {
 });
 
 describe("allGreen", () => {
-  it("holds exactly when every step is green", () => {
-    const done = { accounts: true, secrets: true, pages: true, smoke: true };
+  it("holds exactly when every step is settled — attested counts", () => {
+    const done = { accounts: TICK, secrets: TICK, pages: TICK, smoke: TICK };
     const probes: ProbeState = {
-      fork: true,
+      fork: FORK,
       run: { state: "success", url: "u" },
       health: { state: "answered", body: { ok: true, config: { ok: true } } },
-      dns: { dkim: true, code: true, dmarc: true },
+      dns: { state: "answered", dkim: true, code: true, dmarc: true },
     };
     expect(allGreen(deriveSteps(saved({}, done), probes))).toBe(true);
-    expect(allGreen(deriveSteps(saved({}, { ...done, smoke: false }), probes))).toBe(false);
+    const { smoke: _, ...butSmoke } = done;
+    expect(allGreen(deriveSteps(saved({}, butSmoke), probes))).toBe(false);
   });
 });

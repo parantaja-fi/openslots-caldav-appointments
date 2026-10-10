@@ -12,14 +12,14 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 afterEach(() => vi.unstubAllGlobals());
 
 describe("probeFork", () => {
-  it("is true when the repository answers", async () => {
+  it("is present when the repository answers", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ name: "fork" })));
-    expect(await probeFork("alice", "fork", {})).toBe(true);
+    expect(await probeFork("alice", "fork", {})).toEqual({ state: "present" });
   });
 
-  it("is false on 404", async () => {
+  it("is absent on 404 — a proven no, not blindness", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "Not Found" }, 404)));
-    expect(await probeFork("alice", "fork", {})).toBe(false);
+    expect(await probeFork("alice", "fork", {})).toEqual({ state: "absent" });
   });
 
   it("answers a 304 from the ETag cache without re-reading the body", async () => {
@@ -29,8 +29,8 @@ describe("probeFork", () => {
       .mockResolvedValueOnce(json({ name: "fork" }, 200, { etag: 'W/"abc"' }))
       .mockResolvedValueOnce(new Response(null, { status: 304 }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await probeFork("alice", "fork", cache)).toBe(true);
-    expect(await probeFork("alice", "fork", cache)).toBe(true);
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
     const second = fetchMock.mock.calls[1]![1] as RequestInit;
     expect(new Headers(second.headers).get("if-none-match")).toBe('W/"abc"');
   });
@@ -42,13 +42,33 @@ describe("probeFork", () => {
       .mockResolvedValueOnce(json({ name: "fork" }, 200, { etag: 'W/"abc"' }))
       .mockResolvedValueOnce(json({ message: "rate limited" }, 403));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await probeFork("alice", "fork", cache)).toBe(true);
-    expect(await probeFork("alice", "fork", cache)).toBe(true);
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
+    expect(await probeFork("alice", "fork", cache)).toEqual({ state: "present" });
   });
 
-  it("is false when the network is down and nothing is cached", async () => {
+  it("is blind, naming the reset time, when rate-limited with a cold cache", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({ message: "rate limited" }, 403, {
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": "1788843808",
+        }),
+      ),
+    );
+    const probe = await probeFork("alice", "fork", {});
+    expect(probe.state).toBe("blind");
+    if (probe.state === "blind") {
+      expect(probe.reason).toContain("sixty unauthenticated questions");
+      expect(probe.reason).toContain("answers again at");
+    }
+  });
+
+  it("is blind when the network is down and nothing is cached", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("offline"))));
-    expect(await probeFork("alice", "fork", {})).toBe(false);
+    const probe = await probeFork("alice", "fork", {});
+    expect(probe.state).toBe("blind");
+    if (probe.state === "blind") expect(probe.reason).toContain("could not be reached");
   });
 });
 
@@ -83,6 +103,11 @@ describe("probeRun", () => {
   it("is none while the workflow is not yet registered (404)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ message: "Not Found" }, 404)));
     expect((await probeRun("alice", "fork", {})).state).toBe("none");
+  });
+
+  it("is blind when it cannot ask and holds no cached answer", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ message: "rate limited" }, 403)));
+    expect((await probeRun("alice", "fork", {})).state).toBe("blind");
   });
 });
 
@@ -128,7 +153,12 @@ describe("probeDns", () => {
         "_dmarc.p.fi": ['"v=DMARC1; p=none"'],
       }),
     );
-    expect(await probeDns("p.fi")).toEqual({ dkim: true, code: true, dmarc: true });
+    expect(await probeDns("p.fi")).toEqual({
+      state: "answered",
+      dkim: true,
+      code: true,
+      dmarc: true,
+    });
   });
 
   it("accepts the single-TXT DKIM variant", async () => {
@@ -136,12 +166,18 @@ describe("probeDns", () => {
       "fetch",
       dohAnswering({ "mail._domainkey.p.fi": ['"k=rsa; p=MIGf..."'] }),
     );
-    expect((await probeDns("p.fi")).dkim).toBe(true);
+    const probe = await probeDns("p.fi");
+    expect(probe.state === "answered" && probe.dkim).toBe(true);
   });
 
-  it("reports everything missing on an empty zone", async () => {
+  it("reports everything missing on an empty zone — an answer, not blindness", async () => {
     vi.stubGlobal("fetch", dohAnswering({}));
-    expect(await probeDns("p.fi")).toEqual({ dkim: false, code: false, dmarc: false });
+    expect(await probeDns("p.fi")).toEqual({
+      state: "answered",
+      dkim: false,
+      code: false,
+      dmarc: false,
+    });
   });
 
   it("does not mistake one CNAME of the pair for DKIM", async () => {
@@ -149,6 +185,12 @@ describe("probeDns", () => {
       "fetch",
       dohAnswering({ "brevo1._domainkey.p.fi": ["b1.p-fi.dkim.brevo.com."] }),
     );
-    expect((await probeDns("p.fi")).dkim).toBe(false);
+    const probe = await probeDns("p.fi");
+    expect(probe.state === "answered" && probe.dkim).toBe(false);
+  });
+
+  it("is blind when the lookup service cannot be reached", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("offline"))));
+    expect(await probeDns("p.fi")).toEqual({ state: "blind" });
   });
 });

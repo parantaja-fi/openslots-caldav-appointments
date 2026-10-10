@@ -28,12 +28,9 @@ export const PROVIDERS: { id: Provider; label: string }[] = [
 ];
 
 export const PROVIDER_HELP: Record<Provider, string[]> = {
-  nextcloud: [
-    "Calendar address: in the Nextcloud Calendar app, open the ⋯ menu next " +
-      "to the calendar and choose “Copy internal link”.",
-    "App password: Settings → Security → “Create new app password”. The " +
-      "username stays your Nextcloud username.",
-  ],
+  // Nextcloud's guidance is interleaved between its fields (main.ts),
+  // deep-linked into the practitioner's own instance.
+  nextcloud: [],
   fastmail: [
     "Calendar address: Settings → Calendars → the calendar → CalDAV URL.",
     "App password: Settings → Privacy & Security → App passwords — mint one " +

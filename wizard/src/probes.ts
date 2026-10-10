@@ -7,7 +7,30 @@
  * 60/h per IP, but a 304 answered from an ETag does not count. */
 export type GithubCache = Record<string, { etag: string; body: unknown }>;
 
-async function github(url: string, cache: GithubCache): Promise<unknown | null> {
+/** What an unauthenticated GitHub read can honestly say: an answer (live,
+ * 304-refreshed, or the last known one when today's ask failed), a proven
+ * absence, or blindness — could not ask and nothing cached, with the why. */
+type GithubAnswer =
+  | { kind: "answer"; body: unknown }
+  | { kind: "absent" }
+  | { kind: "blind"; reason: string };
+
+function blindReason(res: Response): string {
+  const reset = Number(res.headers.get("x-ratelimit-reset"));
+  if ((res.status === 403 || res.status === 429) && res.headers.get("x-ratelimit-remaining") === "0" && reset) {
+    const at = new Date(reset * 1000).toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return (
+      "GitHub answers sixty unauthenticated questions an hour from one " +
+      `internet address, and this hour's are spent — it answers again at ${at}.`
+    );
+  }
+  return `GitHub answered ${res.status} — the wizard cannot see the repository right now.`;
+}
+
+async function github(url: string, cache: GithubCache): Promise<GithubAnswer> {
   const cached = cache[url];
   let res: Response;
   try {
@@ -18,34 +41,45 @@ async function github(url: string, cache: GithubCache): Promise<unknown | null> 
       },
     });
   } catch {
-    return cached?.body ?? null;
+    return cached
+      ? { kind: "answer", body: cached.body }
+      : { kind: "blind", reason: "GitHub could not be reached — no network, or GitHub is down." };
   }
-  if (res.status === 304 && cached) return cached.body;
+  if (res.status === 304 && cached) return { kind: "answer", body: cached.body };
+  if (res.status === 404) return { kind: "absent" };
   if (!res.ok) {
-    // 404: not there. 403: rate-limited — the last known answer is still
-    // the best one available.
-    return res.status === 404 ? null : (cached?.body ?? null);
+    return cached
+      ? { kind: "answer", body: cached.body }
+      : { kind: "blind", reason: blindReason(res) };
   }
   const body: unknown = await res.json();
   const etag = res.headers.get("etag");
   if (etag) cache[url] = { etag, body };
-  return body;
+  return { kind: "answer", body };
 }
+
+export type ForkProbe =
+  | { state: "present" }
+  | { state: "absent" }
+  | { state: "blind"; reason: string };
 
 export async function probeFork(
   owner: string,
   repo: string,
   cache: GithubCache,
-): Promise<boolean> {
+): Promise<ForkProbe> {
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  return (await github(url, cache)) !== null;
+  const answer = await github(url, cache);
+  if (answer.kind === "blind") return { state: "blind", reason: answer.reason };
+  return { state: answer.kind === "answer" ? "present" : "absent" };
 }
 
 export type RunProbe =
   | { state: "none" }
   | { state: "running"; url: string }
   | { state: "success"; url: string }
-  | { state: "failure"; url: string };
+  | { state: "failure"; url: string }
+  | { state: "blind"; reason: string };
 
 export async function probeRun(
   owner: string,
@@ -55,7 +89,9 @@ export async function probeRun(
   const url =
     `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}` +
     `/actions/workflows/deploy.yml/runs?per_page=1`;
-  const body = (await github(url, cache)) as {
+  const answer = await github(url, cache);
+  if (answer.kind === "blind") return { state: "blind", reason: answer.reason };
+  const body = (answer.kind === "answer" ? answer.body : null) as {
     workflow_runs?: { status: string; conclusion: string | null; html_url: string }[];
   } | null;
   const run = body?.workflow_runs?.[0];
@@ -121,42 +157,44 @@ export async function probeHealth(workerUrl: string): Promise<HealthProbe> {
   }
 }
 
+// Throws on a failed ask — an empty answer to a successful ask is a
+// legitimate "no such records", a failed ask is blindness, and the two
+// must not be conflated.
 async function doh(name: string, type: "TXT" | "CNAME"): Promise<string[]> {
-  try {
-    const res = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`,
-      { headers: { accept: "application/dns-json" } },
-    );
-    if (!res.ok) return [];
-    const body = (await res.json()) as { Answer?: { data: string }[] };
-    return (body.Answer ?? []).map((a) => a.data);
-  } catch {
-    return [];
-  }
+  const res = await fetch(
+    `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`,
+    { headers: { accept: "application/dns-json" } },
+  );
+  if (!res.ok) throw new Error(`DoH answered ${res.status}`);
+  const body = (await res.json()) as { Answer?: { data: string }[] };
+  return (body.Answer ?? []).map((a) => a.data);
 }
 
 /** Presence of the records `SETUP.md` Part 4 has the practitioner place.
  * Presence only — the authoritative per-record verdict is Brevo's own and
  * needs its API key, which belongs to the M6 stage, not here. */
-export interface DnsProbe {
-  dkim: boolean;
-  code: boolean;
-  dmarc: boolean;
-}
+export type DnsProbe =
+  | { state: "answered"; dkim: boolean; code: boolean; dmarc: boolean }
+  | { state: "blind" };
 
 export async function probeDns(domain: string): Promise<DnsProbe> {
-  const [brevo1, brevo2, mail, apex, dmarc] = await Promise.all([
-    doh(`brevo1._domainkey.${domain}`, "CNAME"),
-    doh(`brevo2._domainkey.${domain}`, "CNAME"),
-    doh(`mail._domainkey.${domain}`, "TXT"),
-    doh(domain, "TXT"),
-    doh(`_dmarc.${domain}`, "TXT"),
-  ]);
-  return {
-    // Either the CNAME pair or the single-TXT variant Brevo hands some
-    // accounts (`SETUP.md` Part 4).
-    dkim: (brevo1.length > 0 && brevo2.length > 0) || mail.length > 0,
-    code: apex.some((t) => t.includes("brevo-code")),
-    dmarc: dmarc.some((t) => t.includes("v=DMARC1")),
-  };
+  try {
+    const [brevo1, brevo2, mail, apex, dmarc] = await Promise.all([
+      doh(`brevo1._domainkey.${domain}`, "CNAME"),
+      doh(`brevo2._domainkey.${domain}`, "CNAME"),
+      doh(`mail._domainkey.${domain}`, "TXT"),
+      doh(domain, "TXT"),
+      doh(`_dmarc.${domain}`, "TXT"),
+    ]);
+    return {
+      state: "answered",
+      // Either the CNAME pair or the single-TXT variant Brevo hands some
+      // accounts (`SETUP.md` Part 4).
+      dkim: (brevo1.length > 0 && brevo2.length > 0) || mail.length > 0,
+      code: apex.some((t) => t.includes("brevo-code")),
+      dmarc: dmarc.some((t) => t.includes("v=DMARC1")),
+    };
+  } catch {
+    return { state: "blind" };
+  }
 }

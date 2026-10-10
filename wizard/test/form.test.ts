@@ -7,6 +7,7 @@ import type { FormState } from "../src/state";
 function form(overrides: Partial<FormState> = {}): FormState {
   return {
     provider: "nextcloud",
+    providerUrl: "",
     sameCalendar: true,
     emailOn: true,
     values: { DISPLAY_TIMEZONE: "Europe/Helsinki" },

@@ -30,9 +30,11 @@
                      background: #e5e7eb; color: #777; text-decoration: none; }
       #rail .phase.green { background: #dcfce7; color: #15803d; }
       #rail .phase.current { background: #1d4ed8; color: white; }
+      #railtools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+      #railtools .resume { font-size: 0.8rem; color: #777; }
       #railbar button { font: inherit; font-size: 0.85rem; padding: 3px 12px;
                         border: 1px solid #ccc; border-radius: 999px;
-                        background: white; cursor: pointer; margin-left: auto; }
+                        background: white; cursor: pointer; }
 
       /* The stepper: every step a card on a vertical line, all visible
          from the start; the current one open and ringed. */
@@ -41,15 +43,21 @@
       .step::before { content: ""; position: absolute; left: 15px; top: 36px;
                       bottom: -2px; width: 2px; background: #e5e7eb; }
       .step:last-child::before { display: none; }
-      .step.green::before { background: #86efac; }
+      .step.green::before, .step.attested::before { background: #86efac; }
       .marker { position: absolute; left: 0; top: 4px; width: 32px; height: 32px;
                 border-radius: 50%; display: flex; align-items: center;
                 justify-content: center; font-size: 0.9rem; font-weight: 600;
                 background: white; border: 2px solid #d1d5db; color: #6b7280; }
       .step.green .marker { background: #dcfce7; border-color: #86efac; color: #15803d; }
+      /* Attested: done on the practitioner's word or a past write — the
+         green family, but the tick stays hollow: white ground, green rim. */
+      .step.attested .marker { background: white; border-color: #86efac; color: #15803d; }
       .step.red .marker { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
       .step.watch .marker { border-color: #f59e0b; color: #b45309;
                             animation: watching 2s ease-in-out infinite; }
+      /* Unknown: the wizard cannot ask right now — amber, steady (the
+         pulse is watch's), a question mark instead of a verdict. */
+      .step.unknown .marker { background: #fef3c7; border-color: #f59e0b; color: #b45309; }
       @keyframes watching { 50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25); } }
       .step.current .marker { border-color: #1d4ed8; }
 
@@ -72,16 +80,38 @@
       .dyn, .dynfoot { font-size: 0.9rem; color: #444; }
       .dyn p, .dynfoot p { margin: 0 0 8px; }
       .dyn a, .dynfoot a { color: #1d4ed8; }
-      .dyn button, .dynfoot button { font: inherit; font-size: 0.85rem; padding: 4px 10px;
-                    border: 1px solid #ccc; border-radius: 4px; background: #f3f4f6;
-                    cursor: pointer; }
-      .dyn .links { display: flex; flex-direction: column;
-                    align-items: flex-start; gap: 6px; margin: 2px 0 8px; }
+      .dyn button, .dynfoot button, .cfg button, #accounts-rows button {
+                    font: inherit; font-size: 0.85rem;
+                    padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px;
+                    background: #f3f4f6; cursor: pointer; }
+      .cfg button:disabled { color: #999; cursor: default; }
+      .links { display: flex; flex-wrap: wrap; align-items: center;
+               gap: 6px 8px; margin: 2px 0 8px; }
       .linkbtn { display: inline-block; font-size: 0.85rem; padding: 4px 12px;
                  border: 1px solid #ccc; border-radius: 4px; background: #f3f4f6;
                  text-decoration: none; }
       .linkbtn:hover { background: #e5e7eb; }
+      .linkbtn.disabled { color: #9ca3af; background: #f9fafb; pointer-events: none; }
+      .links .bare { font-size: 0.85rem; color: #444; overflow-wrap: anywhere; }
+      .links .bare a { color: #1d4ed8; }
+      .links .bare.dim { color: #9ca3af; }
+      .dynfoot > .links { margin-top: 10px; }
       .dynfoot > button { margin-top: 10px; }
+
+      /* The accounts card: signup button, label, echo field — aligned
+         rows, the tick row last. */
+      #accounts-rows { display: grid; grid-template-columns: max-content max-content 1fr;
+                       gap: 8px 12px; align-items: center; margin-top: 10px; }
+      #accounts-rows .linkbtn { text-align: center; }
+      #accounts-rows label { font-size: 0.9rem; color: #333; text-align: right; }
+      #accounts-rows input { font: inherit; padding: 6px 8px; border: 1px solid #ccc;
+                             border-radius: 4px; width: 100%; }
+      #accounts-rows .ticknote { grid-column: 2 / 4; font-size: 0.85rem; color: #444; }
+      @media (max-width: 640px) {
+        #accounts-rows { grid-template-columns: max-content 1fr; }
+        #accounts-rows .linkbtn { grid-column: 1 / 3; }
+        #accounts-rows .ticknote { grid-column: 2 / 3; }
+      }
 
       /* Fork step: the two inputs the wizard cannot discover. */
       #inputs { display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px;
@@ -160,10 +190,10 @@
     <div id="app">
       <h1>Set up your booking calendar</h1>
       <p class="lede">
-        You are about to get a booking calendar of your own: a public booking
-        page, a small program guarding it, and your existing calendar as the
-        only place anything is stored. Two free services run it — nothing to
-        install, no server to keep.
+        Setting up needs a GitHub account and a Cloudflare account, both
+        free — use existing ones or create new ones; the wizard guides
+        either way. Nothing is installed on your computer and you need no
+        server of your own: your own calendar is the only storage.
       </p>
       <div id="model">
         <span class="node">Your customer</span>
@@ -175,17 +205,24 @@
         <span class="node">Your calendar<span class="on">stays where it is</span></span>
       </div>
       <p class="lede">
-        The whole journey is the steps below — read ahead freely; the
-        highlighted one is where you stand, and the wizard watches each land.
+        This wizard keeps track of where you are and highlights the next
+        needed action — read ahead and come back freely. If you close the
+        page midflight, the wizard may lose some detail: done steps stay
+        done, but a few values are asked again. It re-checks the world
+        every twenty seconds; the Check again button asks at once.
         <a href="https://github.com/parantaja-fi/openslots-caldav-appointments/blob/main/SETUP.md"
-        target="_blank" rel="noopener">SETUP.md</a> is the long-form reference
-        when you want the why behind a step. Your passwords and keys go,
-        encrypted, straight to your own copy of the project on GitHub —
-        nowhere else — and are forgotten when the tab closes.
+        target="_blank" rel="noopener">SETUP.md</a> holds the why behind
+        every step. At the “Store the configuration” step, below, your
+        passwords and API keys go, encrypted, straight to your own copy of
+        the project on GitHub — nowhere else.
       </p>
       <div id="railbar">
         <nav id="rail"></nav>
-        <button id="refresh">Check now</button>
+        <div id="railtools">
+          <span id="resume" class="resume" hidden></span>
+          <button id="reset" hidden>Start afresh</button>
+          <button id="refresh">Check again</button>
+        </div>
       </div>
       <ol id="journey">
         <li class="step" id="step-accounts">
@@ -197,6 +234,7 @@
             </summary>
             <div class="stepbody">
               <div class="dyn"></div>
+              <div id="accounts-rows"></div>
               <div class="dynfoot"></div>
             </div>
           </details>
@@ -211,7 +249,7 @@
             <div class="stepbody">
               <div class="dyn"></div>
               <div id="inputs">
-                <label for="owner">GitHub username</label>
+                <label for="owner">GitHub Username</label>
                 <input id="owner" autocomplete="off" spellcheck="false" placeholder="the account you forked into" />
                 <label for="repo">Fork name</label>
                 <input id="repo" autocomplete="off" spellcheck="false" />
