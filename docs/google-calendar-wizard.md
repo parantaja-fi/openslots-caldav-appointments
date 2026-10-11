@@ -99,7 +99,7 @@ step 3 of the main list — in the main wizard's vocabulary throughout
   writer < owner, and a calendar the service account itself owns
   refused — it would be invisible in the practitioner's own Google
   Calendar (§6). Polled at the wizard's cadence while red, so sharing
-  in the other tab turns the card green by itself; a round over two
+  in the work window turns the card green by itself; a round over two
   calendars is about half a second.
 - **3.7 Back.** A summary; the main calendars card shows the same
   summary in place of its three fields, and its Done press settles
@@ -176,9 +176,9 @@ for 401 / 403 / 404 from Google.
 
 **Secrecy.** Unchanged in kind: the key is pasted once per tab and
 goes to Google only as a signature over a short assertion; the token
-is never persisted; the console and calendar pages open in new tabs
-under the practitioner's own login; nothing of Google's ever touches
-the fork.
+is never persisted; the console and calendar pages open in the work
+window (`ARCHITECTURE.md` §1) under the practitioner's own login;
+nothing of Google's ever touches the fork.
 
 ## 5. Tests (`wizard-testing.md`)
 
@@ -235,7 +235,8 @@ Deliberately not lifted, pending the baseline's own rework: the
 `secrets` map as a module (the hand-over writes into it in place), the
 `init(document)` entry point (the layer-3 test imports `main.ts` as it
 is) and the link and window chrome (`linkBtn`, `linksRow`, `bareLink`,
-used as they stand). The attestation stamps and `pressConfirm` needed
+used as they stand — since the work window, every Google link aims at
+it like the rest). The attestation stamps and `pressConfirm` needed
 no lifting, and the poll loop gained a Google job rather than becoming
 a list of probes. Nothing is generalised on speculation.
 

@@ -2,6 +2,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import page from "../../index.html?raw";
+import { WORK_NAME } from "../../src/workWindow";
 
 // Layer 3 (docs/wizard-testing.md): main.ts runs at import against the
 // page's own markup; Google answers with the fixtures of token.test.ts
@@ -67,6 +68,8 @@ describe("the Google view", () => {
     await vi.waitFor(() => expect($("#journey").hidden).toBe(true));
     expect($("#google-journey").hidden).toBe(false);
     expect(markers("google-journey")).toEqual(["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7"]);
+    // Its console pages open in the work window, like every outside page.
+    expect($<HTMLAnchorElement>("#step-google-account a.linkbtn").target).toBe(WORK_NAME);
 
     $("#google-back").click();
     await vi.waitFor(() => expect($("#journey").hidden).toBe(false));
