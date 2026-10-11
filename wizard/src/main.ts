@@ -583,7 +583,9 @@ function renderConfig(fields: FieldView[]): void {
       "The small program between your customers and your calendar runs on " +
         "Cloudflare's free tier. Create the token from the “Edit Cloudflare " +
         "Workers” template — by hand: Dashboard → Manage account → Account " +
-        "API tokens → Create Token.",
+        "API tokens → Create Token. The template names every token alike: " +
+        "rename yours so that you recognise it later, e.g. " +
+        `${state.inputs.owner || "<your-github-username>"}/${state.inputs.repo}.`,
     ),
     linksRow(linkBtn("Create an API token", "https://dash.cloudflare.com/?to=/:account/api-tokens/create")),
     ...rows("cloudflare", false),
