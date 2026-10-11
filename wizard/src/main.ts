@@ -44,6 +44,7 @@ import {
 } from "./steps";
 import type { Provider } from "./state";
 import { UPSTREAM_OWNER, UPSTREAM_REPO, load, reset, save } from "./state";
+import { WORK_NAME, reveal, show } from "./workWindow";
 
 const POLL_MS = 20_000;
 const BADGE = { open: "○", watch: "◌", unknown: "?", green: "✓", attested: "✓", red: "✗" } as const;
@@ -258,15 +259,14 @@ function why(text: string): HTMLParagraphElement {
   return p;
 }
 
-// A button-styled link; without an address it renders greyed out,
-// waiting for the input that completes it.
+// A button-styled link into the work window; without an address it
+// renders greyed out, waiting for the input that completes it.
 function linkBtn(label: string, href: string | null): HTMLAnchorElement {
   const a = document.createElement("a");
   a.className = href ? "linkbtn" : "linkbtn disabled";
   if (href) {
     a.href = href;
-    a.target = "_blank";
-    a.rel = "noopener";
+    a.target = WORK_NAME;
   }
   a.textContent = label;
   return a;
@@ -289,8 +289,7 @@ function bareLink(l: StepLink): HTMLElement {
   } else {
     const a = document.createElement("a");
     a.href = l.href;
-    a.target = "_blank";
-    a.rel = "noopener";
+    a.target = WORK_NAME;
     a.textContent = l.href;
     span.append(`${l.label} `, a);
   }
@@ -584,6 +583,11 @@ function renderConfig(fields: FieldView[]): void {
         "rename yours so that you recognise it later, e.g. " +
         `${state.inputs.owner || "<your-github-username>"}/${state.inputs.repo}.`,
     ),
+    why(
+      "Some browsers let Cloudflare's pages break away from the wizard: the " +
+        "next link then opens a fresh work window, and the Cloudflare one " +
+        "can be closed.",
+    ),
     linksRow(linkBtn("Create an API token", "https://dash.cloudflare.com/?to=/:account/api-tokens/create")),
     ...rows("cloudflare", false),
   ]);
@@ -721,8 +725,7 @@ function renderEmail(): void {
       byHand.className = "why";
       const a = document.createElement("a");
       a.href = `https://github.com/${UPSTREAM_OWNER}/${UPSTREAM_REPO}/blob/main/SETUP.md`;
-      a.target = "_blank";
-      a.rel = "noopener";
+      a.target = WORK_NAME;
       a.textContent = "SETUP.md Part 4";
       byHand.append(
         "Rather work in Brevo's own pages? ",
@@ -929,8 +932,7 @@ function renderReview(formOk: boolean): void {
       where.append("Create each of these on your fork's ");
       const a = document.createElement("a");
       a.href = `${fork}/settings/${page}/actions`;
-      a.target = "_blank";
-      a.rel = "noopener";
+      a.target = WORK_NAME;
       a.textContent = `${title.toLowerCase()} page`;
       where.append(a, ", name and value exactly as shown.");
     } else {
@@ -1246,6 +1248,20 @@ if (resumedFrom) {
     }
   });
 }
+
+// Every outside link aims at the work window by name (workWindow.ts). A
+// plain click shows its page there; should pop-ups be refused, the click
+// goes ahead as an ordinary link to that name — a tab, reused all the
+// same. A modified click keeps its usual meaning.
+const showWork = document.getElementById("showwork") as HTMLButtonElement;
+document.addEventListener("click", (e) => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.target instanceof Element ? e.target.closest("a") : null;
+  if (a?.target !== WORK_NAME || show(a.href) === "blocked") return;
+  e.preventDefault();
+  showWork.hidden = false;
+});
+showWork.addEventListener("click", reveal);
 
 const refresh = document.getElementById("refresh") as HTMLButtonElement;
 refresh.addEventListener("click", () => {

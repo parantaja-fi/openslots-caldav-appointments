@@ -25,7 +25,11 @@ health endpoint (§3), DNS over HTTPS — and holds no credential. Its
 provisioning stage adds one file to the fork beside the Actions secrets
 and variables it writes: `.wizard/fork.json`, the fork's
 provenance and when its configuration was last stored — public facts
-only, so any browser can tell a configured fork without a token.
+only, so any browser can tell a configured fork without a token. Its
+outside links all open in one work window beside it
+(`wizard/src/workWindow.ts`). That window stays reusable only through
+the opener link, so a page shown in it can navigate the wizard's tab,
+though never read it.
 
 ## 2. Calendar model
 

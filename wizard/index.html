@@ -217,9 +217,12 @@
         needed action — read ahead and come back freely. If you close the
         page midflight, the wizard may lose some detail: done steps stay
         done, but a few values are asked again. It re-checks the world
-        every twenty seconds; the Check again button asks at once.
+        every twenty seconds; the Check again button asks at once. Each
+        outside page — GitHub, Cloudflare, your calendar, Brevo — opens in
+        one work window on the right of the screen: narrow this window to
+        the left part to keep both in view.
         <a href="https://github.com/parantaja-fi/openslots-caldav-appointments/blob/main/SETUP.md"
-        target="_blank" rel="noopener">SETUP.md</a> holds the why behind
+        target="booking-wizard-work">SETUP.md</a> holds the why behind
         every step. At the “Store the configuration” step, below, your
         passwords and API keys go, encrypted, straight to your own copy of
         the project on GitHub — nowhere else.
@@ -229,6 +232,7 @@
         <div id="railtools">
           <span id="resume" class="resume" hidden></span>
           <button id="reset" hidden>Start afresh</button>
+          <button id="showwork" hidden>Show the work window</button>
           <button id="refresh">Check again</button>
         </div>
       </div>
@@ -435,7 +439,7 @@
         <p>
           The setup token has done its job —
           <a href="https://github.com/settings/personal-access-tokens"
-          target="_blank" rel="noopener">revoke it now</a>. Day-to-day
+          target="booking-wizard-work">revoke it now</a>. Day-to-day
           booking needs no standing access to your GitHub account.
         </p>
       </div>
