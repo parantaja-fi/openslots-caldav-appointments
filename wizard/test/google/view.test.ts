@@ -39,6 +39,9 @@ function enter(selector: string, value: string): void {
 const markers = (list: string): (string | null)[] =>
   [...document.querySelectorAll(`#${list} .marker`)].map((m) => m.textContent);
 
+// A hold on Google's answers, for a case that must look before they land.
+let hold: Promise<void> = Promise.resolve();
+
 beforeAll(async () => {
   document.body.innerHTML = /<body>([\s\S]*)<\/body>/.exec(page)![1]!;
   // Node's localStorage, unavailable without --localstorage-file, shadows
@@ -47,6 +50,7 @@ beforeAll(async () => {
   // jsdom lays nothing out, so has nothing to scroll.
   Element.prototype.scrollIntoView = () => {};
   vi.stubGlobal("fetch", async (url: string) => {
+    await hold;
     const body = GOOGLE[url];
     if (body === undefined) throw new Error(`Unexpected fetch: ${url}`);
     return new Response(body, { headers: { "content-type": "application/json" } });
@@ -84,5 +88,16 @@ describe("the Google view", () => {
     await vi.waitFor(() => expect($("#journey").hidden).toBe(false));
     $("#step-calendars .dynfoot button").click();
     expect($("#step-calendars .marker").textContent).toBe("✓");
+  });
+
+  it("keeps the calendars card's summary with Google's answers while the main list shows", async () => {
+    let release!: () => void;
+    hold = new Promise((resolve) => (release = resolve));
+    // The key pasted again drops the old answers; the new ones land
+    // after the render that followed the paste.
+    enter("#f-GOOGLE_SERVICE_ACCOUNT_JSON", KEY_FILE);
+    await vi.waitFor(() => expect($("#google-summary").textContent).toContain("3.5"));
+    release();
+    await vi.waitFor(() => expect($("#google-summary").textContent).not.toContain("3.5"));
   });
 });

@@ -643,17 +643,15 @@ function renderConfig(fields: FieldView[]): void {
         location.hash = "#google";
       });
       marker.append(btn);
-      calendarChildren.push(
-        marker,
-        ...deriveGoogleSteps(state, google)
-          .find((s) => s.id === "google-back")!
-          .body.map(why),
-      );
+      const summary = document.createElement("div");
+      summary.id = "google-summary";
+      calendarChildren.push(marker, summary);
     } else {
       calendarChildren.push(...rows("calendars", false));
     }
   }
   replaceKeepingFocus(document.getElementById("cfg-calendars")!, calendarChildren);
+  renderGoogleSummary();
 
   replaceKeepingFocus(document.getElementById("cfg-cloudflare")!, [
     why(
@@ -824,6 +822,16 @@ function handOverGoogle(): void {
     if (id) secrets[name] = caldavAddress(id);
     else delete secrets[name];
   }
+}
+
+// 3.7's lines on the calendars card: drawn with the card, and again as
+// the poll's answers from Google land while the main list shows.
+function renderGoogleSummary(): void {
+  document
+    .getElementById("google-summary")
+    ?.replaceChildren(
+      ...deriveGoogleSteps(state, google).find((s) => s.id === "google-back")!.body.map(why),
+    );
 }
 
 // --- The sender domain at Brevo ---------------------------------------
@@ -1414,6 +1422,7 @@ async function poll(): Promise<void> {
       queued = true;
     }
     renderEmail();
+    renderGoogleSummary();
     renderSteps();
   } while (queued);
   polling = false;

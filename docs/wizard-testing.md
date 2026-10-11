@@ -68,9 +68,10 @@ and `setInterval` faked before `main.ts` is imported — it runs at
 import — then events driven and the DOM asserted on. Node's own
 `localStorage`, unavailable without `--localstorage-file`, shadows
 jsdom's, so the test stubs it. Its contract so far: the Google view
-standing in for the step list and Back returning, and a pasted key and
+standing in for the step list and Back returning, a pasted key and
 calendar ID turning 3.5 and 3.6 green, the calendars card then
-confirming on the handed-over address.
+confirming on the handed-over address, and that card's summary of
+them following the poll's answers while the main list shows.
 
 The rest of `main.ts` (~1500 lines) is untested: it is glue, but some
 of the glue is behaviour the walks keep finding. If any of the
