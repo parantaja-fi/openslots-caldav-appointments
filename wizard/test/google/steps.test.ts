@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AccessRole, CalendarProbe, GoogleProbeState } from "../../src/google/steps";
 import { caldavAddress, deriveGoogleSteps, parseGoogleKey } from "../../src/google/steps";
 import type { Saved } from "../../src/state";
-import { settled } from "../../src/steps";
+import { NOT_KNOWN, settled } from "../../src/steps";
 import { VALIDATORS } from "../../src/validators";
 
 const TICK = 1_757_000_000_000; // an arbitrary moment in 2025
@@ -129,6 +129,13 @@ describe("3.1–3.4", () => {
     }
   });
 
+  it("say nothing until ticked, then Marked done", () => {
+    for (const id of ATTESTED) {
+      expect(step(id, saved()).state).toBeUndefined();
+      expect(step(id, saved({}, { [id]: TICK })).state).toBe("Marked done");
+    }
+  });
+
   it("open the console pages after 3.2 in its project", () => {
     const cloud = "https://console.cloud.google.com";
     expect(step("google-account", saved()).links[0]?.href).toBe(`${cloud}/`);
@@ -235,6 +242,22 @@ describe("3.5 key", () => {
     ]);
     expect(view.links).toEqual([]);
   });
+
+  it("says its state in a few words, nothing without a key", () => {
+    const cases: [GoogleProbeState["key"], string | undefined][] = [
+      [undefined, undefined],
+      [{ state: "unasked" }, "Asking Google"],
+      [{ state: "blind", reason: "no network." }, NOT_KNOWN],
+      [{ state: "unreadable" }, "The key cannot be read"],
+      [{ state: "refused", description: CLOCK }, "Check this computer's clock"],
+      [{ state: "refused", description: "Invalid JWT Signature." }, "Google refuses the key"],
+      [{ ...ACCEPTED, projectId: "old-experiment" }, "A key from another project"],
+      [ACCEPTED, "Accepted by Google"],
+    ];
+    for (const [key, state] of cases) {
+      expect(step("google-key", saved(), { key }).state, key?.state).toBe(state);
+    }
+  });
 });
 
 describe("3.6 calendars", () => {
@@ -270,7 +293,7 @@ describe("3.6 calendars", () => {
     expect(blind.body[0]).toBe("Not known whether the service account sees it: no network.");
   });
 
-  it("greens on a share at its need, naming the calendar, with no footnote", () => {
+  it("greens on a share at its need, naming the calendar and nothing more", () => {
     const view = step("google-calendars", saved(), {
       key: ACCEPTED,
       availability: shared("writer"),
@@ -279,7 +302,6 @@ describe("3.6 calendars", () => {
     expect(view.body).toEqual([
       "That is your “Vastaanotto” (Europe/Helsinki), shared at “Make changes to events”.",
     ]);
-    expect(view.footnote).toBeUndefined();
   });
 
   it("names the service account and each level in Google's words", () => {
@@ -404,19 +426,23 @@ describe("3.6 calendars", () => {
     expect(two.status).toBe("green");
   });
 
-  it("greens a share beyond its need, with a quiet footnote", () => {
+  it("greens a share beyond its need, noting it after the verdicts", () => {
     const view = step("google-calendars", twoCalendars(saved()), {
       key: ACCEPTED,
       availability: shared("writer"),
       store: shared("owner"),
     });
     expect(view.status).toBe("green");
-    expect(view.footnote).toBe(
+    expect(view.body).toEqual([
+      "Availability: That is your “Vastaanotto” (Europe/Helsinki), shared at " +
+        "“Make changes to events”.",
+      "Booking store: That is your “Vastaanotto” (Europe/Helsinki), shared at " +
+        "“Make changes and manage sharing”.",
       "Availability: Shared beyond its need: “Make changes to events” where “See all event " +
-        "details” would do — a leaked key could change its events. Booking store: Shared " +
-        "beyond its need: “Make changes and manage sharing” where “Make changes to events” " +
-        "would do — a leaked key could re-share the calendar.",
-    );
+        "details” would do — a leaked key could change its events.",
+      "Booking store: Shared beyond its need: “Make changes and manage sharing” where " +
+        "“Make changes to events” would do — a leaked key could re-share the calendar.",
+    ]);
   });
 
   it("wears the worst of its rows", () => {
@@ -427,6 +453,29 @@ describe("3.6 calendars", () => {
     expect(status({ state: "absent" })).toBe("red");
     expect(status(shared("writer"))).toBe("unknown");
   });
+
+  it("says its state in a few words, nothing while an ID is missing", () => {
+    const none = saved({ calendarIds: { availability: "", store: "" } });
+    const disabled: CalendarProbe = { state: "disabled", activationUrl: ACTIVATE };
+    const two = {
+      key: ACCEPTED,
+      availability: shared("reader"),
+      store: shared("writer", OWNER, "Varaukset"),
+    };
+    const cases: [Saved, GoogleProbeState, string | undefined][] = [
+      [none, { key: ACCEPTED }, undefined],
+      [saved(), { key: { state: "unreadable" } }, "Waiting for the key"],
+      [saved(), { key: ACCEPTED }, "Asking Google"],
+      [saved(), { key: ACCEPTED, availability: { state: "blind", reason: "x." } }, NOT_KNOWN],
+      [saved(), { key: ACCEPTED, availability: disabled }, "The Calendar API is off"],
+      [saved(), { key: ACCEPTED, availability: { state: "absent" } }, "A calendar needs fixing"],
+      [saved(), { key: ACCEPTED, availability: shared("writer") }, "Shared: “Vastaanotto”"],
+      [twoCalendars(saved()), two, "Shared: “Vastaanotto”, “Varaukset”"],
+    ];
+    for (const [s, probes, state] of cases) {
+      expect(step("google-calendars", s, probes).state).toBe(state);
+    }
+  });
 });
 
 describe("3.7 back", () => {
@@ -434,6 +483,7 @@ describe("3.7 back", () => {
     const view = step("google-back", saved({}, TICKED), { key: ACCEPTED });
     expect(view.status).toBe("open");
     expect(view.body).toEqual(["Still to settle: 3.6 Calendars."]);
+    expect(view.state).toBeUndefined();
   });
 
   it("sums up two calendars by role", () => {
@@ -448,6 +498,7 @@ describe("3.7 back", () => {
       "Availability: “Vastaanotto”.",
       "Booking store: “Varaukset”.",
     ]);
+    expect(view.state).toBe("All settled");
   });
 });
 

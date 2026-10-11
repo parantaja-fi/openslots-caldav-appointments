@@ -4,7 +4,7 @@
 
 import type { Saved } from "../state";
 import type { Status, StepLink, StepView } from "../steps";
-import { settled, tickLine } from "../steps";
+import { NOT_KNOWN, settled, tickLine } from "../steps";
 
 export type AccessRole = "freeBusyReader" | "reader" | "writer" | "owner";
 
@@ -91,7 +91,7 @@ interface RowVerdict {
   status: Status;
   lines: string[];
   /** A share beyond the need (plan §9 D7). */
-  footnote?: string;
+  note?: string;
   activationUrl?: string;
 }
 
@@ -167,7 +167,7 @@ function verdict(row: Row, account: string, project: string): RowVerdict {
     ],
     ...(has > needs
       ? {
-          footnote:
+          note:
             `${label}Shared beyond its need: “${LEVEL_WORDS[probe.accessRole]}” where ` +
             `“${LEVEL_WORDS[need]}” would do — a leaked key could ` +
             `${probe.accessRole === "owner" ? "re-share the calendar" : "change its events"}.`,
@@ -194,6 +194,7 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
       body: at ? [...body, tickLine(at)] : body,
       links,
       manual: true,
+      state: at ? "Marked done" : undefined,
     };
   };
   // The console pages after 3.2 open in its project; until it is known,
@@ -325,6 +326,21 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
         ? [inProject("Service accounts", "iam-admin/serviceaccounts")]
         : [],
     manual: false,
+    state: !key
+      ? undefined
+      : key.state === "unasked"
+        ? "Asking Google"
+        : key.state === "blind"
+          ? NOT_KNOWN
+          : key.state === "unreadable"
+            ? "The key cannot be read"
+            : key.state === "refused"
+              ? clock
+                ? "Check this computer's clock"
+                : "Google refuses the key"
+              : strayKey
+                ? "A key from another project"
+                : "Accepted by Google",
   });
 
   // One calendar for both roles is held to the store's need.
@@ -355,6 +371,7 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
           noun: "the booking store",
         },
       ];
+  const name = (row: Row): string => (row.probe?.state === "present" ? row.probe.summary : "");
   const idsThere = rows.every((r) => r.id);
   const verdicts =
     idsThere && accepted
@@ -366,7 +383,7 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
       ? "watch"
       : ROLL_UP.find((s) => verdicts.some((v) => v.status === s))!;
   const activationUrl = verdicts.find((v) => v.activationUrl)?.activationUrl;
-  const footnotes = verdicts.flatMap((v) => (v.footnote ? [v.footnote] : []));
+  const notes = verdicts.flatMap((v) => (v.note ? [v.note] : []));
   const instructions = [
     `In Google Calendar's settings, pick ${one ? "the calendar" : "each calendar"} on ` +
       "the left: its “Calendar ID” is under “Integrate calendar” — paste it " +
@@ -394,18 +411,30 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
           ]
         : []),
       ...verdicts.flatMap((v) => v.lines),
-      ...(calendarsStatus === "green" ? [] : instructions),
+      ...(calendarsStatus === "green" ? notes : instructions),
     ],
     links: [
       ...(activationUrl ? [{ label: "Enable the Google Calendar API", href: activationUrl }] : []),
       { label: "Google Calendar settings", href: CALENDAR_SETTINGS },
     ],
     manual: false,
-    ...(calendarsStatus === "green" && footnotes.length ? { footnote: footnotes.join(" ") } : {}),
+    state:
+      calendarsStatus === "open"
+        ? undefined
+        : !accepted
+          ? "Waiting for the key"
+          : calendarsStatus === "watch"
+            ? "Asking Google"
+            : calendarsStatus === "unknown"
+              ? NOT_KNOWN
+              : calendarsStatus === "red"
+                ? activationUrl
+                  ? "The Calendar API is off"
+                  : "A calendar needs fixing"
+                : `Shared: ${rows.map((r) => `“${name(r)}”`).join(", ")}`,
   });
 
   const unsettled = steps.filter((s) => !settled(s.status));
-  const name = (row: Row): string => (row.probe?.state === "present" ? row.probe.summary : "");
   steps.push({
     id: "google-back",
     title: "3.7 Back",
@@ -422,6 +451,7 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
         ],
     links: [],
     manual: false,
+    state: unsettled.length ? undefined : "All settled",
   });
 
   return steps;

@@ -53,7 +53,7 @@ export function tickLine(at: number): string {
   return at > 1 ? `Marked done: ${when(at)}.` : "Marked done.";
 }
 
-const NOT_KNOWN = "Not known for now";
+export const NOT_KNOWN = "Not known for now";
 
 export interface StepLink {
   label: string;
