@@ -1450,10 +1450,14 @@ for (const form of document.querySelectorAll("form.cfg")) {
   form.addEventListener("submit", (e) => e.preventDefault());
 }
 
-// A hash into the hidden list gives the browser nothing to scroll to.
-// Switching views counts as the journey moving on instead: the render
-// brings the new list's current card into view.
-window.addEventListener("hashchange", render);
+// The browser looks for a hash's card before the render has shown its
+// list, and finds nothing to scroll to; the card is scrolled to once it
+// shows. A bare #google names no card: switching views counts as the
+// journey moving on, and the render brings the current card into view.
+window.addEventListener("hashchange", () => {
+  render();
+  document.getElementById(location.hash.slice(1))?.scrollIntoView();
+});
 document.getElementById("google-back")!.addEventListener("click", () => {
   location.hash = "#step-calendars";
 });
