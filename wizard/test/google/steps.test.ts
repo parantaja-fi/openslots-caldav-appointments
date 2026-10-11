@@ -349,6 +349,15 @@ describe("3.6 calendars", () => {
     ]);
   });
 
+  it("instructs in the settings page's order: sharing, then the ID further down", () => {
+    const body = step("google-calendars", saved()).body;
+    const share = body.findIndex((l) =>
+      l.includes("Under “Share with specific people or groups”"),
+    );
+    expect(share).toBeGreaterThanOrEqual(0);
+    expect(body[share + 1]).toMatch(/^Then scroll down to “Integrate calendar”/);
+  });
+
   // Failure table, rows 6–10; row 11, the CalDAV API, is the health
   // card's (plan §8, step 5).
   it("asks once for the Calendar API in the key's project, with Google's link", () => {
@@ -524,6 +533,22 @@ describe("3.7 back", () => {
       "Booking store: “Varaukset”.",
     ]);
     expect(view.state).toBe("All settled");
+  });
+});
+
+describe("Done", () => {
+  it("is offered on 3.5 and 3.6 until each is green, and nowhere else", () => {
+    expect(step("google-key", saved()).check).toBe(true);
+    const refused = { key: { state: "refused", description: "Invalid grant" } as const };
+    expect(step("google-key", saved(), refused).check).toBe(true);
+    expect(step("google-key", saved(), { key: ACCEPTED }).check).toBe(false);
+    expect(step("google-calendars", saved()).check).toBe(true);
+    expect(step("google-calendars", saved(), { key: ACCEPTED }).check).toBe(true);
+    const green = { key: ACCEPTED, availability: shared("writer") };
+    expect(step("google-calendars", saved(), green).check).toBe(false);
+    for (const id of [...ATTESTED, "google-back"]) {
+      expect(step(id, saved(), green).check).toBeUndefined();
+    }
   });
 });
 

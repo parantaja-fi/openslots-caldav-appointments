@@ -138,7 +138,9 @@ function renderSteps(): void {
   // order; the accordion catches up once focus leaves it. A pressed
   // button is no typist: Chrome focuses it, and its card would linger
   // open until the next poll.
-  const cur = steps.find((s) => !settled(s.status))?.id ?? null;
+  // The Google view settled through has no closer below its cards: its
+  // last card stays current, open for its Back button.
+  const cur = steps.find((s) => !settled(s.status))?.id ?? (inGoogle ? "google-back" : null);
   const moved = currentId !== undefined && currentId !== cur;
   if (moved) openOverride.clear();
   const active = document.activeElement;
@@ -760,9 +762,24 @@ function renderGoogle(fields: FieldView[]): void {
       (id) => void (answers.projectId = id),
     ),
   ]);
-  replaceKeepingFocus(document.getElementById("cfg-google-key")!, [
-    fieldRow(fields.find((f) => f.entry.name === "GOOGLE_SERVICE_ACCOUNT_JSON")!, "Key file"),
-  ]);
+  const keyRow = fieldRow(
+    fields.find((f) => f.entry.name === "GOOGLE_SERVICE_ACCOUNT_JSON")!,
+    "Key file",
+  );
+  // The downloaded file dropped on the field is taken like a paste; the
+  // browser would otherwise open it as a page of its own.
+  const keyField = keyRow.querySelector("textarea")!;
+  keyField.addEventListener("dragover", (e) => e.preventDefault());
+  keyField.addEventListener("drop", (e) => {
+    const file = e.dataTransfer?.files[0];
+    if (!file) return;
+    e.preventDefault();
+    void file.text().then((text) => {
+      keyField.value = text;
+      keyField.dispatchEvent(new Event("change"));
+    });
+  });
+  replaceKeepingFocus(document.getElementById("cfg-google-key")!, [keyRow]);
 
   const ids = answers.calendarIds;
   const calendarRow = (role: "availability" | "store", label: string, help: string): HTMLElement =>

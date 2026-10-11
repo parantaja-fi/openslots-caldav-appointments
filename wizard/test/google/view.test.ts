@@ -103,4 +103,34 @@ describe("the Google view", () => {
     release();
     await vi.waitFor(() => expect($("#google-summary").textContent).not.toContain("3.5"));
   });
+
+  it("takes the key file dropped on its field like a paste", async () => {
+    location.hash = "#google";
+    await vi.waitFor(() => expect($("#google-journey").hidden).toBe(false));
+    enter("#f-GOOGLE_SERVICE_ACCOUNT_JSON", "");
+    await vi.waitFor(() => expect($("#step-google-key .marker").textContent).toBe("3.5"));
+    // The row is rebuilt by every render: the field is looked up afresh.
+    const field = $<HTMLTextAreaElement>("#f-GOOGLE_SERVICE_ACCOUNT_JSON");
+    const over = new Event("dragover", { cancelable: true });
+    field.dispatchEvent(over);
+    expect(over.defaultPrevented).toBe(true);
+    const drop = new Event("drop", { cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", {
+      value: { files: [new File([KEY_FILE], "practice-bookings-1a2b3c.json")] },
+    });
+    field.dispatchEvent(drop);
+    expect(drop.defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect($("#step-google-key .marker").textContent).toBe("✓"));
+    expect($<HTMLTextAreaElement>("#f-GOOGLE_SERVICE_ACCOUNT_JSON").value).toBe(KEY_FILE);
+  });
+
+  it("keeps 3.7 open once everything is settled, for its Back button", async () => {
+    await vi.waitFor(() => expect($("#step-google-calendars .marker").textContent).toBe("✓"));
+    for (const id of ["account", "project", "apis", "service-account"]) {
+      $(`#step-google-${id} .dynfoot button`).click(); // Mark done
+    }
+    expect($("#step-google-back .marker").textContent).toBe("✓");
+    expect($("#step-google-back").classList.contains("current")).toBe(true);
+    expect($<HTMLDetailsElement>("#step-google-back details").open).toBe(true);
+  });
 });

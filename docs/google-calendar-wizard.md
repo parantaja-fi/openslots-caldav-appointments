@@ -66,14 +66,18 @@ step 3 of the main list — in the main wizard's vocabulary throughout
   Attested here; the Calendar one is proven by 3.6's first call, the
   CalDAV one by health.
 - **3.4 Service account.** Link to the create page. "Any name; no
-  role, no user access — Done. Then Keys → Add key → Create new key →
-  JSON. A file downloads." Attested. A Workspace organisation created
+  role, no user access — Done. Back in the list, the account's Actions
+  menu (⋮) → Manage keys → Add key → Create new key → JSON. A file
+  downloads." (The walk of 2026-10-11 found the account's own Keys tab
+  hard to find; the list's menu is the path.) Attested. A Workspace organisation created
   since 2024 has service-account key creation switched off by default
   (the `iam.disableServiceAccountKeyCreation` policy); the card says
   an admin can allow it for the project, and the Workspace walk of §8
   step 6 is where this gets observed. A personal account has no
   organisation and no such policy.
-- **3.5 Key.** Paste the file. Synchronously: JSON, `client_email`,
+- **3.5 Key.** Drop the file on the field, or paste it; a drop is
+  read into the field and committed like a paste, where the browser
+  would have opened the file as a page. Synchronously: JSON, `client_email`,
   `private_key` (the validator that exists), then the pkcs8 import.
   Then the token exchange, for `calendar.readonly` — the narrowest
   scope that still verifies 3.6 — green "Google accepted the key at
@@ -83,15 +87,18 @@ step 3 of the main list — in the main wizard's vocabulary throughout
   live, nothing about 3.3. Derived: `client_email`, persisted, and
   `project_id`, cross-checked against 3.2 and kept with the probe
   result. The key itself stays in tab memory like every secret; the
-  token too, with its expiry.
-- **3.6 Calendars.** One row per role, one when `sameCalendar`. Paste
-  the calendar ID (Settings → the calendar → Integrate calendar; a
-  pasted full CalDAV address is accepted and reduced). From it the
-  address, `@` as `%40`. Below it the sharing instruction with the
-  service account's address and a copy button, the required level
-  named — "See all event details" for availability, "Make changes to
-  events" for the store — and a link to Google Calendar's settings
-  (a deep link to that calendar's own page is unverified, §10).
+  token too, with its expiry. A Done press (main's `check`) asks
+  Google at once rather than at the poll's next lap.
+- **3.6 Calendars.** One row per role, one when `sameCalendar`. The
+  instructions run in the settings page's order: first the sharing,
+  with the service account's address and a copy button, the required
+  level named — "See all event details" for availability, "Make
+  changes to events" for the store — then, further down the same
+  page, the calendar ID under Integrate calendar, pasted into the
+  row (a pasted full CalDAV address is accepted and reduced). From it
+  the address, `@` as `%40`. A link to Google Calendar's settings (a
+  deep link to that calendar's own page is unverified, §10), and a
+  Done press that asks Google at once.
   Verification, as the service account, by one metadata-only
   `events.list` per calendar (name, time zone, access level) and a
   `calendars.get` for the owner: "that is your “Vastaanotto”", the
@@ -103,7 +110,9 @@ step 3 of the main list — in the main wizard's vocabulary throughout
   calendars is about half a second.
 - **3.7 Back.** A summary; the main calendars card shows the same
   summary in place of its three fields, and its Done press settles
-  the group exactly as today.
+  the group exactly as today. Once everything is settled the card
+  stays current and open — the Google view has no closer below its
+  cards, and the Back button lives in this one.
 
 Where each mistake surfaces, and what the practitioner reads:
 

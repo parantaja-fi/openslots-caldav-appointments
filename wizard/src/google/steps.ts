@@ -258,8 +258,9 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
       "3.4 Service account",
       [
         "Create a service account: any name; no role, no user access — press " +
-          "Done. Then, on the account, Keys → Add key → Create new key → JSON. " +
-          "A file downloads; 3.5 takes it.",
+          "Done. Back in the list, open the account's Actions menu (⋮) → " +
+          "Manage keys → Add key → Create new key → JSON. A file downloads; " +
+          "3.5 takes it.",
         "The file is the account's password: keep it to yourself.",
         "A Google Workspace organisation may have key creation switched off " +
           "for its projects; its admin can allow it for this one.",
@@ -275,22 +276,26 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
   const strayKey = accepted && projectId && accepted.projectId !== projectId ? accepted : null;
   const clock =
     key?.state === "refused" && /\biat\b/.test(key.description) && /\bexp\b/.test(key.description);
+  const keyStatus: Status = !key
+    ? "open"
+    : key.state === "unasked"
+      ? "watch"
+      : key.state === "blind"
+        ? "unknown"
+        : key.state === "refused" || key.state === "unreadable" || strayKey
+          ? "red"
+          : "green";
+  // Done asks Google at once — a key pasted and left, or a new key made
+  // after a refusal, need not wait for the poll's next lap.
   steps.push({
     id: "google-key",
     title: "3.5 Key",
-    status: !key
-      ? "open"
-      : key.state === "unasked"
-        ? "watch"
-        : key.state === "blind"
-          ? "unknown"
-          : key.state === "refused" || key.state === "unreadable" || strayKey
-            ? "red"
-            : "green",
+    status: keyStatus,
     body: !key
       ? [
-          "Paste the key file below — the whole file, unchanged. The key stays " +
-            "in this tab: Google gets only a signature made with it.",
+          "Drop the key file on the field below, or paste it in — the whole " +
+            "file, unchanged. The key stays in this tab: Google gets only a " +
+            "signature made with it.",
         ]
       : key.state === "unasked"
         ? ["Asking Google whether it accepts the key."]
@@ -326,6 +331,7 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
         ? [inProject("Service accounts", "iam-admin/serviceaccounts")]
         : [],
     manual: false,
+    check: keyStatus !== "green",
     state: !key
       ? undefined
       : key.state === "unasked"
@@ -384,16 +390,17 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
       : ROLL_UP.find((s) => verdicts.some((v) => v.status === s))!;
   const activationUrl = verdicts.find((v) => v.activationUrl)?.activationUrl;
   const notes = verdicts.flatMap((v) => (v.note ? [v.note] : []));
+  // In the order the settings page runs: sharing above, the ID below it.
   const instructions = [
     `In Google Calendar's settings, pick ${one ? "the calendar" : "each calendar"} on ` +
-      "the left: its “Calendar ID” is under “Integrate calendar” — paste it " +
-      "below. Your main calendar's ID is your Google address.",
-    "Then, under “Share with specific people or groups” on the same page, add " +
+      "the left. Under “Share with specific people or groups”, add " +
       `${account || "the service account"} with ` +
       (one
         ? `“${LEVEL_WORDS.writer}”.`
         : `“${LEVEL_WORDS.reader}” on the availability calendar, ` +
           `“${LEVEL_WORDS.writer}” on the booking store.`),
+    "Then scroll down to “Integrate calendar” and paste its “Calendar ID” " +
+      "below. Your main calendar's ID is your Google address.",
     ...(account ? [] : ["The service account's address shows here once 3.5 has the key."]),
   ];
   steps.push({
@@ -418,6 +425,9 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
       { label: "Google Calendar settings", href: CALENDAR_SETTINGS },
     ],
     manual: false,
+    // Done asks Google at once: sharing done in the work window need not
+    // wait for the poll's next lap.
+    check: calendarsStatus !== "green",
     state:
       calendarsStatus === "open"
         ? undefined

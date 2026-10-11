@@ -71,8 +71,10 @@ jsdom's, so the test stubs it. Its contract so far: the Google view
 standing in for the step list, its links aimed at the work window,
 and Back returning, a pasted key and
 calendar ID turning 3.5 and 3.6 green, the calendars card then
-confirming on the handed-over address, and that card's summary of
-them following the poll's answers while the main list shows.
+confirming on the handed-over address, that card's summary of
+them following the poll's answers while the main list shows, a key
+file dropped on 3.5's field taken like a paste, and 3.7 staying open
+once everything is settled.
 
 The rest of `main.ts` (~1500 lines) is untested: it is glue, but some
 of the glue is behaviour the walks keep finding. If any of the
