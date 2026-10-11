@@ -673,7 +673,10 @@ export function deriveSteps(
         "its slots on your page.",
       ...(saved.done["availability"] ? [tickLine(saved.done["availability"])] : []),
     ],
-    links: calendarApp ? [{ label: "Open your calendars", href: calendarApp }] : [],
+    links:
+      provider === "nextcloud" || provider === "google"
+        ? [{ label: "Open your calendars", href: calendarApp ?? "", dim: !calendarApp }]
+        : [],
     manual: true,
     state: saved.done["availability"] ? "Marked done" : undefined,
   });

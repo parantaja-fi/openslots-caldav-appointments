@@ -535,7 +535,10 @@ describe("availability", () => {
       "https://calendar.google.com/",
     ]);
     expect(hrefs(withForm(saved(), { provider: "fastmail" }))).toEqual([]);
-    expect(hrefs(saved())).toEqual([]); // Nextcloud before its server address is known
+    // Nextcloud before its server address is known: the button waits, greyed.
+    expect(step("availability", saved()).links).toEqual([
+      { label: "Open your calendars", href: "", dim: true },
+    ]);
   });
 });
 
