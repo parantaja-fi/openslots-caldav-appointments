@@ -633,20 +633,25 @@ function renderConfig(fields: FieldView[]): void {
   } else {
     calendarChildren.push(...PROVIDER_HELP[state.form.provider].map(why));
     if (state.form.provider === "google") {
-      // The visible marker for the guided path to come (ROADMAP.md M6):
-      // a page of its own creating the project, service account and key.
+      // Google's fields are asked in the sub-wizard's view; the card
+      // keeps 3.7's summary of them (plan §3).
       const marker = document.createElement("p");
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.disabled = true;
-      btn.textContent = "Create Google credentials";
+      btn.textContent = "Set up Google Calendar";
+      btn.addEventListener("click", () => {
+        location.hash = "#google";
+      });
       marker.append(btn);
       calendarChildren.push(
         marker,
-        why("Not implemented yet — until it is, the steps above are by hand."),
+        ...deriveGoogleSteps(state, google)
+          .find((s) => s.id === "google-back")!
+          .body.map(why),
       );
+    } else {
+      calendarChildren.push(...rows("calendars", false));
     }
-    calendarChildren.push(...rows("calendars", false));
   }
   replaceKeepingFocus(document.getElementById("cfg-calendars")!, calendarChildren);
 
@@ -1252,6 +1257,11 @@ function pressConfirm(stepId: string): void {
   if (!confirm) return;
   const bad = fields.find((f) => f.visible && f.entry.group === confirm.group && !f.valid);
   if (bad || !confirm.commits) {
+    // Google's values are asked in its own view, not on this card.
+    if (bad && confirm.group === "calendars" && state.form.provider === "google") {
+      location.hash = "#google";
+      return;
+    }
     const target = bad
       ? document.getElementById(`f-${bad.entry.name}`)
       : document.getElementById(`cfg-${stepId}`)?.querySelector<HTMLElement>("input, select, textarea");

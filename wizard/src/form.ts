@@ -41,8 +41,6 @@ export const PROVIDER_HELP: Record<Provider, string[]> = {
       "and its JSON key file, and each calendar shared with the service " +
       "account's address — the booking calendar with “Make changes to " +
       "events”. If that sounds daunting, another provider is easier.",
-    "Calendar address: https://apidata.googleusercontent.com/caldav/v2/" +
-      "CALENDAR_ID/events/ — write any @ in the ID as %40.",
   ],
   radicale: [
     "Calendar address: http://your-server:5232/username/calendar-name/.",
