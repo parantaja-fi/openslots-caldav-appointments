@@ -53,6 +53,8 @@ function tickLine(at: number): string {
   return at > 1 ? `Marked done: ${when(at)}.` : "Marked done.";
 }
 
+const NOT_KNOWN = "Not known for now";
+
 export interface StepLink {
   label: string;
   href: string;
@@ -75,9 +77,9 @@ export interface StepView {
    * Reconfigure after it. Without `commits` there is nothing to confirm
    * yet: the press only puts the cursor in the card. */
   confirm?: { group: keyof FormGroups; label: string; commits: boolean };
-  /** A line at the foot of the card, where the hand is when a press
-   * needs acknowledging. */
-  footnote?: string;
+  /** The step's state in a few words, shown in place of the card's
+   * synopsis once there is something to report. */
+  state?: string;
   /** Offer the wizard's Deploy button, which starts the run with the
    * token held in the tab. */
   deploy?: boolean;
@@ -169,6 +171,7 @@ export function deriveSteps(
     ],
     links: [],
     manual: false,
+    state: saved.done["accounts"] ? "Marked done" : undefined,
   });
 
   const forkProbe = probes.fork;
@@ -208,6 +211,13 @@ export function deriveSteps(
     ],
     manual: false,
     check: Boolean(owner) && forkProbe?.state !== "present",
+    state: !owner
+      ? undefined
+      : forkProbe?.state === "present"
+        ? `Found: ${owner}/${repo}`
+        : forkProbe?.state === "blind"
+          ? NOT_KNOWN
+          : "Watching for your fork",
   });
 
   // The configuration, split into its groups — each its own card,
@@ -234,6 +244,11 @@ export function deriveSteps(
       ? `marked stored by you ${when(writeTick)}`
       : "marked stored by you";
   const storedLine = `${storedPhrase.charAt(0).toUpperCase()}${storedPhrase.slice(1)}.`;
+  const storedState = byRecord
+    ? `Stored ${when(recorded)}`
+    : writeTick > 1
+      ? `Marked stored ${when(writeTick)}`
+      : "Marked stored";
   const useFields = "Use the fields below to change the stored configuration.";
   // The press that confirmed the group's current values, or 0.
   const checkedAt = (key: keyof FormGroups): number => {
@@ -243,7 +258,8 @@ export function deriveSteps(
   const groupStep = (id: string, key: keyof FormGroups, title: string): StepView => {
     const checked = checkedAt(key);
     const changed = storeMoment > 0 && editedSince(key);
-    // Confirmed but not yet in the fork: the press's acknowledgment shows.
+    // Confirmed but not yet in the fork: the state line acknowledges the
+    // press, and there is nothing left to press.
     const pending = checked > 0 && (!storeMoment || changed);
     const status: Status =
       g[key] === "red"
@@ -272,11 +288,7 @@ export function deriveSteps(
       links: [],
       manual: false,
       ...(pending
-        ? {
-            footnote:
-              `Checked ${when(checked)}. ${changed ? "The change is not" : "Not"} stored ` +
-              "yet — that happens at the “Store the configuration” step below.",
-          }
+        ? {}
         : {
             confirm: {
               group: key,
@@ -284,6 +296,18 @@ export function deriveSteps(
               commits: !storeMoment || changed,
             },
           }),
+      state:
+        status === "red"
+          ? "A value needs fixing"
+          : pending
+            ? `Checked ${when(checked)}; ${changed ? "the change is " : ""}not stored yet`
+            : status !== "open"
+              ? byRecord
+                ? "Stored"
+                : "Marked stored"
+              : changed
+                ? "Changed; not stored yet"
+                : undefined,
     };
   };
   const GROUP_TITLES: Record<keyof FormGroups, string> = {
@@ -348,6 +372,14 @@ export function deriveSteps(
     // A record in the fork is a fact no tick can undo; the button serves
     // the by-hand path, and un-marking a tick.
     manual: !(storeStatus === "attested" && byRecord),
+    state:
+      storeStatus === "attested"
+        ? storedState
+        : storeStatus === "unknown"
+          ? NOT_KNOWN
+          : changed.length
+            ? "Changes not yet stored"
+            : undefined,
   });
 
   // Pages as an unauthenticated read sees it: on or off. Its source and
@@ -380,6 +412,13 @@ export function deriveSteps(
     links: !pagesOn && fork ? [{ label: "Pages settings", href: `${fork}/settings/pages` }] : [],
     manual: false,
     check: Boolean(owner) && !pagesOn,
+    state: !owner
+      ? undefined
+      : forkProbe?.state === "blind"
+        ? NOT_KNOWN
+        : pagesOn
+          ? "Switched on"
+          : undefined,
   });
 
   // The deploy starts here, not at the store: its first job needs the
@@ -459,6 +498,25 @@ export function deriveSteps(
     ],
     manual: false,
     deploy: deployButton,
+    state: !owner
+      ? undefined
+      : run?.state === "blind"
+        ? NOT_KNOWN
+        : stale
+          ? "Stored since the last deploy; deploy again"
+          : run?.state === "none"
+            ? undefined
+            : plain
+              ? "Published over plain HTTP"
+              : run?.state === "failure"
+                ? "The last run failed"
+                : run?.state === "success"
+                  ? published
+                    ? `Published at ${published}`
+                    : "Deployed"
+                  : run
+                    ? "Running"
+                    : "Asking GitHub",
   });
 
   const health = probes.health;
@@ -512,6 +570,17 @@ export function deriveSteps(
       ? [{ label: "Health", href: `${workerUrl.replace(/\/+$/, "")}/v1/health` }]
       : [],
     manual: false,
+    state: !workerUrl
+      ? owner
+        ? "Waiting for the deploy"
+        : undefined
+      : !health
+        ? "Asking the Worker"
+        : health.state === "unreachable"
+          ? "No answer from the Worker"
+          : health.body.ok
+            ? "All checks pass"
+            : "A check fails",
   });
 
   const dns = probes.dns;
@@ -559,6 +628,15 @@ export function deriveSteps(
         ],
     links: [],
     manual: false,
+    state: !emailOn
+      ? "Email off; nothing to prove"
+      : !senderDomain
+        ? undefined
+        : dns?.state === "blind"
+          ? NOT_KNOWN
+          : dohGreen && (!brevo || brevo.authenticated)
+            ? "Verified"
+            : "Waiting for the records",
   });
 
   // OPEN events are the practitioner's to write, in their own calendar
@@ -597,6 +675,7 @@ export function deriveSteps(
     ],
     links: calendarApp ? [{ label: "Open your calendars", href: calendarApp }] : [],
     manual: true,
+    state: saved.done["availability"] ? "Marked done" : undefined,
   });
 
   steps.push({
@@ -612,6 +691,7 @@ export function deriveSteps(
     ],
     links: pageUrl ? [{ label: "Your booking page", href: pageUrl }] : [],
     manual: true,
+    state: saved.done["smoke"] ? "Marked done" : undefined,
   });
 
   return steps;

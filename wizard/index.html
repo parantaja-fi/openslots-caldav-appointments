@@ -75,6 +75,12 @@
       .step .title { font-weight: 600; }
       .step:not(.current) .title { color: #444; }
       .step .syn { font-size: 0.85rem; color: #6b7280; }
+      /* Once a step has something to report, its state stands in for the
+         synopsis: italic, in its verdict's colour — amber-brown while
+         waiting, green once settled, red when it needs fixing. */
+      .step .syn.state { font-style: italic; color: #92400e; }
+      .step.green .syn.state, .step.attested .syn.state { color: #15803d; }
+      .step.red .syn.state { color: #b91c1c; }
       .stepbody { padding: 0 14px 14px; border-top: 1px solid #f3f4f6; }
       .stepbody > .dyn { padding-top: 10px; }
       .dyn, .dynfoot { font-size: 0.9rem; color: #444; }

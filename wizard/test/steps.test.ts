@@ -276,11 +276,11 @@ describe("configuration group steps", () => {
     const groups: FormGroups = { ...allGroups("open"), calendars: "green" };
     const before = deriveSteps(saved(), {}, groups).find((x) => x.id === "calendars")!;
     expect(before.confirm).toEqual({ group: "calendars", label: "Done", commits: true });
-    expect(before.footnote).toBeUndefined();
+    expect(before.state).toBeUndefined();
     const s: Saved = { ...saved(), confirmed: { calendars: TICK } };
     const after = deriveSteps(s, {}, groups).find((x) => x.id === "calendars")!;
     expect(after.confirm).toBeUndefined();
-    expect(after.footnote).toContain("Not stored yet");
+    expect(after.state).toMatch(/^Checked .*; not stored yet$/);
   });
 
   it("ask for a fresh Done after an edit", () => {
@@ -322,7 +322,13 @@ describe("configuration group steps", () => {
     const s: Saved = { ...saved(), edited: { calendars: TICK + 1 }, confirmed: { calendars: TICK + 2 } };
     const view = deriveSteps(s, { record: STORED }, groups).find((x) => x.id === "calendars")!;
     expect(view.status).toBe("green");
-    expect(view.footnote).toContain("The change is not stored yet");
+    expect(view.state).toMatch(/^Checked .*; the change is not stored yet$/);
+  });
+
+  it("report their state in a few words, leaving the store's moment to the store", () => {
+    expect(step("calendars", saved()).state).toBeUndefined();
+    expect(step("calendars", saved(), { record: STORED }).state).toBe("Stored");
+    expect(step("secrets", saved(), { record: STORED }).state).toMatch(/^Stored \S/);
   });
 
   it("go red on an invalid value even after the store", () => {
@@ -582,5 +588,16 @@ describe("allGreen", () => {
     expect(allGreen(deriveSteps(saved({}, done), probes))).toBe(true);
     const { smoke: _, ...butSmoke } = done;
     expect(allGreen(deriveSteps(saved({}, butSmoke), probes))).toBe(false);
+  });
+});
+
+describe("state lines", () => {
+  it("stand in for the synopsis once a step has something to report", () => {
+    expect(step("accounts", saved()).state).toBeUndefined();
+    expect(step("fork", saved(), { fork: FORK }).state).toBe("Found: alice/openslots-caldav-appointments");
+    expect(step("pages", saved(), { fork: PAGES_ON }).state).toBe("Switched on");
+    const deployed = { fork: PAGES_ON, record: STORED, run: RUN, deployment: published(PAGE) };
+    expect(step("deploy", saved(), deployed).state).toBe(`Published at ${PAGE}`);
+    expect(step("dns", emailOff(saved())).state).toBe("Email off; nothing to prove");
   });
 });

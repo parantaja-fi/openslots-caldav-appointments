@@ -93,11 +93,9 @@ function render(): void {
 let currentId: string | null | undefined; // undefined until the first render
 const openOverride = new Map<string, boolean>();
 const lastSet = new Map<string, boolean>();
-// The card whose Done was pressed last: it stays open beside its
-// acknowledgment until the journey moves on without it. `ackFresh` lets
-// the press's own render, which moves the journey, keep it.
-let acked: string | null = null;
-let ackFresh = false;
+// Each card's synopsis, as index.html has it, for when there is no state
+// to show in its place.
+const synopses = new Map<string, string>();
 
 function renderSteps(): void {
   const groups = groupStatuses(deriveForm(MANIFEST, state.form, secrets));
@@ -105,7 +103,8 @@ function renderSteps(): void {
   renderRail(derivePhases(steps));
 
   // The current step — the first not yet green — opens by itself and
-  // wears the ring. A card toggled by hand stays as left until the
+  // wears the ring; the others close, their state line standing in for
+  // their synopsis. A card toggled by hand stays as left until the
   // journey moves on; then the accordion advances and follows. A card
   // whose field holds the focus never closes under the typist — turning
   // green mid-form must not steal the remaining fields from the tab
@@ -114,11 +113,7 @@ function renderSteps(): void {
   // open until the next poll.
   const cur = steps.find((s) => !settled(s.status))?.id ?? null;
   const moved = currentId !== undefined && currentId !== cur;
-  if (moved) {
-    openOverride.clear();
-    if (!ackFresh) acked = null;
-  }
-  ackFresh = false;
+  if (moved) openOverride.clear();
   const active = document.activeElement;
   const focused =
     active instanceof HTMLElement && active.matches("input, textarea, select")
@@ -133,18 +128,20 @@ function renderSteps(): void {
         ? BADGE[step.status]
         : String(i + 1);
     li.querySelector(".title")!.textContent = step.title;
+    const syn = li.querySelector<HTMLElement>(".syn")!;
+    if (!synopses.has(step.id)) synopses.set(step.id, syn.textContent ?? "");
+    syn.textContent = step.state ?? synopses.get(step.id)!;
+    syn.classList.toggle("state", step.state !== undefined);
     fillStepBody(li, step);
-    const open =
-      openOverride.get(step.id) ?? (step.id === cur || step.id === focused || step.id === acked);
+    const open = openOverride.get(step.id) ?? (step.id === cur || step.id === focused);
     lastSet.set(step.id, open);
     li.querySelector("details")!.open = open;
   });
 
   // The new current card scrolls into view — but never under a typist,
   // not even when their edit re-opens their own card (the scroll would
-  // pull the button their press is on away from the pointer), and not
-  // after a Done press, whose next card opens right below.
-  if (moved && cur && !acked && !focused) {
+  // pull the button their press is on away from the pointer).
+  if (moved && cur && !focused) {
     document.getElementById(`step-${cur}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   currentId = cur;
@@ -979,7 +976,6 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
     step.confirm?.label,
     step.manual,
     undoes,
-    step.footnote,
     step.deploy,
   ]);
   if (footShown.get(step.id) === shown) return;
@@ -1027,11 +1023,6 @@ function fillStepBody(li: HTMLElement, step: StepView): void {
       render();
     });
     foot.push(button);
-  }
-  if (step.footnote) {
-    const p = document.createElement("p");
-    p.textContent = step.footnote;
-    foot.push(p);
   }
   if (step.deploy) {
     const button = document.createElement("button");
@@ -1086,8 +1077,6 @@ function pressConfirm(stepId: string): void {
   }
   (state.confirmed ??= {})[confirm.group] = Date.now();
   save(state);
-  acked = stepId;
-  ackFresh = true;
   render();
 }
 
