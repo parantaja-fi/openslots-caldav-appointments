@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The work window</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 1.2rem auto; max-width: 34rem; padding: 0 1rem; }
+  h1 { font-size: 1.3rem; }
+  button { font: inherit; padding: .45rem .8rem; margin: .15rem .3rem .15rem 0; }
+  p.quiet { color: #555; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1b1b1d; color: #e8e8e8; }
+    p.quiet { color: #aaa; }
+  }
+</style>
+</head>
+<body>
+<h1>This is the work window</h1>
+<p>
+  Every outside page the wizard opens — GitHub, Cloudflare, your
+  calendar, Brevo — appears here, one page at a time, while the
+  instructions stay put in the wizard's own window. Read there, act
+  here.
+</p>
+<p>
+  Try moving between the two windows now. On the way back, the first
+  click may only bring the wizard's window forward, and a second click
+  is needed for the button itself — the browser's doing, not yours.
+</p>
+<p>
+  Closing this window does no harm: the next link opens it afresh. If
+  it hides behind other windows, the wizard's “Show the work window”
+  button brings it back.
+</p>
+<p>Place the two windows however suits you, or start from one of these:</p>
+<p>
+  <button id="right">This window on the right part</button>
+  <button id="below">This window below</button>
+</p>
+<p class="quiet">
+  Then give the wizard's window the part that remains. In a browser that
+  opened this page as a tab, the buttons do nothing — arrange the two by
+  hand.
+</p>
+<script>
+// The same split as workWindow.ts: the wizard keeps 40 % of the screen,
+// the work window takes the rest. This window moves itself — it is
+// script-opened, so moveTo/resizeTo obey (spike/RESULTS.md).
+const WIZARD_FRACTION = 0.4;
+const left = screen.availLeft ?? 0;
+const top = screen.availTop ?? 0;
+document.getElementById("right").onclick = () => {
+  const wizard = Math.round(screen.availWidth * WIZARD_FRACTION);
+  moveTo(left + wizard, top);
+  resizeTo(screen.availWidth - wizard, screen.availHeight);
+};
+document.getElementById("below").onclick = () => {
+  const wizard = Math.round(screen.availHeight * WIZARD_FRACTION);
+  moveTo(left, top + wizard);
+  resizeTo(screen.availWidth, screen.availHeight - wizard);
+};
+</script>
+</body>
+</html>

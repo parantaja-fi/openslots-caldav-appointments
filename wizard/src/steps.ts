@@ -158,6 +158,28 @@ export function deriveSteps(
   const fork = owner && repo ? `https://github.com/${owner}/${repo}` : null;
   const steps: StepView[] = [];
 
+  // The work window teaches itself: the link opens the companion page
+  // (wizard/public/companion.html), which carries the placement buttons
+  // and the practice of moving between the two windows.
+  steps.push({
+    id: "windows",
+    title: "Place your two windows",
+    status: saved.done["windows"] ? "attested" : "open",
+    body: [
+      "The wizard works in two windows: the instructions stay here, and " +
+        "every outside page — GitHub, Cloudflare, your calendar, Brevo — " +
+        "opens in one work window beside them.",
+      "Open the work window: it lands on the right part of the screen " +
+        "with a short page of its own. Arrange the two however you like — " +
+        "that page offers the usual arrangements — and keep both in view.",
+      "Mark done once the windows sit where you want them.",
+      ...(saved.done["windows"] ? [tickLine(saved.done["windows"])] : []),
+    ],
+    links: [{ label: "Open the work window", href: "companion.html" }],
+    manual: true,
+    state: saved.done["windows"] ? "Marked done" : undefined,
+  });
+
   // The signup buttons, the echo fields and the tick row are laid out
   // by main.ts (renderAccounts) — the card's chrome, not its verdict.
   steps.push({
@@ -712,6 +734,7 @@ export interface PhaseView {
 }
 
 const PHASES: [string, string[]][] = [
+  ["Windows", ["windows"]],
   ["Accounts", ["accounts"]],
   ["Fork", ["fork"]],
   ["Configure", ["calendars", "cloudflare", "emailcfg", "shape", "secrets"]],

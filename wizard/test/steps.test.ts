@@ -542,10 +542,25 @@ describe("availability", () => {
   });
 });
 
+describe("windows", () => {
+  it("opens the companion page in the work window, and is the practitioner's to tick", () => {
+    const w = step("windows", saved());
+    expect(w.status).toBe("open");
+    expect(w.manual).toBe(true);
+    expect(w.links).toEqual([{ label: "Open the work window", href: "companion.html" }]);
+    const done = step("windows", saved({}, { windows: TICK }));
+    expect(done.status).toBe("attested");
+    expect(done.state).toBe("Marked done");
+  });
+});
+
 describe("phases", () => {
   it("greens finished phases and points at the first unfinished one", () => {
-    const phases = derivePhases(deriveSteps(saved({}, { accounts: TICK }), { fork: FORK }));
+    const phases = derivePhases(
+      deriveSteps(saved({}, { windows: TICK, accounts: TICK }), { fork: FORK }),
+    );
     expect(phases.map((p) => `${p.label}:${p.status}`)).toEqual([
+      "Windows:green",
       "Accounts:green",
       "Fork:green",
       "Configure:current",
@@ -556,7 +571,7 @@ describe("phases", () => {
   });
 
   it("is current on Deploy while any of its three steps lags", () => {
-    const done = { accounts: TICK, secrets: TICK };
+    const done = { windows: TICK, accounts: TICK, secrets: TICK };
     const phases = derivePhases(
       deriveSteps(saved({}, done), {
         fork: PAGES_ON,
@@ -567,7 +582,7 @@ describe("phases", () => {
   });
 
   it("is green throughout exactly when the checklist is", () => {
-    const done = { accounts: TICK, secrets: TICK, availability: TICK, smoke: TICK };
+    const done = { windows: TICK, accounts: TICK, secrets: TICK, availability: TICK, smoke: TICK };
     const probes: ProbeState = {
       fork: PAGES_ON,
       run: { state: "success", url: "u", at: TICK + 1 },
@@ -581,7 +596,7 @@ describe("phases", () => {
 
 describe("allGreen", () => {
   it("holds exactly when every step is settled — attested counts", () => {
-    const done = { accounts: TICK, secrets: TICK, availability: TICK, smoke: TICK };
+    const done = { windows: TICK, accounts: TICK, secrets: TICK, availability: TICK, smoke: TICK };
     const probes: ProbeState = {
       fork: PAGES_ON,
       run: { state: "success", url: "u", at: TICK + 1 },

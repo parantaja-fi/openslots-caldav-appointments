@@ -217,10 +217,9 @@
         needed action — read ahead and come back freely. If you close the
         page midflight, the wizard may lose some detail: done steps stay
         done, but a few values are asked again. It re-checks the world
-        every twenty seconds; the Check again button asks at once. Each
-        outside page — GitHub, Cloudflare, your calendar, Brevo — opens in
-        one work window on the right of the screen: narrow this window to
-        the left part to keep both in view.
+        every twenty seconds; the Check again button asks at once. Every
+        outside page opens in one work window beside this one — the first
+        step below sets the two up.
         <a href="https://github.com/parantaja-fi/openslots-caldav-appointments/blob/main/SETUP.md"
         target="booking-wizard-work">SETUP.md</a> holds the why behind
         every step. At the “Store the configuration” step, below, your
@@ -239,6 +238,19 @@
         </div>
       </div>
       <ol id="journey">
+        <li class="step" id="step-windows">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">Instructions in this window, every outside page in one work window beside it.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
         <li class="step" id="step-accounts">
           <span class="marker"></span>
           <details>
