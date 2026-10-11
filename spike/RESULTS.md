@@ -170,6 +170,35 @@ forget, blocked and empty-URL runs were not recorded.
 | No overlap at 1920×1080 | | |
 | The wizard usable at 40 % width | | |
 
+## Geometry: where does the work window land?
+
+The owner's Safari run put the work window somewhere other than the
+planned right-hand box ("tiling did not work as intended"). The probes
+(spike/geometry.html, the three Probe buttons) measure it: a same-origin
+page reports its real position and size into the spike's log, each line
+ending `Δ actual − planned`, and into its title, which AppleScript reads
+as the window's name. Two candidate fixes are measured alongside:
+moveTo/resizeTo on the still-blank window before it navigates — the one
+a production work window allows, since it is cross-origin from the first
+page on — and moveTo/resizeTo on the loaded same-origin probe.
+
+Chromium 141 headed, macOS 26 (2026-10-11, screen available 2336×1465 at
+0,45): Δ 0,0 0×0 on creation, after probe-fix and after probe-move — the
+features string is honoured exactly, and both corrections hold.
+
+Safari: pending. Run, with the spike served on :8765:
+
+    spike/safari-driver.sh auto
+
+It needs three one-off permissions, each charged to the app hosting the
+shell: Automation → Safari (its prompt was still unanswered at the first
+attempt — Apple Events time out at two minutes, error −1712, until it is
+answered), Safari → Settings → Developer → "Allow JavaScript from Apple
+Events", and Accessibility for the real Return press, which carries the
+user activation a scripted click does not. The run also records, in
+passing, whether a gesture-less window.open is blocked (the scripted
+click) and what a real activation does (the press).
+
 ## Gate (§3.5)
 
 Phase 2 proceeds when, in Chrome and one other browser, separate window,
