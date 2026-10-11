@@ -259,6 +259,45 @@ describe("health", () => {
     });
     expect(view.body.join("\n")).toContain("BREVO_API_KEY missing");
   });
+
+  // Both calendars failing alike, in the Worker's own words.
+  const failing = (error: string): ProbeState => ({
+    health: {
+      state: "answered",
+      body: {
+        ok: false,
+        config: { ok: true },
+        calendars: { availability: { ok: false, error }, appointments: { ok: false, error } },
+        email: "off",
+      },
+    },
+  });
+  const google = (s: Saved): Saved => ({
+    ...s,
+    form: { ...s.form, provider: "google", google: { ...s.form.google, projectId: "my-practice" } },
+  });
+
+  it("names Google's 403 as the CalDAV API switched off, linking its page in the project", () => {
+    const view = step("health", google(saved()), failing("CalDAV REPORT failed: 403"));
+    expect(view.body.join("\n")).toContain("CalDAV API");
+    expect(view.links.find((l) => l.label === "Enable the CalDAV API")?.href).toBe(
+      "https://console.cloud.google.com/apis/library/caldav.googleapis.com?project=my-practice",
+    );
+  });
+
+  it("names Google's 404 as a calendar it cannot find, with nothing to link", () => {
+    const view = step("health", google(saved()), failing("CalDAV REPORT failed: 404"));
+    expect(view.body.join("\n")).toContain("no such calendar");
+    expect(view.links.map((l) => l.label)).toEqual(["Health"]);
+  });
+
+  it("adds no hint under another provider, nor for Google's other failures", () => {
+    const other = step("health", saved(), failing("CalDAV REPORT failed: 403"));
+    expect(other.body.join("\n")).not.toContain("Google");
+    expect(other.links.map((l) => l.label)).toEqual(["Health"]);
+    const late = step("health", google(saved()), failing("timed out"));
+    expect(late.body.join("\n")).not.toContain("Google");
+  });
 });
 
 const allGroups = (status: FormGroups[keyof FormGroups]): FormGroups => ({

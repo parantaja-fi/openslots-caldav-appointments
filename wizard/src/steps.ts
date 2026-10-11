@@ -543,6 +543,14 @@ export function deriveSteps(
 
   const health = probes.health;
   const healthBody: string[] = [];
+  // A refusal from Google the wizard can explain (plan §3) — said once
+  // for the card, as both calendars fail alike.
+  const refusal =
+    saved.form.provider === "google" && health?.state === "answered" && health.body.calendars
+      ? [health.body.calendars.availability, health.body.calendars.appointments]
+          .map((c) => /^CalDAV REPORT failed: (40[134])$/.exec(c.error ?? "")?.[1])
+          .find((status) => status !== undefined)
+      : undefined;
   if (!workerUrl) {
     healthBody.push(
       owner
@@ -564,6 +572,17 @@ export function deriveSteps(
     if (b.calendars) {
       healthBody.push(healthLine("availability calendar", b.calendars.availability));
       healthBody.push(healthLine("booking store", b.calendars.appointments));
+      if (refusal) {
+        healthBody.push(
+          refusal === "401"
+            ? "Google does not accept the service account's sign-in — check the key at 3.5."
+            : refusal === "403"
+              ? "Google refuses your booking service while the CalDAV API is off " +
+                "in your project — enable it, then give Google a few minutes."
+              : "Google finds no such calendar for the service account — check " +
+                "the ID, then the sharing, at 3.6.",
+        );
+      }
     }
     if (b.email) {
       healthBody.push(
@@ -589,7 +608,19 @@ export function deriveSteps(
           : "watch",
     body: healthBody,
     links: workerUrl
-      ? [{ label: "Health", href: `${workerUrl.replace(/\/+$/, "")}/v1/health` }]
+      ? [
+          { label: "Health", href: `${workerUrl.replace(/\/+$/, "")}/v1/health` },
+          ...(refusal === "403"
+            ? [
+                {
+                  label: "Enable the CalDAV API",
+                  href:
+                    "https://console.cloud.google.com/apis/library/caldav.googleapis.com" +
+                    (saved.form.google.projectId ? `?project=${saved.form.google.projectId}` : ""),
+                },
+              ]
+            : []),
+        ]
       : [],
     manual: false,
     state: !workerUrl
