@@ -10,7 +10,7 @@ import {
 } from "./form";
 import { authenticate, createDomain, getDomain } from "./brevo";
 import type { GoogleProbeState } from "./google/steps";
-import { GOOGLE_PHASES, deriveGoogleSteps } from "./google/steps";
+import { GOOGLE_PHASES, caldavAddress, deriveGoogleSteps } from "./google/steps";
 import type { RepoInfo } from "./github";
 import {
   GithubError,
@@ -46,6 +46,7 @@ import {
 } from "./steps";
 import type { Provider } from "./state";
 import { UPSTREAM_OWNER, UPSTREAM_REPO, load, reset, save } from "./state";
+import { VALIDATORS } from "./validators";
 import { WORK_NAME, reveal, show } from "./workWindow";
 
 const POLL_MS = 20_000;
@@ -84,6 +85,7 @@ function render(): void {
   const formOk = formComplete(fields);
   renderAccounts();
   renderConfig(fields);
+  renderGoogle(fields);
   renderEmail();
   renderProvision(formOk);
   renderReview(formOk);
@@ -103,9 +105,13 @@ const synopses = new Map<string, string>();
 
 // The Google sub-wizard is a view of this same document, so the key in
 // tab memory survives the trip (plan §4): its seven cards stand in for
-// the main list while the hash points into it.
+// the main list while the hash points into it — under Google alone, as
+// its calendar IDs stand in for the typed addresses.
 function googleShown(): boolean {
-  return location.hash === "#google" || location.hash.startsWith("#step-google-");
+  return (
+    state.form.provider === "google" &&
+    (location.hash === "#google" || location.hash.startsWith("#step-google-"))
+  );
 }
 
 function renderSteps(): void {
@@ -443,7 +449,8 @@ function commitOwner(value: string): void {
 // when nothing takes the focus; replaceKeepingFocus then carries the
 // focus over to the rebuilt field. A press on a card's own button waits
 // on until its click is delivered: the render would re-word the card
-// above the button and so move it from under the pointer.
+// above the button, or rebuild the form around it, and so pull it from
+// under the pointer.
 let renderPending = false;
 let pressing = false;
 function renderAfterFocusMove(): void {
@@ -462,7 +469,7 @@ document.addEventListener(
     pressing =
       e.button === 0 &&
       e.target instanceof Element &&
-      e.target.closest(".dynfoot button, #accounts-rows button") !== null;
+      e.target.closest(".dynfoot button, #accounts-rows button, .cfg button, #google-back") !== null;
   },
   true,
 );
@@ -580,7 +587,12 @@ function renderConfig(fields: FieldView[]): void {
   }
   select.addEventListener("change", () => {
     stampEdited("calendars");
+    if (state.form.provider === "google") {
+      delete secrets["AVAILABILITY_CALENDAR_URL"];
+      delete secrets["BOOKING_STORE_URL"];
+    }
     state.form.provider = select.value as Provider;
+    if (state.form.provider === "google") handOverGoogle();
     save(state);
     render();
   });
@@ -685,6 +697,111 @@ function renderConfig(fields: FieldView[]): void {
     shapeChildren.push(details);
   }
   replaceKeepingFocus(document.getElementById("cfg-shape")!, shapeChildren);
+}
+
+// --- The Google sub-wizard --------------------------------------------
+
+// What was typed into a Google row and refused, shown again with the
+// validator's message until put right; never persisted.
+const drafts = new Map<string, { raw: string; message: string }>();
+
+// The state keeps each answer validated, or empty (plan §4 "State").
+function googleRow(
+  id: string,
+  label: string,
+  help: string,
+  validator: string,
+  value: string,
+  set: (value: string) => void,
+): HTMLElement {
+  const draft = drafts.get(id);
+  return inputRow(
+    { id, label, help, value: draft?.raw ?? value, message: draft?.message },
+    (raw) => {
+      const verdict = VALIDATORS[validator]!(raw);
+      if (verdict.ok || !raw.trim()) drafts.delete(id);
+      else drafts.set(id, { raw, message: verdict.message });
+      set(verdict.ok ? verdict.value : "");
+      save(state);
+      renderAfterFocusMove();
+    },
+  );
+}
+
+function renderGoogle(fields: FieldView[]): void {
+  const answers = state.form.google;
+  replaceKeepingFocus(document.getElementById("cfg-google-project")!, [
+    googleRow(
+      "f-google-project",
+      "Project ID",
+      "It stays in this browser; your fork never needs it.",
+      "googleProjectId",
+      answers.projectId,
+      (id) => void (answers.projectId = id),
+    ),
+  ]);
+  replaceKeepingFocus(document.getElementById("cfg-google-key")!, [
+    fieldRow(fields.find((f) => f.entry.name === "GOOGLE_SERVICE_ACCOUNT_JSON")!, "Key file"),
+  ]);
+
+  const ids = answers.calendarIds;
+  const calendarRow = (role: "availability" | "store", label: string, help: string): HTMLElement =>
+    googleRow(
+      `f-google-${role}`,
+      label,
+      `${help} A pasted CalDAV address is reduced to its ID.`,
+      "googleCalendarId",
+      ids[role],
+      (id) => {
+        stampEdited("calendars");
+        if (id !== ids[role]) {
+          ids[role] = id;
+          delete google[role];
+          void poll();
+        }
+        handOverGoogle();
+      },
+    );
+  const children = [
+    calendarRow(
+      "availability",
+      "Availability calendar ID",
+      "The calendar holding your OPEN events.",
+    ),
+  ];
+  if (!state.form.sameCalendar) {
+    children.push(
+      calendarRow("store", "Booking calendar ID", "Where confirmed bookings are written."),
+    );
+  }
+  // The address Google Calendar's sharing dialog asks for.
+  if (answers.clientEmail) {
+    const row = document.createElement("div");
+    row.className = "fieldrow";
+    const label = document.createElement("label");
+    label.textContent = "Service account";
+    const value = document.createElement("span");
+    value.className = "val";
+    value.append(`${answers.clientEmail} `, copyButton(answers.clientEmail));
+    row.append(label, value);
+    children.push(row);
+  }
+  replaceKeepingFocus(document.getElementById("cfg-google-calendars")!, children);
+}
+
+// The calendars reach the fork as the addresses the manifest rows hold
+// for other providers — derived from the persisted IDs, never typed, so
+// rebuilt on every visit and dropped with the provider (plan §4).
+function handOverGoogle(): void {
+  const { availability, store } = state.form.google.calendarIds;
+  const derived: [string, string][] = [
+    ["AVAILABILITY_CALENDAR_URL", availability],
+    ["BOOKING_STORE_URL", store],
+  ];
+  for (const [name, id] of derived) {
+    if (id) secrets[name] = caldavAddress(id);
+    else delete secrets[name];
+  }
 }
 
 // --- The sender domain at Brevo ---------------------------------------
@@ -1329,6 +1446,7 @@ refresh.addEventListener("click", () => {
   });
 });
 
+if (state.form.provider === "google") handOverGoogle();
 render();
 void poll();
 setInterval(() => void poll(), POLL_MS);
