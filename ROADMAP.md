@@ -235,9 +235,14 @@ From the proxy-walk feedback (2026-09-08, `docs/m6.4-walk-notes.md`):
 the guided Google-credentials page — a page of the wizard's own
 creating the Cloud project, service account and key — follows in a
 session soon after; M6.4 ships a visible placeholder button in its
-place. Per-role calendar providers (availability and booking store on
-different backends; today one provider choice serves both) are
-deferred to M6.6.
+place. *Landed 2026-10-11 as the Google Calendar sub-wizard behind that
+button (`docs/google-calendar-wizard.md`): seven cards within the
+calendars step lead the practitioner through creating the three in
+Google's consoles, and check the key and each calendar's sharing with
+Google before anything is deployed; the walk with a fresh Google
+account is still to come.* Per-role calendar providers (availability
+and booking store on different backends; today one provider choice
+serves both) are deferred to M6.6.
 
 *Exit for 0.1.0: M6.4 — the proxy walk passes end to end. M6.6 keeps
 the unchanged external bar and closes M6 itself.*

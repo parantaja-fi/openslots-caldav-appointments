@@ -1,15 +1,12 @@
 # The Google Calendar sub-wizard — a plan
 
-> Tentative, 2026-10-10. Design only: implementation waits for M6.4 to
-> settle on `main`, after which the components it needs are lifted out
-> of `wizard/src/main.ts` (§7). Companion to `fork-guided-setup.md`
-> (what a tab can reach) and `wizard-testing.md` (where tests go).
-> Grounding: the spikes' `GOOGLE_SETUP.md` and `GOOGLE_CALDAV_SETUP.md`,
-> `LEARNINGS.md`, `worker/src/auth.ts`, the CORS probes of §2 and the
-> spike of §10, all run today. The author read the overall workflow on 2026-10-10 and agreed
-> two things — the cards open in place, numbered as substeps of the
-> calendars step — and nothing else yet: the details below are
-> unreviewed. Nothing here is committed scope.
+> Implemented 2026-10-11 through step 5 of §8; step 6, the walks with
+> a fresh Google account, is open. The details below are as built.
+> Companion to `fork-guided-setup.md` (what a tab can reach) and
+> `wizard-testing.md` (where tests go). Grounding: the spikes'
+> `GOOGLE_SETUP.md` and `GOOGLE_CALDAV_SETUP.md`, `LEARNINGS.md`,
+> `worker/src/auth.ts`, the CORS probes of §2 and the spike of §10,
+> all run 2026-10-10.
 
 ## 1. What it is for
 
@@ -259,7 +256,7 @@ a list of probes. Nothing is generalised on speculation.
 4. The §7 lift from the settled M6.4, then the view, hand-over and the
    live button. Done 2026-10-11.
 5. The health hint; `SETUP.md` Part 1's Google rows point at the
-   wizard; `ROADMAP.md` records the milestone.
+   wizard; `ROADMAP.md` records the milestone. Done 2026-10-11.
 6. A walk with a fresh Google account, Workspace and personal both if
    one is at hand.
 

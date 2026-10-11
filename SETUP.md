@@ -69,7 +69,7 @@ obvious, like `Availability` and `Bookings`.
 |---|---|
 | Nextcloud | Calendar app → the `⋯` next to the calendar → *Copy internal link*. It looks like `https://cloud.example/remote.php/dav/calendars/you/bookings/` |
 | Fastmail | Settings → Calendars → the calendar → *CalDAV URL* |
-| Google | `https://apidata.googleusercontent.com/caldav/v2/CALENDAR_ID/events/` where `CALENDAR_ID` is from calendar settings. The `@` in it must be written `%40` |
+| Google | `https://apidata.googleusercontent.com/caldav/v2/CALENDAR_ID/events/` where `CALENDAR_ID` is from calendar settings. The `@` in it must be written `%40`. The setup wizard's Google step builds it from the ID for you (see *Get credentials* below) |
 | Radicale | `http://your-server:5232/username/calendar-name/` |
 
 The URL must end with a `/`.
@@ -82,8 +82,10 @@ The URL must end with a `/`.
 - **Google**: this one is genuinely awkward. You need a *service account*
   in Google Cloud, a JSON key file for it, and you must share each
   calendar with the service account's email address (with *Make changes
-  to events* for the booking store). If that sentence is daunting, use a
-  different provider.
+  to events* for the booking store). If that sentence is daunting, the
+  [setup wizard](https://parantaja-fi.github.io/openslots-caldav-appointments/wizard/)
+  walks you through it — *Your calendars* → *Set up Google Calendar* —
+  and checks the key and each calendar's sharing with Google as you go.
 - **Radicale**: whatever you put in its `htpasswd` file.
 
 Write down: two URLs, two usernames, two passwords. Treat the passwords
