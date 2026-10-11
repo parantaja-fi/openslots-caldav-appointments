@@ -282,7 +282,9 @@ addresses from Actions secrets, and everything origin-shaped —
 `ALLOWED_ORIGINS`, `CANCEL_URL`, the page's API URL and base path —
 is derived on each run from the Pages settings and the Worker deploy
 itself, so a renamed fork or a custom domain needs a re-run, never a
-reconfiguration.
+reconfiguration. The Worker is named `<owner>-booking-worker` after the
+repository's owner, so the upstream and forks can share one Cloudflare
+account.
 
 ## 8. Deliberately absent
 
