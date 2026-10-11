@@ -68,6 +68,8 @@ describe("manual steps", () => {
   it("stay open until ticked, then are attested", () => {
     expect(step("accounts", saved()).status).toBe("open");
     expect(step("accounts", saved({}, { accounts: TICK })).status).toBe("attested");
+    expect(step("availability", saved()).status).toBe("open");
+    expect(step("availability", saved({}, { availability: TICK })).status).toBe("attested");
   });
 
   it("name the tick's moment in the body", () => {
@@ -505,6 +507,32 @@ describe("dns", () => {
   });
 });
 
+describe("availability", () => {
+  const withForm = (s: Saved, form: Partial<Saved["form"]>): Saved => ({
+    ...s,
+    form: { ...s.form, ...form },
+  });
+
+  it("teaches OPEN events, and what blocks them in this calendar setup", () => {
+    const one = step("availability", saved()).body.join("\n");
+    expect(one).toContain("titled exactly OPEN");
+    expect(one).toContain("bookings included");
+    const two = step("availability", withForm(saved(), { sameCalendar: false })).body.join("\n");
+    expect(two).toContain("every event in your booking calendar");
+  });
+
+  it("links the calendar app where the wizard knows it — the page is the next step's", () => {
+    const hrefs = (s: Saved) => step("availability", s).links.map((l) => l.href);
+    const cloud = withForm(saved(), { providerUrl: "https://cloud.example.com" });
+    expect(hrefs(cloud)).toEqual(["https://cloud.example.com/apps/calendar/"]);
+    expect(hrefs(withForm(saved(), { provider: "google" }))).toEqual([
+      "https://calendar.google.com/",
+    ]);
+    expect(hrefs(withForm(saved(), { provider: "fastmail" }))).toEqual([]);
+    expect(hrefs(saved())).toEqual([]); // Nextcloud before its server address is known
+  });
+});
+
 describe("phases", () => {
   it("greens finished phases and points at the first unfinished one", () => {
     const phases = derivePhases(deriveSteps(saved({}, { accounts: TICK }), { fork: FORK }));
@@ -530,7 +558,7 @@ describe("phases", () => {
   });
 
   it("is green throughout exactly when the checklist is", () => {
-    const done = { accounts: TICK, secrets: TICK, smoke: TICK };
+    const done = { accounts: TICK, secrets: TICK, availability: TICK, smoke: TICK };
     const probes: ProbeState = {
       fork: PAGES_ON,
       run: { state: "success", url: "u", at: TICK + 1 },
@@ -544,7 +572,7 @@ describe("phases", () => {
 
 describe("allGreen", () => {
   it("holds exactly when every step is settled — attested counts", () => {
-    const done = { accounts: TICK, secrets: TICK, smoke: TICK };
+    const done = { accounts: TICK, secrets: TICK, availability: TICK, smoke: TICK };
     const probes: ProbeState = {
       fork: PAGES_ON,
       run: { state: "success", url: "u", at: TICK + 1 },

@@ -107,9 +107,11 @@ function renderSteps(): void {
   // The current step — the first not yet green — opens by itself and
   // wears the ring. A card toggled by hand stays as left until the
   // journey moves on; then the accordion advances and follows. A card
-  // holding the keyboard focus never closes under the typist — turning
+  // whose field holds the focus never closes under the typist — turning
   // green mid-form must not steal the remaining fields from the tab
-  // order; the accordion catches up once focus leaves it.
+  // order; the accordion catches up once focus leaves it. A pressed
+  // button is no typist: Chrome focuses it, and its card would linger
+  // open until the next poll.
   const cur = steps.find((s) => !settled(s.status))?.id ?? null;
   const moved = currentId !== undefined && currentId !== cur;
   if (moved) {
@@ -117,9 +119,10 @@ function renderSteps(): void {
     if (!ackFresh) acked = null;
   }
   ackFresh = false;
+  const active = document.activeElement;
   const focused =
-    document.activeElement instanceof HTMLElement
-      ? (document.activeElement.closest(".step")?.id.slice("step-".length) ?? null)
+    active instanceof HTMLElement && active.matches("input, textarea, select")
+      ? (active.closest(".step")?.id.slice("step-".length) ?? null)
       : null;
 
   steps.forEach((step, i) => {

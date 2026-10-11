@@ -547,6 +547,44 @@ export function deriveSteps(
     manual: false,
   });
 
+  // OPEN events are the practitioner's to write, in their own calendar
+  // app. Nor can the wizard see the slots: they answer the fork's own
+  // page alone, not this one. The tick attests; the test drive proves.
+  const { provider, providerUrl, sameCalendar } = saved.form;
+  const calendarApp =
+    provider === "nextcloud" && /^https?:\/\/./.test(providerUrl)
+      ? `${providerUrl}/apps/calendar/`
+      : provider === "google"
+        ? "https://calendar.google.com/"
+        : null;
+  steps.push({
+    id: "availability",
+    title: "Open some time for booking",
+    status: saved.done["availability"] ? "attested" : "open",
+    body: [
+      "In your availability calendar — in whatever calendar app you already " +
+        "use — create an event titled exactly OPEN, tomorrow 10:00–12:00, " +
+        "say. The booking page cuts it into slots of your appointment " +
+        "length; a repeating event, “every Tuesday 09:00–12:00”, opens " +
+        "that time every week.",
+      sameCalendar
+        ? "Every other event in that calendar, bookings included, blocks the " +
+          "time it covers."
+        : "Every other event in it, and every event in your booking calendar, " +
+          "blocks the time it covers.",
+      "The booking service only ever reads OPEN events: they are yours to " +
+        "write, and to delete or shorten when a time closes. Slots start no " +
+        "sooner than your minimum notice and reach no further than your " +
+        "booking horizon, both under “The shape of your bookings” — an OPEN " +
+        "event later today may show nothing.",
+      "Mark done once the event is in place: the next step books one of " +
+        "its slots on your page.",
+      ...(saved.done["availability"] ? [tickLine(saved.done["availability"])] : []),
+    ],
+    links: calendarApp ? [{ label: "Open your calendars", href: calendarApp }] : [],
+    manual: true,
+  });
+
   steps.push({
     id: "smoke",
     title: "Book a test appointment",
@@ -582,7 +620,7 @@ const PHASES: [string, string[]][] = [
   ["Configure", ["calendars", "cloudflare", "emailcfg", "shape", "secrets"]],
   ["Deploy", ["pages", "deploy", "health"]],
   ["Email", ["dns"]],
-  ["Test drive", ["smoke"]],
+  ["Test drive", ["availability", "smoke"]],
 ];
 
 /** The journey compressed to a rail: a phase is green when every step
