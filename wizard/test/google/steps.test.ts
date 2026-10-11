@@ -185,6 +185,16 @@ describe("3.5 key", () => {
     }
   });
 
+  it("is red on a private key that does not import, with no word from Google", () => {
+    const view = step("google-key", saved(), { key: { state: "unreadable" } });
+    expect(view.status).toBe("red");
+    expect(view.body).toEqual([
+      "The private key in this file cannot be read — paste the file again, unchanged, " +
+        "or make a new key.",
+    ]);
+    expect(view.links.map((l) => l.label)).toEqual(["Service accounts"]);
+  });
+
   it("is red on a key from another project than 3.2's, linking 3.2's service accounts", () => {
     const view = step("google-key", saved(), { key: { ...ACCEPTED, projectId: "old-experiment" } });
     expect(view.status).toBe("red");
@@ -236,7 +246,11 @@ describe("3.6 calendars", () => {
   });
 
   it("waits for 3.5 before Google is asked", () => {
-    const keys: GoogleProbeState["key"][] = [undefined, { state: "refused", description: CLOCK }];
+    const keys: GoogleProbeState["key"][] = [
+      undefined,
+      { state: "unreadable" },
+      { state: "refused", description: CLOCK },
+    ];
     for (const key of keys) {
       const view = step("google-calendars", saved(), { key });
       expect(view.status).toBe("watch");
@@ -302,6 +316,21 @@ describe("3.6 calendars", () => {
       `Enable the Google Calendar API in project ${PROJECT}.`,
     ]);
     expect(view.links[0]).toEqual({ label: "Enable the Google Calendar API", href: ACTIVATE });
+  });
+
+  it("links the API's page in the key's project when Google's body has no link", () => {
+    const view = step("google-calendars", saved({ projectId: "" }), {
+      key: ACCEPTED,
+      availability: { state: "disabled", activationUrl: "" },
+    });
+    expect(view.status).toBe("red");
+    expect(view.body[0]).toBe(`Enable the Google Calendar API in project ${PROJECT}.`);
+    expect(view.links[0]).toEqual({
+      label: "Enable the Google Calendar API",
+      href:
+        "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" +
+        `?project=${PROJECT}`,
+    });
   });
 
   it("is red on a calendar the service account cannot find", () => {

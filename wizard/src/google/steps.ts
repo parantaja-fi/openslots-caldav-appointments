@@ -21,9 +21,11 @@ const LEVEL_WORDS: Record<AccessRole, string> = {
 
 /** Google's verdict on the pasted key, by token exchange. Every refusal
  * is a 400 invalid_grant: only its description tells a bad clock from a
- * dead key, so refused carries it verbatim. */
+ * dead key, so refused carries it verbatim. unreadable: the private key
+ * does not import, and Google is never asked. */
 export type KeyProbe =
   | { state: "unasked" }
+  | { state: "unreadable" }
   | { state: "accepted"; at: number; clientEmail: string; projectId: string }
   | { state: "refused"; description: string }
   | { state: "blind"; reason: string };
@@ -32,7 +34,8 @@ export type KeyProbe =
  * zone and level from a metadata-only events.list, the owner from
  * calendars.get's dataOwner — which a main calendar lacks, its ID being
  * its owner. absent: Google's 404, no such calendar or not shared.
- * disabled: 403 SERVICE_DISABLED, with the body's activation link. */
+ * disabled: 403 SERVICE_DISABLED, with the body's activation link —
+ * empty when the body carries none. */
 export type CalendarProbe =
   | { state: "present"; summary: string; timeZone: string; accessRole: AccessRole; owner: string }
   | { state: "absent" }
@@ -92,7 +95,7 @@ interface RowVerdict {
   activationUrl?: string;
 }
 
-function verdict(row: Row, account: string): RowVerdict {
+function verdict(row: Row, account: string, project: string): RowVerdict {
   const { probe, need, label } = row;
   if (!probe) {
     return {
@@ -106,9 +109,16 @@ function verdict(row: Row, account: string): RowVerdict {
       lines: [`${label}Not known whether the service account sees it: ${probe.reason}`],
     };
   }
-  // The same for every calendar: the card says it once.
+  // The same for every calendar: the card says it once. Without the
+  // body's link, the API's page in the key's project.
   if (probe.state === "disabled") {
-    return { status: "red", lines: [], activationUrl: probe.activationUrl };
+    return {
+      status: "red",
+      lines: [],
+      activationUrl:
+        probe.activationUrl ||
+        `${CONSOLE}/apis/library/calendar-json.googleapis.com?project=${project}`,
+    };
   }
   if (probe.state === "absent") {
     return {
@@ -273,7 +283,7 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
         ? "watch"
         : key.state === "blind"
           ? "unknown"
-          : key.state === "refused" || strayKey
+          : key.state === "refused" || key.state === "unreadable" || strayKey
             ? "red"
             : "green",
     body: !key
@@ -285,28 +295,33 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
         ? ["Asking Google whether it accepts the key."]
         : key.state === "blind"
           ? [`Not known whether Google accepts the key: ${key.reason}`]
-          : key.state === "refused"
+          : key.state === "unreadable"
             ? [
-                clock
-                  ? "Google finds the time stamps in the request out of range — " +
-                    "check this computer's clock."
-                  : "Google no longer accepts this key — make a new one.",
-                `Google says: “${key.description}”`,
+                "The private key in this file cannot be read — paste the file " +
+                  "again, unchanged, or make a new key.",
               ]
-            : strayKey
+            : key.state === "refused"
               ? [
-                  `This key belongs to project ${strayKey.projectId}, 3.2 says ` +
-                    `${projectId} — make the key in ${projectId}, or correct 3.2.`,
+                  clock
+                    ? "Google finds the time stamps in the request out of range — " +
+                      "check this computer's clock."
+                    : "Google no longer accepts this key — make a new one.",
+                  `Google says: “${key.description}”`,
                 ]
-              : [
-                  `Google accepted the key at ${new Date(key.at).toLocaleTimeString(undefined, {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}.`,
-                  `Service account: ${key.clientEmail}.`,
-                ],
+              : strayKey
+                ? [
+                    `This key belongs to project ${strayKey.projectId}, 3.2 says ` +
+                      `${projectId} — make the key in ${projectId}, or correct 3.2.`,
+                  ]
+                : [
+                    `Google accepted the key at ${new Date(key.at).toLocaleTimeString(undefined, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}.`,
+                    `Service account: ${key.clientEmail}.`,
+                  ],
     links:
-      (key?.state === "refused" && !clock) || strayKey
+      (key?.state === "refused" && !clock) || key?.state === "unreadable" || strayKey
         ? [inProject("Service accounts", "iam-admin/serviceaccounts")]
         : [],
     manual: false,
@@ -341,7 +356,10 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
         },
       ];
   const idsThere = rows.every((r) => r.id);
-  const verdicts = idsThere && accepted ? rows.map((r) => verdict(r, accepted.clientEmail)) : [];
+  const verdicts =
+    idsThere && accepted
+      ? rows.map((r) => verdict(r, accepted.clientEmail, accepted.projectId))
+      : [];
   const calendarsStatus: Status = !idsThere
     ? "open"
     : !accepted
