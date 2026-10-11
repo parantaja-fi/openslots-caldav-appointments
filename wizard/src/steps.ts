@@ -428,13 +428,27 @@ export function deriveSteps(
                   : "Once the configuration is stored and Pages switched on above, " +
                     "start the deploy. The run deploys the Worker and the page, " +
                     "then gates on the health check.",
-      ...(due && pagesOn && !deployButton
-        ? ["On your fork's Actions tab, choose Deploy and press Run workflow."]
-        : []),
+      ...(deployButton
+        ? [
+            "Press Deploy and the wizard starts the run on your fork itself — " +
+              "no need to go to GitHub.",
+          ]
+        : due && pagesOn
+          ? [
+              "Start it on GitHub: on your fork's Actions tab — the first time, " +
+                "GitHub asks you to enable the workflows — choose Deploy, press " +
+                "Run workflow, then Run workflow again in the box that opens.",
+            ]
+          : []),
     ],
     links: [
       ...(fork
-        ? [{ label: "Actions → Deploy", href: `${fork}/actions/workflows/deploy.yml` }]
+        ? [
+            {
+              label: deployButton ? "By hand: Actions → Deploy" : "Actions → Deploy",
+              href: `${fork}/actions/workflows/deploy.yml`,
+            },
+          ]
         : []),
       ...(run && run.state !== "none" && run.state !== "blind"
         ? [{ label: "The run", href: run.url }]

@@ -497,8 +497,8 @@ function nextcloudChildren(fields: FieldView[]): HTMLElement[] {
         `${state.inputs.owner || "<your-github-username>"}/${state.inputs.repo}.`,
     ),
     linksRow(linkBtn("Create an app password", server && `${server}/settings/user/security`)),
-    ...row("AVAILABILITY_USERNAME", "New App Password login"),
-    ...row("AVAILABILITY_PASSWORD", "New App Password password"),
+    ...row("AVAILABILITY_USERNAME", "New app password Login"),
+    ...row("AVAILABILITY_PASSWORD", "New app password Password"),
   ];
   if (!state.form.sameCalendar) {
     children.push(
@@ -833,24 +833,20 @@ function renderProvision(formOk: boolean): void {
 
   const why = document.createElement("p");
   why.className = "why";
-  const mint = document.createElement("a");
-  mint.href = PAT_URL;
-  mint.target = "_blank";
-  mint.rel = "noopener";
-  mint.textContent = "Mint an access token";
   // “Only select repositories” carries the whole least-privilege point —
   // and went unnoticed in the M6.4 walk until set in bold.
   const only = document.createElement("strong");
   only.textContent = "“Only select repositories”";
   why.append(
-    mint,
-    " on GitHub — the form comes pre-filled; under Repository access choose ",
+    "Mint an access token on GitHub — the form comes pre-filled; under " +
+      "Repository access choose ",
     only,
     " and pick your fork. Paste the token here and the wizard writes " +
       "every secret and variable to your fork itself; the deploy is its " +
       "own step below. Prefer doing it by hand? The review list below has " +
       "copy buttons for everything.",
   );
+  const mint = linksRow(linkBtn("Mint an access token", PAT_URL));
 
   const row = document.createElement("div");
   row.className = "patrow";
@@ -882,7 +878,7 @@ function renderProvision(formOk: boolean): void {
     log.append(li);
   }
 
-  box.replaceChildren(h, why, row, log);
+  box.replaceChildren(h, why, mint, row, log);
 }
 
 // --- The review list --------------------------------------------------
