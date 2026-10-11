@@ -35,6 +35,11 @@
   <button id="reacquire-btn">Re-acquire by name, no navigation</button>
   <button id="nogesture-btn">Open GitHub sign-in in 8 s, without a gesture</button>
 </p>
+<p>
+  <button id="probe-btn">Probe: where did the work window land?</button>
+  <button id="probe-fix-btn">Probe: create, moveTo the blank, then navigate</button>
+  <button id="probe-move-btn">Probe: moveTo the loaded probe</button>
+</p>
 
 <h2>Status</h2>
 <p>Handle: <span id="handle">none</span></p>
@@ -66,6 +71,10 @@
       offers to always allow pop-ups here, decline.)</li>
   <li>Empty-URL open: “Re-acquire by name, no navigation” must leave the work window’s page as it was.</li>
   <li>Visual: the two windows do not overlap at 1366×768 and at 1920×1080; the wizard is usable at 40 % width.</li>
+  <li>Geometry: the first probe button opens a same-origin page that logs, here, where the window really
+      landed against the plan; the second closes the work window and re-creates it, correcting the blank
+      window with moveTo/resizeTo before navigating; the third corrects the already-loaded probe. The Δ in
+      each probe line is actual − planned.</li>
 </ul>
 </details>
 </main>
@@ -240,6 +249,47 @@ $('reacquire-btn').onclick = () => {
 $('nogesture-btn').onclick = () => {
   log('opening GitHub sign-in in 8 s, outside the click');
   setTimeout(() => show('GitHub sign-in (no gesture)', 'https://github.com/login'), 8000);
+};
+
+// --- Geometry probes (spike/geometry.html, same origin) ---
+
+const PROBE = new URL('geometry.html', location.href).href;
+const fmtBox = b => `${b.left},${b.top} ${b.width}×${b.height}`;
+
+addEventListener('message', e => {
+  if (e.origin !== location.origin || !e.data || e.data.moment === undefined) return;
+  const d = e.data, k = box('work');
+  log(`probe ${d.moment}: at ${d.x},${d.y} outer ${d.outerW}×${d.outerH} inner ${d.innerW}×${d.innerH}` +
+      ` — planned ${fmtBox(k)}, Δ ${d.x - k.left},${d.y - k.top} ${d.outerW - k.width}×${d.outerH - k.height}`);
+});
+
+$('probe-btn').onclick = () => show('probe', PROBE);
+
+$('probe-fix-btn').onclick = () => {
+  clearTimeout(check);
+  if (work && !work.closed) work.close();
+  work = null;
+  const b = box('work');
+  const w = window.open('', WORK_NAME, tile('work'));
+  if (w === null) return log('probe-fix → blocked');
+  w.moveTo(b.left, b.top);
+  w.resizeTo(b.width, b.height);
+  w.location.replace(PROBE);
+  w.focus();
+  work = w;
+  log('probe-fix → created; moveTo/resizeTo sent to the blank before navigating');
+};
+
+$('probe-move-btn').onclick = () => {
+  if (!work || work.closed) return log('probe-move: no work window');
+  const b = box('work');
+  try {
+    work.moveTo(b.left, b.top);
+    work.resizeTo(b.width, b.height);
+    log('probe-move: moveTo/resizeTo sent to the loaded probe (same origin only)');
+    const w = work;
+    setTimeout(() => { try { w.report('after moveTo'); } catch {} }, 400);
+  } catch (err) { log(`probe-move: ${err.name}: ${err.message}`); }
 };
 
 $('whoami').textContent = window.name === WIZARD_NAME

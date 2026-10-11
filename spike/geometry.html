@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>probe</title>
+<style>body { font: 14px/1.4 ui-monospace, monospace; margin: 1rem; }</style>
+</head>
+<body>
+<h1>Geometry probe</h1>
+<p id="out"></p>
+<script>
+// Same-origin probe for the two-window spike: reports where the browser
+// really put this window — to the opener by postMessage, and into the
+// title, which AppleScript reads as the window's name without any
+// JavaScript permission.
+function report(moment) {
+  const g = { moment, x: screenX, y: screenY,
+              outerW: outerWidth, outerH: outerHeight,
+              innerW: innerWidth, innerH: innerHeight };
+  document.title = `probe @ ${g.x},${g.y} ${g.outerW}x${g.outerH}`;
+  document.getElementById('out').textContent =
+    `${moment}: ${g.x},${g.y} outer ${g.outerW}×${g.outerH} inner ${g.innerW}×${g.innerH}`;
+  if (window.opener) window.opener.postMessage(g, '*');
+}
+for (const ms of [0, 500, 1500, 3000]) setTimeout(() => report(`${ms}ms`), ms);
+addEventListener('resize', () => setTimeout(() => report('resize'), 100));
+</script>
+</body>
+</html>
