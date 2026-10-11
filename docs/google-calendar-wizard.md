@@ -10,9 +10,9 @@
 
 ## 1. What it is for
 
-The practitioner who picked Google at the calendars card today meets
-two paragraphs of warning, a disabled "Create Google credentials"
-button and three bare fields. Google is the one provider where the
+Until 2026-10-11 the practitioner who picked Google at the calendars
+card met two paragraphs of warning, a disabled "Create Google
+credentials" button and three bare fields. Google is the one provider where the
 by-hand route has nine steps across two consoles and a spreadsheet's
 worth of ways to go wrong (`GOOGLE_SETUP.md` §troubleshooting). The
 sub-wizard gives that route the wizard's own shape — deep link, act,

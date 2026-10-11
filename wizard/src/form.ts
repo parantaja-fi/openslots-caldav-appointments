@@ -40,7 +40,8 @@ export const PROVIDER_HELP: Record<Provider, string[]> = {
     "Google is the awkward one: it needs a service account in Google Cloud " +
       "and its JSON key file, and each calendar shared with the service " +
       "account's address — the booking calendar with “Make changes to " +
-      "events”. If that sounds daunting, another provider is easier.",
+      "events”. The button below walks you through it, checking each part " +
+      "with Google.",
   ],
   radicale: [
     "Calendar address: http://your-server:5232/username/calendar-name/.",
