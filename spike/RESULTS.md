@@ -186,6 +186,32 @@ Chromium 141 headed, macOS 26 (2026-10-11, screen available 2336×1465 at
 0,45): Δ 0,0 0×0 on creation, after probe-fix and after probe-move — the
 features string is honoured exactly, and both corrections hold.
 
+What is documented for Safari (WebKit source, wpt.fyi stable runs
+17–27, WebKit bugs 23603/259093/263759/270532, Apple's guides;
+researched 2026-10-11): on a single display the requested left/top are
+honoured exactly; width/height mean the inner size, and the height
+comes out 28–32 px short of the request after clamping to the screen's
+usable area — cosmetic here. `popup=yes` adds nothing; the geometry
+keys alone make it a popup. Three ways the placement genuinely goes
+astray: the "Open pages in tabs instead of windows" setting on Always
+turns the popup into a tab and geometry is ignored (Safari refuses to
+move or size any window with more than one tab, deliberately, bug
+23603); Private Browsing's fingerprinting protection fakes the numbers
+(screenX/availLeft read 0, outer equals inner), so boxes computed from
+them land wrong; and with several displays, x is global but y and the
+clamping are measured per screen, arrangement-dependent — MDN calls the
+coordinate origin unreliable. The opener may moveTo/resizeTo the popup
+while it still sits on about:blank (same origin; verified by WPT for
+resizeTo in 17–27), though in the same task as window.open it may race
+the initial placement; once the popup has navigated cross-origin the
+call throws. No gesture is needed, only a top-level frame and no mouse
+button held down.
+
+The owner's machine has the one built-in display (3456×2234), so if an
+external was not attached during the Safari run, the suspects are the
+tabs setting, Private Browsing, or something undocumented — the probes
+decide.
+
 Safari: pending. Run, with the spike served on :8765:
 
     spike/safari-driver.sh auto
