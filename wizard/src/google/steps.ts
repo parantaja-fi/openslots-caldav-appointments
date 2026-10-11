@@ -9,7 +9,7 @@ import { settled, tickLine } from "../steps";
 export type AccessRole = "freeBusyReader" | "reader" | "writer" | "owner";
 
 // Least first: a share passes when it ranks at least its need.
-const LEVELS: AccessRole[] = ["freeBusyReader", "reader", "writer", "owner"];
+export const LEVELS: AccessRole[] = ["freeBusyReader", "reader", "writer", "owner"];
 
 /** Each level as Google Calendar's sharing menu words it. */
 const LEVEL_WORDS: Record<AccessRole, string> = {
