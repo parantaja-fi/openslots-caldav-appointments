@@ -170,7 +170,7 @@ describe("3.5 key", () => {
     expect(view.links).toEqual([]);
   });
 
-  // Failure table, row 1: the paste is refused before Google is asked.
+  // Failure table, rows 1 and 2: the key is refused before Google is asked.
   it("takes only a key file, and never hands out its private key", () => {
     const file = {
       type: "service_account",
@@ -302,7 +302,7 @@ describe("3.6 calendars", () => {
     ]);
   });
 
-  // Failure table, rows 5–9; row 10, the CalDAV API, is the health
+  // Failure table, rows 6–10; row 11, the CalDAV API, is the health
   // card's (plan §8, step 5).
   it("asks once for the Calendar API in the key's project, with Google's link", () => {
     const disabled: CalendarProbe = { state: "disabled", activationUrl: ACTIVATE };

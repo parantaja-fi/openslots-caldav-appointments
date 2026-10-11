@@ -44,13 +44,20 @@ Covered today, and to be kept covered on any change:
 ## Layer 2 — probes and clients over mocked `fetch` (exists)
 
 Files: `test/probes.test.ts`, `test/github.test.ts`,
-`test/brevo.test.ts`, `test/sealedbox.test.ts`.
+`test/brevo.test.ts`, `test/sealedbox.test.ts`,
+`test/google/token.test.ts`, `test/google/probe.test.ts`.
 
 The contract: each probe's mapping from HTTP reality to its typed
 verdict — answer, proven absence, and blindness (rate limit with and
 without an ETag cache, network down), plus the sealed-box writes
 cross-checked against tweetnacl. New probe behaviour gets its case here
 with `vi.stubGlobal("fetch", …)`; no test in this layer touches DOM.
+
+One live counterpart, opt-in: `test/google/probe.live.test.ts`, run as
+the `live:google` project against the spike's Google project and test
+calendars. The project exists only where the Worker's gitignored
+profile `worker/test/backends/google.vars` does; there `npm test` runs
+it with the rest, and CI, which has none, never runs it.
 
 ## Layer 3 — DOM and interaction (the gap)
 

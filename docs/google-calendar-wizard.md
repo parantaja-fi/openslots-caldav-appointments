@@ -113,10 +113,11 @@ Where each mistake surfaces, and what the practitioner reads:
 | Mistake | Caught at | Reads |
 |---|---|---|
 | Not JSON, or not a key file | 3.5, sync | as today |
+| A private key that does not import | 3.5, the pkcs8 import | "The private key in this file cannot be read — paste the file again, unchanged, or make a new key" |
 | Key from another project | 3.5 | "This key belongs to project X, 3.2 says Y" |
 | Key revoked, account or project deleted | 3.5, token exchange 400 `invalid_grant` | "Google no longer accepts this key — make a new one", Google's words beneath |
 | Clock badly off on this machine | 3.5, the same 400, its description naming `iat` and `exp` | "…check this computer's clock", Google's words beneath |
-| Calendar API not enabled | 3.6, 403 `SERVICE_DISABLED`, naming the project by *number* and carrying the enable link | "Enable the Google Calendar API in project X" — X the key's project ID: the project the API is off in, and 3.2's once 3.5 is green; the link from the body |
+| Calendar API not enabled | 3.6, 403 `SERVICE_DISABLED`, naming the project by *number* and carrying the enable link | "Enable the Google Calendar API in project X" — X the key's project ID: the project the API is off in, and 3.2's once 3.5 is green; the link from the body, else 3.3's library page in the key's project |
 | Wrong calendar ID, or not shared at all | 3.6, 404 (seen for an unknown ID; expected for an unshared one, §10 check 5) | "Google finds no such calendar for the service account — check the ID, then the sharing" |
 | A calendar the service account created | 3.6, owner is the account itself | "This calendar belongs to the service account, not to you — pick one of your own" |
 | Shared, but only free/busy or only to see | 3.6, access level | "Shared, but only to see events — the booking store needs “Make changes to events”" |
@@ -139,15 +140,20 @@ item of the calendars card is the other way to lose, visually.
 - `wizard/src/google/steps.ts` — pure: `Saved` plus the Google probe
   results in, seven `StepView`s out. Where the failure table above
   becomes code.
-- `wizard/src/google/token.ts` — the assertion and the exchange.
-  Some forty lines, the Worker's `googleAccessToken` with `fetch`
-  spelt the same and a narrower scope; §9 D5 says whether they are
-  shared or copied.
+- `wizard/src/google/token.ts` — the assertion and the exchange: the
+  Worker's `googleAccessToken`, copied (§9 D5), with `fetch` spelt the
+  same, `calendar.readonly` for its scope and no cache. It answers
+  with 3.5's verdict and, on acceptance, the token and its expiry
+  beside it, never inside it. A private key that fails the pkcs8
+  import is `unreadable`, and Google is never asked.
 - `wizard/src/google/probe.ts` — the calendar look-up as the service
-  account; swallows network failure into "blind" like `probes.ts`.
-  Google answers in three error shapes (§10, surprise 6): it keys on
-  `error.code`, then the ErrorInfo `reason` where present, else
-  `errors[0].reason`.
+  account: the metadata-only `events.list` and
+  `calendars.get?fields=dataOwner` in parallel, the worse answer
+  winning when they disagree; swallows network failure into "blind"
+  like `probes.ts`. Google answers in three error shapes (§10,
+  surprise 6): it keys on `error.code`, then the ErrorInfo `reason`
+  where present, else `errors[0].reason`. A `SERVICE_DISABLED` without
+  `metadata.activationUrl` leaves the link empty for 3.6 to fill (§3).
 - `validators.ts` gains `googleProjectId` and `googleCalendarId`
   (reducing a pasted address to its ID); `googleJson` stays as it is,
   and `parseGoogleKey` in `google/steps.ts` yields the key's
@@ -182,15 +188,16 @@ the fork.
 - Layer 1: every row of the failure table as a derivation test; the
   validators (`%40`, a pasted address reduced to its ID, a project ID
   that is not one).
-- Layer 2: `token.ts` against a fixed test key, the signature checked
-  with the public half; `probe.ts` over mocked `fetch` with Google's
-  real error bodies — §10 and the spike branch's `RESULTS.md` hold
-  them, the Calendar API's own `SERVICE_DISABLED` body still missing.
+- Layer 2: `token.ts` against a key pair made per run, the signature
+  checked with the public half; `probe.ts` over mocked `fetch` with
+  Google's real error bodies — §10 and the spike branch's `RESULTS.md`
+  hold them, the Calendar API's own `SERVICE_DISABLED` body still
+  missing and inferred from Drive's.
 - Layer 3: the view toggle, and paste → verify → green in a `jsdom`
   document once `init(document)` exists.
-- Live, opt-in like `live:radicale`: the probe against the spike's
-  project and test calendars, which is also where step 1 of §8 does
-  its checking.
+- Live, opt-in like `live:radicale`: `live:google`, the key and the
+  probe against the spike's project and test calendars, which is also
+  where step 1 of §8 does its checking.
 
 ## 6. What stays out, and why
 
