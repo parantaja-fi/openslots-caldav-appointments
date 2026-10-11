@@ -10,7 +10,10 @@ import {
 } from "./form";
 import { authenticate, createDomain, getDomain } from "./brevo";
 import type { GoogleProbeState } from "./google/steps";
-import { GOOGLE_PHASES, caldavAddress, deriveGoogleSteps } from "./google/steps";
+import { GOOGLE_PHASES, caldavAddress, deriveGoogleSteps, parseGoogleKey } from "./google/steps";
+import { probeCalendar } from "./google/probe";
+import type { AccessToken } from "./google/token";
+import { requestToken } from "./google/token";
 import type { RepoInfo } from "./github";
 import {
   GithubError,
@@ -59,6 +62,8 @@ const resumedFrom = state.savedAt;
 const probes: ProbeState = {};
 const cache: GithubCache = { answers: {} };
 const google: GoogleProbeState = {};
+// The service account's token: tab memory only, like the key it is from.
+let googleToken: AccessToken | undefined;
 
 // Secret values never leave this map for anywhere but the clipboard —
 // not localStorage, not the network (index.html says so to the user).
@@ -223,6 +228,18 @@ function commitField(entry: ManifestEntry, value: string): void {
   }
   // A key pasted on resume lets the poll ask Brevo again straight away.
   if (entry.name === "BREVO_API_KEY" && value) void poll();
+  // A new key is a new question for Google: the old key's answers go.
+  if (entry.name === "GOOGLE_SERVICE_ACCOUNT_JSON") {
+    googleToken = undefined;
+    delete google.key;
+    delete google.availability;
+    delete google.store;
+    if (VALIDATORS["googleJson"]!(value).ok) {
+      state.form.google.clientEmail = parseGoogleKey(value)?.clientEmail ?? "";
+      google.key = { state: "unasked" };
+      void poll();
+    }
+  }
   save(state);
   renderAfterFocusMove();
 }
@@ -1340,6 +1357,42 @@ async function poll(): Promise<void> {
         })().catch(() => {
           // a network or key hiccup — the last known state stands
         }),
+      );
+    }
+    // Google's verdicts on the key and on the calendars as the service
+    // account sees them, askable only while the key is in tab memory. The
+    // token is asked for again a minute before it lapses, and a refused
+    // key on every lap: a clock put right recovers by itself. The
+    // calendars are asked until 3.6 is green (plan §3).
+    const keyFile = secrets["GOOGLE_SERVICE_ACCOUNT_JSON"];
+    if (state.form.provider === "google" && keyFile && google.key) {
+      // A key replaced mid-lap leaves this lap's answers stale.
+      const held = (): boolean => secrets["GOOGLE_SERVICE_ACCOUNT_JSON"] === keyFile;
+      jobs.push(
+        (async () => {
+          if (!googleToken || googleToken.expiresAt - Date.now() < 60_000) {
+            const { probe, token } = await requestToken(keyFile);
+            if (!held()) return;
+            google.key = probe;
+            googleToken = token;
+          }
+          const calendars = deriveGoogleSteps(state, google).find(
+            (s) => s.id === "google-calendars",
+          )!.status;
+          if (!googleToken || calendars === "green" || calendars === "open") return;
+          const bearer = googleToken.value;
+          const ids = state.form.google.calendarIds;
+          const roles: ("availability" | "store")[] = state.form.sameCalendar
+            ? ["availability"]
+            : ["availability", "store"];
+          await Promise.all(
+            roles.map(async (role) => {
+              const id = ids[role];
+              const probe = await probeCalendar(bearer, id);
+              if (held() && ids[role] === id) google[role] = probe;
+            }),
+          );
+        })(),
       );
     }
     await Promise.all(jobs);
