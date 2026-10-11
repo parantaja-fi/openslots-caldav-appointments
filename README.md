@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml)
 
-> **Pre-release; not code complete.** Three of five milestones are met
-> (see [ROADMAP.md](ROADMAP.md)). The operator guide
-> ([SETUP.md](SETUP.md)) is a first draft, tested by nobody but the
-> author. API field names, configuration and storage layout may still
-> change without notice.
+> **Pre-release; not code complete.** The 0.1.0 release waits on the
+> setup wizard passing its acceptance walk (see [ROADMAP.md](ROADMAP.md)).
+> The wizard and the operator guide ([SETUP.md](SETUP.md)) have been
+> tested only by the author. API field names, configuration and storage
+> layout will still change without notice.
 >
 > **Largely written by an LLM.** Most of the code and documentation here
 > was written by Claude under the author's direction. It has not been
@@ -37,35 +37,42 @@ Three parts:
   the same calendar, or separate — e.g. availability in a calendar the
   system cannot modify.
 
+## Setting up your own
+
+Open the setup wizard at
+<https://parantaja-fi.github.io/openslots-caldav-appointments/wizard/>.
+It walks you from two free accounts, GitHub and Cloudflare, to a first
+test booking, and checks every step it can see from outside.
+Optional confirmation emails need a third free account, at Brevo,
+and a domain of your own whose DNS you can edit.
+
+Nothing you paste into the wizard passes through a server of this project.
+There is no server: the wizard seals your passwords and keys in your browser
+and writes them straight into your own fork on GitHub.
+Your new booking page then runs on your GitHub Pages,
+the API on your Cloudflare account.
+
+[SETUP.md](SETUP.md) holds the why behind every step, and the way to
+do it all by hand, if you decide not to trust the wizard.
+
 ## Status
 
-M1 and M2 met: the Worker API and the SPA are built, and an automated
-suite runs the whole flow — list, book, lose a race, cancel — against a
-real CalDAV backend, with the two logical calendars both separate and
-coinciding. That suite is green against Radicale, Nextcloud and Google.
+The [ROADMAP.md](ROADMAP.md) milestones up to M5 are met, and so are the
+first three stages of M6. Milestone M6.4 is under way — the wizard's
+acceptance walk — which 0.1.0 waits on.
+Reconfiguration, and a walk by someone other than the author, follow the
+0.1.0 release.
 
-M3 is met: a booking sends the customer a confirmation carrying a
-cancellation link, and the practitioner a notice, through the Brevo
-transactional API; the round trip runs in CI against a real mailbox.
-Configure no API key and the Worker sends nothing and says so, which is
-how it runs in development and in CI. M5 is met in full
-([ROADMAP.md](ROADMAP.md)): the health endpoint, the fork-deploy
-workflow (*Run workflow* on a configured fork deploys both halves and
-gates on health), and the credential-free verifier served at
-`/wizard/`, a checklist that watches each manual setup step turn
-green. Next is M6, the wizard's provisioning stage; 0.1.0 is the
-wizard passing its acceptance test.
-
-CI builds and typechecks both halves, runs the tests that need no
-backend, and runs the live suite against a Radicale it starts itself. The
-credentialed backends, and the email round trip, run on `main`, on
-manual dispatch and weekly. The browser end-to-end test runs locally
-only.
+CI builds and typechecks all three packages, runs the tests that need no
+backend — the wizard's included — and runs the live suite against a
+Radicale it starts itself. The credentialed backends, and the email
+round trip, run on `main`, on manual dispatch and weekly. The browser
+end-to-end test runs locally only.
 
 ## Development
 
 Three npm packages — `worker/`, `frontend/` and `wizard/` (the setup
-checklist page) — each with `dev`, `build` and `typecheck`.
+wizard) — each with `dev`, `build` and `typecheck`.
 
 ```sh
 cd worker && npm ci && npm run keygen   # a SIGNING_KEY_JWK for .dev.vars
@@ -150,7 +157,7 @@ touching local testing or production), `TESTMAIL_APIKEY` and
 
 | Document | Contents |
 |---|---|
-| [SETUP.md](SETUP.md) | Setting up a deployment of your own, start to finish |
+| [SETUP.md](SETUP.md) | Setting up by hand, and the why behind each wizard step |
 | [SCOPE.md](SCOPE.md) | What is being built, for whom, and what is out |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The mechanisms: topology, calendar model, API, security |
 | [ROADMAP.md](ROADMAP.md) | Milestones from here to 0.2.0 |
