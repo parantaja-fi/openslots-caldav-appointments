@@ -129,7 +129,7 @@ Where each mistake surfaces, and what the practitioner reads:
 **A view in the same document, not a second page.** The hash (`#google`)
 selects it; the render loop draws the seven cards in place of the step
 list, their markers reading 3.1–3.7 so the practitioner knows they are
-inside step 3, the rail shows the same, "Back" clears the hash. The walk notes asked for "a page" and that is what the
+inside step 3, the rail shows the same, "Back" returns to the calendars card. The walk notes asked for "a page" and that is what the
 practitioner sees. A second HTML page would drop the key at
 navigation — secrets live in tab memory by rule, and a double paste
 is worse than a hash. Seven cards, two of them verifying, inside one accordion
@@ -158,8 +158,8 @@ item of the calendars card is the other way to lose, visually.
   (reducing a pasted address to its ID); `googleJson` stays as it is,
   and `parseGoogleKey` in `google/steps.ts` yields the key's
   non-secret fields, never the private key.
-- Rendering joins `main.ts` through whatever §7 lifts out; the Google
-  branch of `renderConfig` becomes the summary plus the live button.
+- Rendering is `main.ts`'s own, drawing either list (§7); the Google
+  branch of `renderConfig` is the live button plus 3.7's summary.
 
 **State.** `FormState` gains `google: { projectId, clientEmail,
 calendarIds: { availability, store } }`, each a validated value or
@@ -194,7 +194,7 @@ the fork.
   hold them, the Calendar API's own `SERVICE_DISABLED` body still
   missing and inferred from Drive's.
 - Layer 3: the view toggle, and paste → verify → green in a `jsdom`
-  document once `init(document)` exists.
+  document: `test/google/view.test.ts`, importing `main.ts` as it is.
 - Live, opt-in like `live:radicale`: `live:google`, the key and the
   probe against the spike's project and test calendars, which is also
   where step 1 of §8 does its checking.
@@ -219,24 +219,28 @@ the fork.
 - **Per-role providers.** M6.6. Card 3.6 is already per role; when
   providers become per role it shows the Google ones only.
 
-## 7. Lifted out of M6.4 first
+## 7. Lifted out of M6.4
 
-What the seven cards reuse from `main.ts` and `steps.ts`, to be made
-callable rather than inlined once M6.4 holds still:
+What the seven cards share with the main list, made callable on
+2026-10-11 rather than copied:
 
-- the card skeleton, `fillStepBody`, status marker and rail, with the
-  static `<ol>` in `index.html` either duplicated for the view or
-  generated;
-- the attestation stamps (`done` / `edited` / `confirmed`) and
-  `pressConfirm`;
-- `fieldRow`, `toggle`, `why`, `linkBtn`, `linksRow`, `bareLink`,
-  `replaceKeepingFocus`;
-- the `secrets` map as a module with a typed accessor, and a poll loop
-  that takes its probes as a list;
-- the `init(document)` entry point `wizard-testing.md` already wants.
+- the card renderer: `renderSteps` draws either list into its own
+  static `<ol>` in `index.html` — accordion, `fillStepBody`, markers
+  (3.1–3.7 in the view) — its per-card memory keyed by step ids, which
+  are unique across both;
+- `derivePhases` over a given phase table, `GOOGLE_PHASES` giving the
+  rail one chip per card;
+- the field row: `inputRow` builds one from what it shows and a commit
+  callback; `fieldRow` wraps it for the manifest's rows, and the
+  Google rows validate into `state.form.google` through it.
 
-Only what the sub-wizard needs; no component is generalised on
-speculation.
+Deliberately not lifted, pending the baseline's own rework: the
+`secrets` map as a module (the hand-over writes into it in place), the
+`init(document)` entry point (the layer-3 test imports `main.ts` as it
+is) and the link and window chrome (`linkBtn`, `linksRow`, `bareLink`,
+used as they stand). The attestation stamps and `pressConfirm` needed
+no lifting, and the poll loop gained a Google job rather than becoming
+a list of probes. Nothing is generalised on speculation.
 
 ## 8. Steps, in order
 
@@ -253,7 +257,7 @@ speculation.
 2. Layer 1: validators, `google/steps.ts`, tests. Nothing visible.
 3. Layer 2: `token.ts`, `probe.ts`, tests; the live test.
 4. The §7 lift from the settled M6.4, then the view, hand-over and the
-   live button.
+   live button. Done 2026-10-11.
 5. The health hint; `SETUP.md` Part 1's Google rows point at the
    wizard; `ROADMAP.md` records the milestone.
 6. A walk with a fresh Google account, Workspace and personal both if

@@ -59,12 +59,22 @@ calendars. The project exists only where the Worker's gitignored
 profile `worker/test/backends/google.vars` does; there `npm test` runs
 it with the rest, and CI, which has none, never runs it.
 
-## Layer 3 — DOM and interaction (the gap)
+## Layer 3 — DOM and interaction (begun)
 
-`main.ts` (~850 lines) is untested: it is glue, but some of the glue
-is behaviour the walks keep finding. If any of the following is touched,
-add a jsdom-based test first — load the `index.html` body into jsdom,
-import `main.ts`, drive events, assert on the DOM:
+File: `test/google/view.test.ts`.
+
+The harness: the `index.html` body loaded into jsdom, `fetch` stubbed
+and `setInterval` faked before `main.ts` is imported — it runs at
+import — then events driven and the DOM asserted on. Node's own
+`localStorage`, unavailable without `--localstorage-file`, shadows
+jsdom's, so the test stubs it. Its contract so far: the Google view
+standing in for the step list and Back returning, and a pasted key and
+calendar ID turning 3.5 and 3.6 green, the calendars card then
+confirming on the handed-over address.
+
+The rest of `main.ts` (~1500 lines) is untested: it is glue, but some
+of the glue is behaviour the walks keep finding. If any of the
+following is touched, add a case in this harness first:
 
 1. **Focus-hold accordion** — a card holding focus never closes or
    scrolls away when its status turns settled; it closes on the next
@@ -80,9 +90,10 @@ import `main.ts`, drive events, assert on the DOM:
 5. **Review list masking** — secrets render as bullets, copy buttons
    carry real values.
 
-One refactoring is fair game when the first such test is written:
-`main.ts` runs at import; extracting an `init(document)` entry point
-makes the harness trivial and changes nothing else.
+The test imports `main.ts` as it is, with no `init`, so its cases
+share one document and one state. The cleaner future is still one
+refactoring away: an `init(document)` entry point gives each case its
+own and changes nothing else.
 
 ## Layer 4 — scripted browser (Playwright, on demand)
 
