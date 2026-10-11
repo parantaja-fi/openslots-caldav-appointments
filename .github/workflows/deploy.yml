@@ -97,8 +97,10 @@ jobs:
       # CLOUDFLARE_ACCOUNT_ID is optional: when unset, the account is read
       # from the token itself (the workers token template carries Account
       # Settings Read; verified 2026-08-11). Ambiguity — a token seeing
-      # several accounts — is an error, not a guess. The id never reaches
-      # the log either way.
+      # several accounts — is an error, not a guess. A refused token is
+      # reported as refused, with Cloudflare's own words, never as one
+      # that sees no account (the 2026-09-09 run). The id never reaches the
+      # log either way.
       - name: Resolve the Cloudflare account
         id: account
         env:
@@ -106,14 +108,31 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            ids=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              https://api.cloudflare.com/client/v4/accounts | jq -r '.result[].id')
-            if [ "$(printf '%s\n' "$ids" | grep -c .)" != 1 ]; then
-              echo "The token must see exactly one Cloudflare account;" \
-                   "set the CLOUDFLARE_ACCOUNT_ID secret to pick one."
+            accounts="$RUNNER_TEMP/accounts.json"
+            status=$(curl -s -o "$accounts" -w '%{http_code}' \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              https://api.cloudflare.com/client/v4/accounts) || true
+            if [ "$status" = 000 ]; then
+              echo "Cloudflare's API could not be reached."
+              exit 1
+            elif [ "$status" != 200 ]; then
+              echo "Cloudflare refused the token (HTTP $status:" \
+                   "$(jq -r '[.errors[]?.message] | join("; ")' "$accounts" 2>/dev/null))." \
+                   "Check the CLOUDFLARE_API_TOKEN secret: a mistyped, expired" \
+                   "or revoked token fails here."
               exit 1
             fi
-            CLOUDFLARE_ACCOUNT_ID=$ids
+            n=$(jq '.result | length' "$accounts")
+            case $n in
+              1) CLOUDFLARE_ACCOUNT_ID=$(jq -r '.result[0].id' "$accounts") ;;
+              0) echo "The token sees no Cloudflare account. Create it from the" \
+                      "“Edit Cloudflare Workers” template, which can read the" \
+                      "account, or set the CLOUDFLARE_ACCOUNT_ID secret."
+                 exit 1 ;;
+              *) echo "The token sees $n Cloudflare accounts; set the" \
+                      "CLOUDFLARE_ACCOUNT_ID secret to pick one."
+                 exit 1 ;;
+            esac
           fi
           echo "::add-mask::$CLOUDFLARE_ACCOUNT_ID"
           echo "id=$CLOUDFLARE_ACCOUNT_ID" >> "$GITHUB_OUTPUT"

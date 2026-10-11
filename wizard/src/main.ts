@@ -492,11 +492,13 @@ function nextcloudChildren(fields: FieldView[]): HTMLElement[] {
     why(
       "Create an app password for it: Security → “Create new app " +
         "password”. The login stays your ordinary Nextcloud login; only " +
-        "the password is minted for this.",
+        "the password is minted for this. Name the app password so that " +
+        "you recognise it later, e.g. " +
+        `${state.inputs.owner || "<your-github-username>"}/${state.inputs.repo}.`,
     ),
     linksRow(linkBtn("Create an app password", server && `${server}/settings/user/security`)),
-    ...row("AVAILABILITY_USERNAME", "Availability login"),
-    ...row("AVAILABILITY_PASSWORD"),
+    ...row("AVAILABILITY_USERNAME", "New App Password login"),
+    ...row("AVAILABILITY_PASSWORD", "New App Password password"),
   ];
   if (!state.form.sameCalendar) {
     children.push(
