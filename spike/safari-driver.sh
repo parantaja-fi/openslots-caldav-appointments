@@ -100,43 +100,44 @@ windows)
     set out to ""
     repeat with i from 1 to count of windows
       set w to window i
-      set out to out & i & " | " & (name of w) & " | bounds " & (item 1 of (bounds of w)) & "," & (item 2 of (bounds of w)) & " .. " & (item 3 of (bounds of w)) & "," & (item 4 of (bounds of w)) & linefeed
+      set b to bounds of w
+      set out to out & i & " | " & (name of w) & " | bounds " & (item 1 of b) & "," & (item 2 of b) & " .. " & (item 3 of b) & "," & (item 4 of b) & linefeed
     end repeat
     return out
   end tell' ;;
 auto)
-  print "— Safari $($0 ping) —"
+  printf "%s\n" "— Safari $($0 ping) —"
   $0 open >/dev/null
   sleep 2
   if ! $0 js >/dev/null 2>&1; then
-    print "do JavaScript is off: enable Safari → Settings → Developer →"
-    print "\"Allow JavaScript from Apple Events\", then rerun."
+    printf "%s\n" "do JavaScript is off: enable Safari → Settings → Developer →"
+    printf "%s\n" "\"Allow JavaScript from Apple Events\", then rerun."
     exit 1
   fi
-  print "— scripted click on the probe (no user activation) —"
+  printf "%s\n" "— scripted click on the probe (no user activation) —"
   $0 click probe-btn >/dev/null
   sleep 4
-  print "— real Return press on the probe button —"
+  printf "%s\n" "— real Return press on the probe button —"
   $0 press probe-btn >/dev/null
   sleep 4
-  print "— probe-fix: re-create, correct the blank, navigate —"
+  printf "%s\n" "— probe-fix: re-create, correct the blank, navigate —"
   $0 press probe-fix-btn >/dev/null
   sleep 4
-  print "— probe-move: correct the loaded probe —"
+  printf "%s\n" "— probe-move: correct the loaded probe —"
   $0 press probe-move-btn >/dev/null
   sleep 2
-  print "— spike geometry line —"
+  printf "%s\n" "— spike geometry line —"
   $0 geometry
-  print "— spike log (newest first) —"
+  printf "%s\n" "— spike log (newest first) —"
   $0 log
-  print "— Safari windows —"
+  printf "%s\n" "— Safari windows —"
   $0 windows ;;
 close-spike)
   osascript - <<'EOS'
 set base to system attribute "SPIKE_URL"
 tell application "Safari"
   repeat with w in windows
-    if name of w starts with "probe @" then
+    if name of w contains "probe @" then
       close w
     else
       repeat with t in tabs of w

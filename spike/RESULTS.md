@@ -127,8 +127,9 @@ own. Every page worked, Cloudflare's included. The log: the first click
 created the window and every later one reused it, and the handle was
 alive 3 s after each page — Safari does not cut it on Cloudflare's COOP,
 where Chromium does. Close closed the window after foreign pages. Tiling
-did not work as intended; not investigated yet. Relocation, reload,
-forget, blocked and empty-URL runs were not recorded.
+did not work as intended — resolved: Safari ignores the features'
+geometry, see "Geometry" below. Reload, forget, blocked and empty-URL
+runs were not recorded.
 
 | Target | Separate window? | Reused on the second click? | On the right part? | Handle alive after load? | Notes |
 |---|---|---|---|---|---|
@@ -159,7 +160,7 @@ forget, blocked and empty-URL runs were not recorded.
 
 | Scenario | Result | Notes |
 |---|---|---|
-| Relocation: moves left; the relocated copy creates the work window, on the right | | |
+| Relocation: moves left; the relocated copy creates the work window, on the right | ✗/✓ | both opened at their opener's frame (geometry below); Re-tile then placed the copy exactly |
 | Reload, then a target: re-acquired by name, no second window | | |
 | Forget handle, then a target: the same | | |
 | Work window closed by hand, then a target: created in the same place | | |
@@ -207,23 +208,33 @@ the initial placement; once the popup has navigated cross-origin the
 call throws. No gesture is needed, only a top-level frame and no mouse
 button held down.
 
-The owner's machine has the one built-in display (3456×2234), so if an
-external was not attached during the Safari run, the suspects are the
-tabs setting, Private Browsing, or something undocumented — the probes
-decide.
+Safari 26.6.2, measured 2026-10-11 on the one built-in display (screen
+available 2336×1465 at 0,45; normal browsing, not private), via
+spike/safari-driver.sh — it needs Automation → Safari, "Allow
+JavaScript from Apple Events", and Accessibility for the real Return
+press; each prompt is charged to the app hosting the shell, and until
+answered the Apple Event times out at two minutes with −1712:
 
-Safari: pending. Run, with the spike served on :8765:
-
-    spike/safari-driver.sh auto
-
-It needs three one-off permissions, each charged to the app hosting the
-shell: Automation → Safari (its prompt was still unanswered at the first
-attempt — Apple Events time out at two minutes, error −1712, until it is
-answered), Safari → Settings → Developer → "Allow JavaScript from Apple
-Events", and Accessibility for the real Return press, which carries the
-user activation a scripted click does not. The run also records, in
-passing, whether a gesture-less window.open is blocked (the scripted
-click) and what a real activation does (the press).
+- **The features' geometry is ignored, with and without a user
+  activation** — contradicting the wpt.fyi runs, which exercise
+  WebKit's machinery, not Safari's window policy. The new window clones
+  the opener's frame: created from the full-width spike, the probe read
+  `Δ -934,0 232×0` — the opener's own position and size — for a real
+  Return press and a scripted click alike. Pop-ups, incidentally, were
+  not blocked even without the activation.
+- **moveTo/resizeTo on the still-blank window before navigating is
+  exact**: probe-fix read `Δ 0,0 0×0` on every run, with activation and
+  without. resizeTo sets the outer size in both engines (Safari's inner
+  came to 1465 − 32 for the toolbar; Chromium's 1465 − 67).
+- This also explains the owner's morning run: the relocation and the
+  work window both opened at their opener's frame, and the one
+  correction tried — Re-tile, a moveTo/resizeTo — placed the relocated
+  copy exactly (its window still sat on the planned wizard box,
+  0,45 .. 934,1510, hours later).
+- **The wizard's fix is verified in Safari**: with workWindow.ts
+  correcting the blank window, the built wizard on :4174 put its work
+  window at 934,45 .. 2336,1510 — the planned box to the pixel — from a
+  scripted, activation-less click, the worst case measured.
 
 ## Gate (§3.5)
 
