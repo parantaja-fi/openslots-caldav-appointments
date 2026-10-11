@@ -604,10 +604,17 @@ function renderConfig(fields: FieldView[]): void {
   if (state.form.emailOn) {
     emailChildren.push(
       why(
+        "Email takes two more things: a free Brevo account, and a domain of " +
+          "your own whose DNS records you can edit.",
+      ),
+      why(
         "The key: Brevo → Settings → SMTP & API → API keys → “Generate " +
           "a new API key”.",
       ),
-      linksRow(linkBtn("Generate a Brevo API key", "https://app.brevo.com/settings/keys/api")),
+      linksRow(
+        linkBtn("Brevo signup", "https://onboarding.brevo.com/account/register"),
+        linkBtn("Generate a Brevo API key", "https://app.brevo.com/settings/keys/api"),
+      ),
     );
   }
   emailChildren.push(...rows("email", false));
