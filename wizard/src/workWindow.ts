@@ -35,19 +35,27 @@ export interface ScreenArea {
   availTop?: number;
 }
 
+/** The work window's box: the right of the screen, beside the wizard. */
+export function workBox(s: ScreenArea): { left: number; top: number; width: number; height: number } {
+  const wizard = Math.round(s.availWidth * WIZARD_FRACTION);
+  return {
+    left: (s.availLeft ?? 0) + wizard,
+    top: s.availTop ?? 0,
+    width: s.availWidth - wizard,
+    height: s.availHeight,
+  };
+}
+
 /** Window features placing the work window on the right of the screen. */
 export function tile(s: ScreenArea): string {
-  const wizard = Math.round(s.availWidth * WIZARD_FRACTION);
-  return (
-    `popup=yes,left=${(s.availLeft ?? 0) + wizard},top=${s.availTop ?? 0},` +
-    `width=${s.availWidth - wizard},height=${s.availHeight}`
-  );
+  const b = workBox(s);
+  return `popup=yes,left=${b.left},top=${b.top},width=${b.width},height=${b.height}`;
 }
 
 // Phones and tablets have no windows to place: there the work window is
 // a tab — still one, reused by name.
-function features(): string {
-  return screen.availWidth >= 1100 && matchMedia("(pointer: fine)").matches ? tile(screen) : "";
+function tiled(): boolean {
+  return screen.availWidth >= 1100 && matchMedia("(pointer: fine)").matches;
 }
 
 // Module scope, never the saved state: a handle does not serialise.
@@ -64,8 +72,16 @@ export function show(url: string): Shown {
     work.focus();
     return "reused";
   }
-  const w = window.open("", WORK_NAME, features());
+  const w = window.open("", WORK_NAME, tiled() ? tile(screen) : "");
   if (!w) return "blocked";
+  if (tiled()) {
+    // Safari ignores the features' geometry and clones the opener's
+    // frame; placing the still-blank window by hand is exact in every
+    // engine measured, and a tab ignores it (spike/RESULTS.md).
+    const b = workBox(screen);
+    w.moveTo(b.left, b.top);
+    w.resizeTo(b.width, b.height);
+  }
   w.location.replace(url); // a fresh window's about:blank leaves no history entry
   w.focus();
   work = w;

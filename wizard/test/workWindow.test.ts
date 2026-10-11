@@ -22,6 +22,12 @@ function fakeWindow() {
     focus() {
       w.focused++;
     },
+    moveTo(x: number, y: number) {
+      w.visits.push(`moveTo ${x},${y}`);
+    },
+    resizeTo(width: number, height: number) {
+      w.visits.push(`resizeTo ${width}×${height}`);
+    },
   };
   return w;
 }
@@ -68,7 +74,9 @@ describe("show", () => {
     const { show } = await load();
     expect(show(URL_A)).toBe("created");
     expect(calls).toEqual([["", WORK_NAME, tile(LAPTOP)]]);
-    expect(w.visits).toEqual([`replace ${URL_A}`]);
+    // Safari ignores the features' geometry: the blank window is placed
+    // by hand before it navigates.
+    expect(w.visits).toEqual(["moveTo 576,0", "resizeTo 864×875", `replace ${URL_A}`]);
     expect(w.focused).toBe(1);
   });
 
@@ -79,7 +87,7 @@ describe("show", () => {
     show(URL_A);
     expect(show(URL_B)).toBe("reused");
     expect(calls).toHaveLength(1);
-    expect(w.visits).toEqual([`replace ${URL_A}`, `assign ${URL_B}`]);
+    expect(w.visits).toEqual(["moveTo 576,0", "resizeTo 864×875", `replace ${URL_A}`, `assign ${URL_B}`]);
     expect(w.focused).toBe(2);
   });
 
@@ -100,17 +108,21 @@ describe("show", () => {
     first.closed = true;
     expect(show(URL_B)).toBe("created");
     expect(calls).toHaveLength(2);
-    expect(first.visits).toEqual([`replace ${URL_A}`]);
-    expect(second.visits).toEqual([`replace ${URL_B}`]);
+    expect(first.visits).toEqual(["moveTo 576,0", "resizeTo 864×875", `replace ${URL_A}`]);
+    expect(second.visits).toEqual(["moveTo 576,0", "resizeTo 864×875", `replace ${URL_B}`]);
   });
 
   it("asks for a plain tab, no placement, on a narrow screen or without a fine pointer", async () => {
-    let calls = browser([fakeWindow()], { availWidth: 1024 });
+    let w = fakeWindow();
+    let calls = browser([w], { availWidth: 1024 });
     (await load()).show(URL_A);
     expect(calls[0]?.[2]).toBe("");
-    calls = browser([fakeWindow()], { fine: false });
+    expect(w.visits).toEqual([`replace ${URL_A}`]);
+    w = fakeWindow();
+    calls = browser([w], { fine: false });
     (await load()).show(URL_A);
     expect(calls[0]?.[2]).toBe("");
+    expect(w.visits).toEqual([`replace ${URL_A}`]);
   });
 });
 
@@ -122,7 +134,7 @@ describe("reveal", () => {
     show(URL_A);
     reveal();
     expect(w.focused).toBe(2);
-    expect(w.visits).toEqual([`replace ${URL_A}`]);
+    expect(w.visits).toEqual(["moveTo 576,0", "resizeTo 864×875", `replace ${URL_A}`]);
     expect(calls).toHaveLength(1);
   });
 
@@ -134,6 +146,6 @@ describe("reveal", () => {
     show(URL_B);
     first.closed = true;
     reveal();
-    expect(second.visits).toEqual([`replace ${URL_B}`]);
+    expect(second.visits).toEqual(["moveTo 576,0", "resizeTo 864×875", `replace ${URL_B}`]);
   });
 });
