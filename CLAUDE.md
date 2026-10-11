@@ -13,6 +13,8 @@ database, ever.
   reference them. When two documents describe the same mechanism they
   diverge.
 - `ROADMAP.md` — milestones to 0.2.0; the first release is 0.1.0.
+- `LESSONS.md` — dated, hard-won facts (browser quirks, test and
+  automation gotchas); read the relevant entry before re-measuring one.
 - `../parantaja-booking-calendar-spikes/LEARNINGS.md` — rationale from the
   spike phase; consult before re-deriving a settled decision.
 
