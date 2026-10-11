@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { AccessRole, CalendarProbe, GoogleProbeState } from "../../src/google/steps";
-import { caldavAddress, deriveGoogleSteps, parseGoogleKey } from "../../src/google/steps";
+import {
+  GOOGLE_PHASES,
+  caldavAddress,
+  deriveGoogleSteps,
+  parseGoogleKey,
+} from "../../src/google/steps";
 import type { Saved } from "../../src/state";
-import { NOT_KNOWN, settled } from "../../src/steps";
+import { NOT_KNOWN, derivePhases, settled } from "../../src/steps";
 import { VALIDATORS } from "../../src/validators";
 
 const TICK = 1_757_000_000_000; // an arbitrary moment in 2025
@@ -115,6 +120,26 @@ describe("the sub-wizard", () => {
       `Service account: ${SA}.`,
       "Calendar: “Vastaanotto”, for availability and bookings alike.",
     ]);
+  });
+
+  it("compresses to a rail of a chip per card, standing on the first unsettled", () => {
+    const steps = deriveGoogleSteps(saved({}, TICKED), { key: ACCEPTED });
+    const phases = derivePhases(steps, GOOGLE_PHASES);
+    expect(phases.map((p) => p.label)).toEqual([
+      "3.1 Account",
+      "3.2 Project",
+      "3.3 APIs",
+      "3.4 Service account",
+      "3.5 Key",
+      "3.6 Calendars",
+      "3.7 Back",
+    ]);
+    expect(phases.map((p) => p.status)).toEqual([
+      ...Array(5).fill("green"),
+      "current",
+      "todo",
+    ]);
+    expect(phases.map((p) => p.anchor)).toEqual(steps.map((s) => s.id));
   });
 });
 

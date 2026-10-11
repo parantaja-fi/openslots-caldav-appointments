@@ -456,3 +456,14 @@ export function deriveGoogleSteps(saved: Saved, probes: GoogleProbeState): StepV
 
   return steps;
 }
+
+/** The sub-wizard's rail: a chip per card. */
+export const GOOGLE_PHASES: [string, string[]][] = [
+  ["3.1 Account", ["google-account"]],
+  ["3.2 Project", ["google-project"]],
+  ["3.3 APIs", ["google-apis"]],
+  ["3.4 Service account", ["google-service-account"]],
+  ["3.5 Key", ["google-key"]],
+  ["3.6 Calendars", ["google-calendars"]],
+  ["3.7 Back", ["google-back"]],
+];

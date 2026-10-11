@@ -746,10 +746,10 @@ const PHASES: [string, string[]][] = [
 /** The journey compressed to a rail: a phase is green when every step
  * of it is settled (green or attested), and the first phase not yet
  * settled is where the practitioner stands. */
-export function derivePhases(steps: StepView[]): PhaseView[] {
+export function derivePhases(steps: StepView[], phases = PHASES): PhaseView[] {
   const byId = new Map(steps.map((s) => [s.id, s.status]));
   let currentFound = false;
-  return PHASES.map(([label, ids]) => {
+  return phases.map(([label, ids]) => {
     const anchor = ids[0]!;
     if (ids.every((id) => settled(byId.get(id) ?? "open")))
       return { label, status: "green" as const, anchor };

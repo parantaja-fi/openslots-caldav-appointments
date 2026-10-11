@@ -204,41 +204,71 @@ function commitField(entry: ManifestEntry, value: string): void {
   renderAfterFocusMove();
 }
 
-function fieldRow(view: FieldView, labelText?: string): HTMLElement {
-  const { entry } = view;
+interface RowSpec {
+  id: string;
+  label: string;
+  value: string;
+  help: string;
+  placeholder?: string;
+  multiline?: boolean;
+  masked?: boolean;
+  message?: string;
+  /** False appends "(optional)" to the label. */
+  required?: boolean;
+}
+
+function inputRow(spec: RowSpec, commit: (value: string) => void): HTMLElement {
   const row = document.createElement("div");
-  row.className = view.value && !view.valid ? "fieldrow invalid" : "fieldrow";
+  row.className = spec.message ? "fieldrow invalid" : "fieldrow";
 
   const label = document.createElement("label");
-  label.htmlFor = `f-${entry.name}`;
-  label.textContent = (labelText ?? entry.label) + (view.required ? "" : " (optional)");
+  label.htmlFor = spec.id;
+  label.textContent = spec.label + (spec.required === false ? " (optional)" : "");
   row.append(label);
 
-  const field = entry.multiline
+  const field = spec.multiline
     ? document.createElement("textarea")
     : document.createElement("input");
-  field.id = `f-${entry.name}`;
-  field.value = view.value;
+  field.id = spec.id;
+  field.value = spec.value;
   field.spellcheck = false;
   field.autocomplete = "off";
   if (field instanceof HTMLTextAreaElement) field.rows = 4;
-  else field.type = entry.masked ? "password" : "text";
-  if (entry.placeholder) field.placeholder = entry.placeholder;
-  field.addEventListener("change", () => commitField(entry, field.value));
+  else field.type = spec.masked ? "password" : "text";
+  if (spec.placeholder) field.placeholder = spec.placeholder;
+  field.addEventListener("change", () => commit(field.value));
   row.append(field);
 
-  if (view.message) {
+  if (spec.message) {
     const err = document.createElement("span");
     err.className = "err";
-    err.textContent = view.message;
+    err.textContent = spec.message;
     row.append(err);
   }
   const help = document.createElement("span");
   help.className = "help";
-  help.textContent = entry.help;
+  help.textContent = spec.help;
   row.append(help);
 
   return row;
+}
+
+function fieldRow(view: FieldView, labelText?: string): HTMLElement {
+  const { entry } = view;
+  return inputRow(
+    {
+      id: `f-${entry.name}`,
+      label: labelText ?? entry.label,
+      value: view.value,
+      help: entry.help,
+      placeholder: entry.placeholder,
+      multiline: entry.multiline,
+      masked: entry.masked,
+      message: view.message,
+      required: view.required,
+    },
+    (value) => commitField(entry, value),
+  );
 }
 
 function toggle(labelText: string, checked: boolean, onChange: (on: boolean) => void): HTMLLabelElement {
