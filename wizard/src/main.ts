@@ -9,6 +9,8 @@ import {
   senderDomainOf,
 } from "./form";
 import { authenticate, createDomain, getDomain } from "./brevo";
+import type { GoogleProbeState } from "./google/steps";
+import { GOOGLE_PHASES, deriveGoogleSteps } from "./google/steps";
 import type { RepoInfo } from "./github";
 import {
   GithubError,
@@ -55,6 +57,7 @@ const state = load();
 const resumedFrom = state.savedAt;
 const probes: ProbeState = {};
 const cache: GithubCache = { answers: {} };
+const google: GoogleProbeState = {};
 
 // Secret values never leave this map for anywhere but the clipboard —
 // not localStorage, not the network (index.html says so to the user).
@@ -98,10 +101,22 @@ const lastSet = new Map<string, boolean>();
 // to show in its place.
 const synopses = new Map<string, string>();
 
+// The Google sub-wizard is a view of this same document, so the key in
+// tab memory survives the trip (plan §4): its seven cards stand in for
+// the main list while the hash points into it.
+function googleShown(): boolean {
+  return location.hash === "#google" || location.hash.startsWith("#step-google-");
+}
+
 function renderSteps(): void {
+  const inGoogle = googleShown();
   const groups = groupStatuses(deriveForm(MANIFEST, state.form, secrets));
-  const steps = deriveSteps(state, probes, groups, Boolean(pat));
-  renderRail(derivePhases(steps));
+  const steps = inGoogle
+    ? deriveGoogleSteps(state, google)
+    : deriveSteps(state, probes, groups, Boolean(pat));
+  renderRail(inGoogle ? derivePhases(steps, GOOGLE_PHASES) : derivePhases(steps));
+  document.getElementById("journey")!.hidden = inGoogle;
+  document.getElementById("google-journey")!.hidden = !inGoogle;
 
   // The current step — the first not yet green — opens by itself and
   // wears the ring; the others close, their state line standing in for
@@ -127,7 +142,9 @@ function renderSteps(): void {
     li.querySelector(".marker")!.textContent =
       settled(step.status) || step.status === "red" || step.status === "unknown"
         ? BADGE[step.status]
-        : String(i + 1);
+        : inGoogle
+          ? `3.${i + 1}`
+          : String(i + 1);
     li.querySelector(".title")!.textContent = step.title;
     const syn = li.querySelector<HTMLElement>(".syn")!;
     if (!synopses.has(step.id)) synopses.set(step.id, syn.textContent ?? "");
@@ -146,7 +163,7 @@ function renderSteps(): void {
     document.getElementById(`step-${cur}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   currentId = cur;
-  (document.getElementById("alldone") as HTMLElement).hidden = !allGreen(steps);
+  (document.getElementById("alldone") as HTMLElement).hidden = inGoogle || !allGreen(steps);
 }
 
 function renderRail(phases: PhaseView[]): void {
@@ -1115,7 +1132,7 @@ function pressConfirm(stepId: string): void {
 // A card toggled by hand records an override. The toggle event also
 // echoes programmatic opens; those are told apart by comparing against
 // what the render last set.
-for (const li of document.querySelectorAll<HTMLElement>("#journey .step")) {
+for (const li of document.querySelectorAll<HTMLElement>("#journey .step, #google-journey .step")) {
   const id = li.id.slice("step-".length);
   const details = li.querySelector("details")!;
   details.addEventListener("toggle", () => {
@@ -1252,6 +1269,14 @@ async function poll(): Promise<void> {
 for (const form of document.querySelectorAll("form.cfg")) {
   form.addEventListener("submit", (e) => e.preventDefault());
 }
+
+// A hash into the hidden list gives the browser nothing to scroll to.
+// Switching views counts as the journey moving on instead: the render
+// brings the new list's current card into view.
+window.addEventListener("hashchange", render);
+document.getElementById("google-back")!.addEventListener("click", () => {
+  location.hash = "#step-calendars";
+});
 
 // A visit running on remembered state says so, with the memory's age,
 // and offers the clean break — the cure for state gone strange (an old

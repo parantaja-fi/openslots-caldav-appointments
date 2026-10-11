@@ -38,7 +38,7 @@
 
       /* The stepper: every step a card on a vertical line, all visible
          from the start; the current one open and ringed. */
-      #journey { list-style: none; margin: 0; padding: 0; }
+      #journey, #google-journey { list-style: none; margin: 0; padding: 0; }
       .step { position: relative; padding: 0 0 14px 44px; scroll-margin-top: 52px; }
       .step::before { content: ""; position: absolute; left: 15px; top: 36px;
                       bottom: -2px; width: 2px; background: #e5e7eb; }
@@ -86,7 +86,7 @@
       .dyn, .dynfoot { font-size: 0.9rem; color: #444; }
       .dyn p, .dynfoot p { margin: 0 0 8px; }
       .dyn a, .dynfoot a { color: #1d4ed8; }
-      .dyn button, .dynfoot button, .cfg button, #accounts-rows button {
+      .dyn button, .dynfoot button, .cfg button, #accounts-rows button, #google-back {
                     font: inherit; font-size: 0.85rem;
                     padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px;
                     background: #f3f4f6; cursor: pointer; }
@@ -436,6 +436,103 @@
             </summary>
             <div class="stepbody">
               <div class="dyn"></div>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
+      </ol>
+      <ol id="google-journey" hidden>
+        <li class="step" id="step-google-account">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">The Google account your calendar is in — and Google Cloud, opened once.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
+        <li class="step" id="step-google-project">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">A Cloud project of your own — any name will do.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <form class="cfg" id="cfg-google-project"></form>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
+        <li class="step" id="step-google-apis">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">Two APIs switched on — one for your bookings, one for these checks.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
+        <li class="step" id="step-google-service-account">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">The account your booking API signs in as, and its key file.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
+        <li class="step" id="step-google-key">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">One file paste — Google says whether it takes the key.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <form class="cfg" id="cfg-google-key"></form>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
+        <li class="step" id="step-google-calendars">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">Your calendars, shared with the service account.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <form class="cfg" id="cfg-google-calendars"></form>
+              <div class="dynfoot"></div>
+            </div>
+          </details>
+        </li>
+        <li class="step" id="step-google-back">
+          <span class="marker"></span>
+          <details>
+            <summary>
+              <span class="title"></span>
+              <span class="syn">Back to the main list, with everything Google needs.</span>
+            </summary>
+            <div class="stepbody">
+              <div class="dyn"></div>
+              <button type="button" id="google-back">Back</button>
               <div class="dynfoot"></div>
             </div>
           </details>
