@@ -7,7 +7,7 @@
 
 ## 1. Topology
 
-Three parts, nothing else:
+Four parts:
 
 1. **SPA** — static frontend (FullCalendar), served from free static
    hosting. Holds no secrets.
@@ -17,20 +17,36 @@ Three parts, nothing else:
 3. **CalDAV backend(s)** — sole persistence layer. No database, no
    server-side session state.
 
-Beside the system, not in it: the **setup wizard** (`wizard/`,
-`ROADMAP.md` M5–M6), a second static page served at `/wizard/`. Its
-verifier stage only watches — public GitHub REST unauthenticated, paced
-to the sixty questions an hour GitHub answers that way, the token-less
-health endpoint (§3), DNS over HTTPS — and holds no credential. Its
-provisioning stage adds one file to the fork beside the Actions secrets
-and variables it writes: `.wizard/fork.json`, the fork's
-provenance and when its configuration was last stored — public facts
-only, so any browser can tell a configured fork without a token. Its
-outside links all open in one work window beside it
-(`wizard/src/workWindow.ts`). That window stays reusable only through
-the opener link, so a page shown in it can navigate the wizard's tab,
-though never read it.
+```
+ customer's browser          Cloudflare                 CalDAV backend(s)
+┌───────────────────┐       ┌────────────────┐         ┌───────────────────┐
+│ SPA — static page,│ grant,│ Worker API —   │ REPORT, │ availability      │
+│ holds no secrets; │ proof,│ holds CalDAV   │ PUT,    │ calendar — read   │
+│ session key in    │ token │ credentials and│ DELETE  ├───────────────────┤
+│ IndexedDB         │──────▶│ signing key    │────────▶│ booking calendar  │
+└───────────────────┘  (§5) └───────┬────────┘   (§2)  │ read and write    │
+                                    │ API key          └───────────────────┘
+                                    ▼ one fetch (§6)
+                              Brevo — email
+```
 
+Every secret sits on the Worker's side of the first hop; what crosses
+to the customer are signed, expiring cryptographic capabilities.
+The availability calendar only ever sees reads (`REPORT`).
+The bookings are written to the booking calendar.
+
+4. **Setup wizard**
+
+Beside the actual system and separate from it.
+The wizard is a second static page served at `/wizard/`.
+Its provisioning stage commits one additional file to the fork
+(`.wizard/fork.json`), and writes Github Actions secrets and variables.
+The committed file contains the fork's
+provenance and when its configuration was last stored, public facts only.
+With it, any browser can tell a configured fork without a token.
+The wizard's outside links all open in one work window beside it.
+Google Calendar, the one provider whose by-hand route crosses
+two consoles, has its own guided sub-wizard inside the calendars step.
 ## 2. Calendar model
 
 The system uses **two logical calendars**, configured independently:
@@ -38,7 +54,7 @@ The system uses **two logical calendars**, configured independently:
 - **Availability calendar** — read-only to the system. `OPEN` events here
   define availability. Reads use only CalDAV `REPORT`, so read-only
   credentials suffice; the system never writes to this calendar.
-- **Booking store** — read/write. Bookings are created here as VEVENTs
+- **Booking calendar** — read/write. Bookings are created here as VEVENTs
   (`PUT {calendarUrl}/{uid}.ics`) and cancelled by `DELETE` of the same
   resource. This is the only place the system writes. Their uids are
   `booking-<compact UTC timestamp>-<uuid>`, which marks the events the
@@ -88,38 +104,48 @@ Google deviations (URL-encoded calendar ID, mandatory `Depth: 1`, ignored
 
 Five endpoints, booking-domain-shaped:
 
-- `GET /v1/slots` — computed open slots for a window, with one create-grant
-  covering the returned list (§5).
-- `POST /v1/bookings` — book a slot; requires the slot's create-grant.
-  `attendee.email` is required: it is where the confirmation and its
-  cancellation link go. The response carries the cancellation token and
-  `confirmation_email` — `sent`, `failed`, or `disabled` where the
-  deployment configured no transport. A stored booking is never undone by
-  a mail failure, so the caller is told instead (§6).
-- `GET /v1/bookings/:uid` — the booking's times, for the page the emailed
-  link lands on; requires that booking's cancellation token, and 404s once
-  the booking is gone, which is how the page knows it was already
-  cancelled. It answers times alone: the page needs no name or address,
-  so neither is echoed.
-- `DELETE /v1/bookings/:uid` — cancel; requires the booking's
-  cancellation token (§5).
-- `GET /v1/health` — deployment health, for `curl`, the deploy CI's
-  closing probe and the setup wizard (`ROADMAP.md` M5). Token-less and
-  CORS-open to any origin, so the body may carry booleans, coarse states
-  and env var names — never a URL, hostname, address or key. Reports the
-  configuration parse status (parsing is the validation, §7) with the
-  thrown message on failure; CalDAV reachability per calendar role
-  (`availability` and `appointments` on the wire), probed with the same
-  read a booking depends on, one probe when the roles coincide, each
-  raced against a five-second timeout; and the email transport state —
-  `configured`, `off`, or `missing_key` when a sender address is set but
+| Endpoint | Requires (§5) | Returns |
+|----------|---------------|---------|
+| `GET /v1/slots` | the session's key thumbprint | computed open slots for a window, with one create-grant covering the returned list |
+| `POST /v1/bookings` | the slot's create-grant and a session proof | the booking, its cancellation token, and `confirmation_email` |
+| `GET /v1/bookings/:uid` | that booking's cancellation token | the booking's times, for the page the emailed link lands on |
+| `DELETE /v1/bookings/:uid` | that booking's cancellation token | cancellation |
+| `GET /v1/health` | nothing — token-less | deployment health, for `curl`, the deploy CI's closing probe and the setup wizard (`ROADMAP.md` M5) |
+
+For `POST /v1/bookings`, the required `attendee.email` is where the
+confirmation and its cancellation link go.
+In addition to the cancellation token, the response carries
+`confirmation_email`: `sent`, `failed`, or `disabled`, the
+latter when the deployment configured no transport.
+A stored booking is never undone by a mail failure.
+Hence, the caller is told instead (§6).
+
+The `GET /v1/bookings/:uid` returns 404 once the booking is gone.
+This is how the page knows a booking was already cancelled.
+It answers times alone: the page needs no name or address,
+so neither is echoed.
+
+The `/v1/health` is token-less and CORS-open to any origin.
+The body may carry booleans, coarse states, and env var names.
+It should never carry a URL, hostname, address or key.
+The endpoint checks the following:
+- configuration parse status (§7), with the thrown message on failure;
+- CalDAV reachability per calendar role
+  (`availability` and `appointments`),
+  probed with the same read a booking depends on,
+  one probe when the roles coincide, each
+  raced against a five-second timeout; and
+- the email transport state: `configured`, `off`, or `missing_key`,
+  when a sender address is set but
   the API key secret is not, the forgot-the-secret shape a booking
-  otherwise reports only in its own response (§6). 200 when everything
-  is healthy (`off` is healthy: it is deliberate), 503 otherwise, so a
-  `curl -f` is the whole probe. Rate-limited like every other route,
-  which is also the answer to strangers driving CalDAV probes: a health
-  call costs its caller what an unauthenticated `/v1/slots` call already
-  could.
+  otherwise reports only in its own response (§6).
+
+It reports 200 when everything is healthy (`off` is healthy: it is deliberate),
+503 otherwise, so a `curl -f` is the whole probe.
+Rate-limited like every other route, which is also the answer
+to strangers driving CalDAV probes:
+a health call costs its caller what an unauthenticated `/v1/slots`
+call already could.
 
 Errors are RFC 9457 Problem Details. Field names are chosen deliberately
 and prefixed by role (`slot_start`, not `start`).
@@ -156,70 +182,121 @@ Configurable: slot length, booking horizon, minimum notice.
 
 ## 5. Security
 
-Capability grants as plain signed JWTs (ES256, `jose` or raw Web Crypto).
-No UCAN, no DIDs, no server-side session state.
+Capability grants are plain signed JWTs (ES256, `jose` or raw Web Crypto).
+(No UCAN, no DIDs, no server-side session state; see the spikes for history.)
 
-- **Sessions**: non-extractable P-256 key pair generated in the browser,
-  held in IndexedDB. Create-grants are bound to the session's public key
-  (`aud` = JWK thumbprint); requests are signed by the session key.
-- **Create-grant = availability proof.** *One* grant is issued with the slot
-  list, enumerating the open slot starts in a `slots` claim, short-lived
-  (30 min). Possession proves those slots were open when listed, so the
-  booking path re-checks only for conflicting bookings, never for `OPEN`
-  events. An explicit enumeration is not the time-window wildcard that would
-  lose this property and need a compensating availability check. One grant
-  rather than one per slot because per-slot issuance does not fit the budget:
-  80 ES256 signatures cost ≈ 3.8 ms of the 10 ms free-tier CPU allowance and
-  ≈ 450 bytes each on the wire, so a month's slots would exceed both. The
-  response is bounded by a `MAX_SLOTS` guard that asks for a narrower window.
-- **Cancellation token** issued on successful booking: a bearer ES256 JWT
-  naming the booking UID, expiring at slot start. Deliberately *not*
-  session-bound — it is delivered in the confirmation email, and
-  possession of the email is the authority (the magic-link trust model),
-  which is what makes cancelling from another device work. The link
-  carries the token in the URL **fragment** (never sent to servers, so it
-  stays out of logs and Referer headers); the SPA reads it and sends it in
-  a header. The uid rides in the query beside it, being no secret on its
-  own. The linked page only *shows* the booking on load, through `GET
-  /v1/bookings/:uid` — cancelling requires an explicit button issuing the
-  DELETE, so mail-scanner URL prefetch cannot cancel, and a prefetch
-  without the fragment cannot even read. Replay is harmless: DELETE is
-  idempotent and a cancelled booking's disappearance is the revocation, so
-  no single-use state is needed.
-- **Double-booking**: CalDAV `PUT` is not atomic, so check-after-insert —
-  insert, re-query the slot in the store, roll back with `DELETE` on
-  conflict, return 409. The slot belongs to the **earliest** booking uid
-  in it (§2), and outright to any event the system did not write, so two
-  simultaneous bookings settle into one 200 and one 409 rather than two
-  rollbacks leaving the slot empty. Residual window: a request whose
-  re-query lands before the other's `PUT` sees no conflict, so two
-  overlapping bookings can still stand. Acceptable at
-  practitioner-scale traffic; a per-slot Durable Object lock is the known
-  escalation if ever needed.
-- **Anti-abuse**: per-IP rate limiting, applied to every request before it
-  is routed, so nothing reaches the calendar backend on an unmetered
-  path. Replay bounded by short TTL + `iat` freshness. Booking also sends
-  mail, so the same limit is what bounds that: the message is fixed text
-  to the one address the booker typed, and reaching it at all costs a
-  create-grant and an open slot.
-- **Blast radius**: the Worker holds write credentials only for the
-  booking store. With a separate read-only availability calendar, a
-  compromised Worker cannot alter the practitioner's availability, only
-  the bookings it manages anyway. Server key rotation invalidates
-  outstanding create-grants and emailed cancellation links; accepted
-  (create-grants live 30 minutes, and the practitioner can always cancel
-  from their own client).
+### 5.1 Session protection
 
-**Wire format.** `GET /v1/slots` carries the session's JWK thumbprint in
-`X-Session-Thumbprint`. `POST /v1/bookings` carries the create-grant in
-`Authorization: Bearer` and a session proof in `X-Session-Proof` — an ES256
-JWT signed by the session key, header `{ alg, jwk }`, payload `{ iat }`; the
-Worker verifies it against the embedded JWK, checks `iat` freshness, and
-checks that the JWK's RFC 7638 thumbprint equals the grant's `aud`. The proof
-binds no method or URI: exactly one endpoint is proof-gated, so there is
-nowhere to replay a proof to. `DELETE /v1/bookings/:uid` carries the
-cancellation token in `Authorization: Bearer` and needs no proof, being a
-bearer capability by design.
+Each browser session is protected with a non-extractable P-256 key pair generated
+in the browser, held in IndexedDB.
+Create-grants (see below) are bound to the session's public key
+(`aud` = JWK thumbprint); requests are signed by the session key.
+
+### 5.2 Creating and cancelling bookings
+
+Creating a booking requires a create-grant, bound to the session (§5.4).
+
+**Create-grants as availability proofs.**
+
+For each available slot list, a *single* short-lived (30 min) create-grant is
+minted. It enumerates the open slot beginnings in a `slots` claim.
+Its possession proves those slots were open when listed.
+Hence, the booking path re-checks only for conflicting bookings,
+never again for `OPEN` events.
+
+The explicit enumeration of the slots is not the time-window wildcard;
+a wildcard (once considered) would lose the claiming property and
+need a compensating availability check.
+
+One grant per list rather than one per slot, because per-slot issuance would be costly:
+80 ES256 signatures cost ≈ 3.8 ms of the 10 ms free-tier CPU allowance and
+450 bytes each on the wire, so a month's slots would exceed both.
+
+The response is bounded by a `MAX_SLOTS` guard that asks for a narrower window.
+
+**Cancellation tokens issued on successful bookings.**
+
+A cancellation token is a bearer ES256 JWT, naming
+the booking UID, expiring at slot start.
+Deliberately, it is *not* session-bound.
+It is delivered in the confirmation email, and
+its possession is the authority itself (the magic-link trust model).
+This is what makes cancelling from another device work.
+The link carries the token in the URL **fragment**,
+which means it is never sent to servers and that it thereby
+stays out of logs and Referer headers.
+The SPA reads it and sends it in a header, when needed.
+
+The booking UID rides in the query beside the token.
+It is no secret on its own.
+
+The linked page only *shows* the booking on load, through
+`GET /v1/bookings/:uid`. Just clicking the link doesn't cancel.
+
+Cancelling requires clicking an explicit button, which issues the `DELETE`.
+Hence, a mail-scanner URL prefetch cannot cancel, and a prefetch
+without the fragment cannot even read.
+
+Replay is harmless: `DELETE` is idempotent.
+A cancelled booking's disappearance is the revocation.
+Hence, no single-use state is needed.
+
+### 5.3 Error and attack scenarios
+
+**Double-booking.**
+
+CalDAV `PUT` is not atomic, so the Worker checks after inserting:
+insert, re-query the slot in the store, roll back with `DELETE` on
+conflict, return 409.
+The slot belongs to the *earliest* booking UID in it (§2),
+and outright to any event the system did not write.
+Hence, two simultaneous bookings settle into one 200 and one 409,
+rather than two rollbacks leaving the slot empty.
+
+A residual window remains: a request whose re-query lands before the
+other's `PUT` sees no conflict, so two overlapping bookings can still
+stand. That is acceptable at practitioner-scale traffic.
+A per-slot Durable Object lock is the known escalation, if ever needed.
+
+**Abuse.**
+
+Per-IP rate limiting applies to every request before it is routed.
+Nothing reaches the calendar backend on an unmetered path.
+Replay is bounded by the short token lifetimes and `iat` freshness.
+
+Booking also sends mail, and the same limit is what bounds that.
+Moreover, the message is fixed text to the one address the booker
+typed, and reaching it at all costs a create-grant and an open slot.
+
+**Blast radius.**
+
+The Worker holds write credentials only for the booking calendar.
+With a separate read-only availability calendar, a compromised Worker
+cannot alter the practitioner's availability — only the bookings it
+manages anyway.
+
+Server key rotation invalidates outstanding create-grants and emailed
+cancellation links. That is accepted: create-grants live 30 minutes,
+and the practitioner can always cancel from their own client.
+
+### 5.4 Wire format
+
+`GET /v1/slots` carries the session's JWK thumbprint in
+`X-Session-Thumbprint`.
+
+`POST /v1/bookings` carries the create-grant in `Authorization: Bearer`
+and a session proof in `X-Session-Proof`.
+The proof is an ES256 JWT signed by the session key,
+with header `{ alg, jwk }` and payload `{ iat }`.
+The Worker verifies it against the embedded JWK, checks `iat`
+freshness, and checks that the JWK's RFC 7638 thumbprint equals the
+grant's `aud`.
+The proof binds no method or URI: exactly one endpoint is proof-gated,
+so there is nowhere to replay a proof to.
+
+`DELETE /v1/bookings/:uid` carries the cancellation token in
+`Authorization: Bearer` and needs no proof, being a bearer capability
+by design.
 
 ## 6. Email
 
@@ -296,3 +373,26 @@ No database. No customer accounts or cross-device identity (the emailed
 cancellation link covers the need). No practitioner UI beyond their own
 calendar client. No calendar-proxy endpoints. Deploys are explicit, never
 a side effect of push.
+
+## 9. Code map
+
+| Section | Concept | Code |
+|---------|---------|------|
+| §1 | Wizard verifier probes (GitHub REST, health, DoH) | `wizard/src/probes.ts` |
+| §1 | Wizard provisioning: fork writes, sealed-box secrets | `wizard/src/github.ts`, `wizard/src/sealedbox.ts` |
+| §1 | The work window | `wizard/src/workWindow.ts` |
+| §1 | Google sub-wizard | `wizard/src/google/`, `docs/google-calendar-wizard.md` |
+| §2 | CalDAV wire, parsing, recurrence expansion | `worker/src/caldav.ts` |
+| §2 | Booking uid; the slot rule (`OPEN`, blocking) | `worker/src/slots.ts` |
+| §2 | OAuth tokens for Google's CalDAV endpoint | `worker/src/auth.ts` |
+| §3 | The five routes, CORS, rate limiting | `worker/src/index.ts` |
+| §3 | Problem Details errors | `worker/src/problem.ts` |
+| §4 | Union, seams, emission | `computeSlots` in `worker/src/slots.ts` |
+| §5 | Create-grant, session proof, cancellation token — issue and verify | `worker/src/grants.ts` |
+| §5 | The browser session key | `frontend/src/session.ts` |
+| §5 | The wire headers | `frontend/src/api.ts` |
+| §5 | The page the emailed link opens | `frontend/src/cancel.ts` |
+| §5 | Double-booking arbitration | `lostRace` in `worker/src/slots.ts`, under the booking route of `worker/src/index.ts` |
+| §6 | `sendEmail()` seam, both messages | `worker/src/email.ts` |
+| §7 | Parsing as validation | `worker/src/config.ts` |
+| §7 | The deriving fork deploy | `.github/workflows/deploy.yml` |
