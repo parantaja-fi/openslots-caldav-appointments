@@ -1,6 +1,6 @@
 name: CI
 
-# Builds both halves. The spike's production build was silently broken for
+# Builds all three packages. The spike's production build was silently broken for
 # months because only `vite dev` was ever run; that must not recur.
 on:
   push:

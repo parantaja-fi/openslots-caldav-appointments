@@ -2,11 +2,12 @@
 
 [![CI](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/parantaja-fi/openslots-caldav-appointments/actions/workflows/ci.yml)
 
-> **Pre-release; not code complete.** The 0.1.0 release waits on the
-> setup wizard passing its acceptance walk (see [ROADMAP.md](ROADMAP.md)).
-> The wizard and the operator guide ([SETUP.md](SETUP.md)) have been
-> tested only by the author. API field names, configuration and storage
-> layout will still change without notice.
+> **First release, 0.1.0 — early, and tested only by the author.**
+> The setup wizard has passed its acceptance walk with the author acting
+> the practitioner ([ROADMAP.md](ROADMAP.md) M6.4); the same walk by
+> someone who is not the author is still ahead (M6.6). Before 1.0, API
+> field names, configuration and storage layout are likely to still change
+> without notice.
 >
 > **Largely written by an LLM.** Most of the code and documentation here
 > was written by Claude under the author's direction. It has not been
@@ -57,11 +58,10 @@ do it all by hand, if you decide not to trust the wizard.
 
 ## Status
 
-The [ROADMAP.md](ROADMAP.md) milestones up to M5 are met, and so are the
-first three stages of M6. Milestone M6.4 is under way — the wizard's
-acceptance walk — which 0.1.0 waits on.
-Reconfiguration, and a walk by someone other than the author, follow the
-0.1.0 release.
+The current release is **0.1.0**, the first: the
+[ROADMAP.md](ROADMAP.md) milestones through M6.4 are met.
+Reconfiguration (M6.5), and a walk by someone other than the author
+(M6.6), deliberately follow the release.
 
 CI builds and typechecks all three packages, runs the tests that need no
 backend — the wizard's included — and runs the live suite against a
@@ -155,13 +155,14 @@ touching local testing or production), `TESTMAIL_APIKEY` and
 
 ## Documentation
 
-| Document | Contents |
-|---|---|
-| [SETUP.md](SETUP.md) | Setting up by hand, and the why behind each wizard step |
-| [SCOPE.md](SCOPE.md) | What is being built, for whom, and what is out |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | The mechanisms: topology, calendar model, API, security |
-| [ROADMAP.md](ROADMAP.md) | Milestones from here to 0.2.0 |
+| Document                   | Contents |
+|----------------------------|----------|
+| [SETUP.md](SETUP.md)       | Setting up by hand, and the why behind each wizard step |
+| [SCOPE.md](SCOPE.md)       | What is being built, for whom, and what is out |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | The mechanisms: calendar model, API, security |
+| [ROADMAP.md](ROADMAP.md)   | Milestones from here to 0.2.0 |
 | [SECURITY.md](SECURITY.md) | How to report a vulnerability |
+| [PRIVACY.md](PRIVACY.md)   | What personal data the system handles, and who processes it |
 
 ## Contributing
 

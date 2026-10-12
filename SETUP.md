@@ -1,9 +1,13 @@
 # Setting up your booking calendar
 
-> **First draft.** Written 2026-08-02 from one operator's setup. It has
-> not yet been tested by anyone but the author, which is exactly what
-> `ROADMAP.md` M5–M6 exist to fix. If a step is wrong or a step is
-> missing, that is a bug — please open an issue.
+> **The by-hand route.** The usual way to set up is the
+> [setup wizard](https://parantaja-fi.github.io/openslots-caldav-appointments/wizard/),
+> which does from the browser what this guide does by hand. This guide
+> remains the reference behind it — the why of each step, and the full
+> terminal path for operators who prefer it. Written 2026-08-02 from
+> one operator's setup and still tested by no one but the author; a
+> rewrite around the wizard is scheduled (`ROADMAP.md` 0.2.0). If a
+> step is wrong or missing, that is a bug — please open an issue.
 
 This guide takes you from nothing to a working booking page. It assumes
 you can copy commands into a terminal and follow instructions carefully.
