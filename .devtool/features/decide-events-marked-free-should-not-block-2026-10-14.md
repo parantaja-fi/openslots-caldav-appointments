@@ -1,17 +1,19 @@
 ---
 id: "decide-events-marked-free-should-not-block-2026-10-14"
-status: "backlog"
-priority: "medium"
+status: "todo"
+priority: "high"
 assignee: null
 epic: "Worker"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T05:30:39.000Z"
+modified: "2026-10-15T08:40:42.000Z"
 completedAt: null
 labels: ["0.1.x", "decision"]
-order: "a2"
+order: "Zz"
 ---
 # Decide: events marked Free should not block
+
+*Draft, opened 2026-10-14.*
 
 > Written 2026-10-14 from a reading of the Worker during that day's
 > competitor comparison, found while specifying the booking path's

@@ -1,12 +1,12 @@
 ---
 id: "m66-external-acceptance-2026-10-10"
-status: "backlog"
+status: "todo"
 priority: "medium"
 assignee: null
 epic: "Wizard"
 dueDate: null
 created: "2026-10-10T14:21:47.000Z"
-modified: "2026-10-15T05:32:55.000Z"
+modified: "2026-10-15T08:24:24.000Z"
 completedAt: null
 labels: ["0.1.x"]
 order: "a6"

@@ -1,17 +1,19 @@
 ---
 id: "decide-re-check-open-coverage-at-booking-2026-10-14"
 status: "todo"
-priority: "medium"
+priority: "high"
 assignee: null
 epic: "Worker"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T06:51:43.000Z"
+modified: "2026-10-15T08:40:42.000Z"
 completedAt: null
 labels: ["0.1.x"]
 order: "a2V"
 ---
 # Re-check OPEN coverage at booking
+
+*Accepted, ruled 2026-10-15.*
 
 > Written 2026-10-14 from a reading of the Worker during that day's
 > competitor comparison. Decided 2026-10-15: do it, together with
