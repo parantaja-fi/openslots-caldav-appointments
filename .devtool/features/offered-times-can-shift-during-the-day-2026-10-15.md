@@ -6,7 +6,7 @@ assignee: null
 epic: "Worker"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-15T05:30:39.000Z"
+modified: "2026-10-15T06:51:43.000Z"
 completedAt: null
 labels: ["0.1.x", "bug"]
 order: "a4"
@@ -27,8 +27,12 @@ slots, A 09:00–10:20 and B 10:10–12:00, window from 10:25: with both
 events, 10:30, 11:00 and 11:30; with A filtered out, as the backend does
 once `now + notice` passes 10:20, 10:40 and 11:10. That breaks the
 phase stability `docs/programmable-slotting.md` §3 calls S5. It is safe:
-`lostRace` sees overlapping bookings. It needs overlapping, not
-abutting, events whose offset is not a multiple of the slot length.
+`lostRace` sees overlapping bookings. It needs overlapping or abutting
+events whose offset is not a multiple of the slot length, abutting ones
+being merged too: 09:00–09:45 plus 09:45–10:30 offer 10:00 until
+`now + notice` passes 09:45, then nothing. Unmerging abutting events
+(`decide-phase-of-abutting-open-events-2026-10-15`) would remove that
+case.
 
 **Fix.** Start the availability `REPORT` a margin earlier, a day say,
 and leave emission clamped as now; `computeSlots` already skips the
