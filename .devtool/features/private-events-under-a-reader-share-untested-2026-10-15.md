@@ -6,10 +6,10 @@ assignee: null
 epic: "Calendars"
 dueDate: null
 created: "2026-10-15T13:03:40.000Z"
-modified: "2026-10-15T13:03:40.000Z"
+modified: "2026-10-15T13:11:13.000Z"
 completedAt: null
 labels: ["0.1.x"]
-order: "aR"
+order: "a8W"
 ---
 # Private events under a reader share untested
 
