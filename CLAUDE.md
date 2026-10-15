@@ -8,7 +8,7 @@ testing continues past it.
 ## Document map
 
 - `SCOPE.md` — what is being built, for whom, what is out. Open
-  decisions live in its §6.
+  decisions live in its §7.
 - `ARCHITECTURE.md` — authoritative home for every mechanism (topology,
   calendar model, API, security). Do not restate mechanisms elsewhere;
   reference them. When two documents describe the same mechanism they

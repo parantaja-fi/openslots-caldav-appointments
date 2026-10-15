@@ -6,7 +6,7 @@ assignee: null
 epic: "Operations"
 dueDate: null
 created: "2026-08-03T04:58:37.000Z"
-modified: "2026-10-15T05:30:39.000Z"
+modified: "2026-10-15T07:04:19.000Z"
 completedAt: null
 labels: ["later"]
 order: "aG"
@@ -17,7 +17,7 @@ order: "aG"
 > `parantaja.fi`.
 >
 > **Scope warning.** This is operator monitoring for one deployment, not
-> product code. It is *not* part of 0.1.0 (`SCOPE.md` §4 does not list
+> product code. It is *not* part of 0.1.0 (`SCOPE.md` §5 does not list
 > it, and the built-in health check in M5.1 is a different thing — that one
 > tells the operator their configuration is wrong, this one watches what
 > the system actually does over weeks). It may belong in a separate

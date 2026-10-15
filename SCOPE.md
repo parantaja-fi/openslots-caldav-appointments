@@ -74,7 +74,43 @@ Carried forward as constraints, not open questions — rationale in
   the frontend, `ical.js` + `jose` (or raw Web Crypto) on the Worker;
   nothing else without a fight.
 
-## 4. In scope for 0.1.0
+## 4. Hosting-provider independence
+
+A direction, not a requirement: depend on any one hosting provider as
+little as is easily feasible, so that an operator or a fork can move
+without a rewrite. GitHub Pages and Cloudflare Workers are the hosts of
+choice because their free tiers carry a practitioner's deployment, not
+because the system is built for them.
+
+- **The SPAs are static files, servable from anywhere.** The booking
+  and cancellation pages and the wizard build to plain HTML, CSS and
+  JavaScript, assuming nothing of their host beyond the base path and
+  API address fixed at build time. The Worker learns the page's origin
+  from configuration (`ALLOWED_ORIGINS`), so page and API need share
+  neither host nor origin.
+- **The Worker should, eventually, run on any suitable worker host.**
+  Its code keeps to the Web APIs that edge and serverless runtimes
+  share — `fetch`, `Request` and `Response`, Web Crypto — and its
+  dependencies are plain JavaScript. What is Cloudflare's stays a thin,
+  replaceable seam, as email already sits behind `sendEmail()`
+  (`ARCHITECTURE.md` §6): today the entry point and its `env`, the
+  optional per-IP rate-limit binding and the `CF-Connecting-IP` header
+  it keys on; later maybe a scheduled trigger the reminder email needs.
+  Nothing without a counterpart elsewhere — Durable Objects, D1, KV,
+  Queues — is taken on, which CalDAV as the sole persistence layer
+  (§3) makes easy.
+- **The guided path stays specific.** The wizard and the fork deploy
+  (`deploy.yml`) provision GitHub Pages and a Cloudflare Worker, by
+  design: one route walked end to end serves the §2 practitioner better
+  than a choice of hosts. Independence lives in the artefacts, which an
+  operator may deploy elsewhere by hand, not in the wizard's options.
+- **Claimed only once verified.** No second host has been tried, and
+  none is promised. One is claimed only when the full flow has run
+  against a real deployment there, as the M2 backends were verified;
+  until then "runs anywhere" is no more than "any CalDAV server" was
+  before M2.
+
+## 5. In scope for 0.1.0
 
 Functional:
 
@@ -109,7 +145,7 @@ Operator experience (the actual 0.1.0 substance):
 9. CI that builds both halves and runs the test suite; deploys are
    explicit, never a side effect of push.
 
-## 5. Out of scope for 0.1.0
+## 6. Out of scope for 0.1.0
 
 - Multi-practitioner scheduling, or aggregating availability across more
   calendars than the two roles in §3.
@@ -130,7 +166,7 @@ Out of scope permanently unless the goal changes: features whose natural
 home is an automation platform (CRM rows, follow-up sequences). The API
 stays clean enough that n8n/Windmill can consume it; we do not become them.
 
-## 6. Open decisions to settle first
+## 7. Open decisions to settle first
 
 None remaining. Email, backends, and cancellation-link semantics were
 settled 2026-08-01; the decisions are recorded in `ARCHITECTURE.md`

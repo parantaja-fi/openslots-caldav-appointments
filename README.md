@@ -193,7 +193,7 @@ touching local testing or production), `TESTMAIL_APIKEY` and
 
 Issues are welcome, especially reports from CalDAV backends other than
 the verified ones. Before opening a pull request, please raise an issue
-first: the scope is deliberately narrow ([SCOPE.md](SCOPE.md) §5 lists
+first: the scope is deliberately narrow ([SCOPE.md](SCOPE.md) §6 lists
 what is out), and pre-1.0 the shape of things still moves. Suspected
 vulnerabilities go to [SECURITY.md](SECURITY.md), not the issue tracker.
 
