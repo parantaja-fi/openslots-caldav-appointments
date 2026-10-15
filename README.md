@@ -71,9 +71,10 @@ end-to-end test runs locally only.
 
 ## Alternatives
 
-As of October 2026. *Free tier* means production use at no cost, hosting
-included; this project's are the free tiers of GitHub, Cloudflare and,
-optionally, Brevo.
+As of October 2026; the comparison behind the table is
+[docs/competitor-comparison.md](docs/competitor-comparison.md). *Free
+tier* means production use at no cost, hosting included; this project's
+are the free tiers of GitHub, Cloudflare and, optionally, Brevo.
 
 | Alternative | OSS | Free tier | How this project differs |
 |-------------|-----|-----------|--------------------------|
