@@ -20,11 +20,8 @@ testing continues past it.
   coming release (0.1.x, 0.2.0, Later) is for; it lists no work items.
 - `.devtool/features/` — the work, one card per item, as the VS Code
   Kanban Markdown extension renders it (the `kanban-markdown` skill
-  writes cards in its exact format). Epic: the area — Worker,
-  Frontend, Wizard, Email, Calendars, Security, Operations,
-  Documentation. Labels: the release (`0.1.x`, `0.2.0`, `later`), and
-  `bug` or `decision` where apt. Finished cards move into `done/`, so
-  refer to a card by its id, never by path.
+  writes cards in its exact format). Conventions — epics, labels,
+  referring to cards by id — in `ROADMAP.md`'s "The board".
 - `LESSONS.md` — dated, hard-won facts (browser quirks, test and
   automation gotchas); read the relevant entry before re-measuring one.
 - `docs/` — per-feature design notes and walk logs;

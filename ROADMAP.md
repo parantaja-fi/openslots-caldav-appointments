@@ -1,10 +1,27 @@
 # Booking Calendar — Roadmap
 
 > Releases and their milestones. Order is dependency-driven, not a
-> schedule. Scope per `SCOPE.md`; mechanisms per `ARCHITECTURE.md`; the
-> work itself is on the board, `.devtool/features/`, one card per item,
-> labelled with its release. Met milestones are kept to summaries here;
-> their full exit stories live in this file's git history.
+> schedule. Scope per `SCOPE.md`; mechanisms per `ARCHITECTURE.md`.
+> Met milestones are kept to summaries here; their full exit stories
+> live in this file's git history.
+
+## The board
+
+The work itself is on a board: `.devtool/features/`, one Markdown card
+per item, drawn by the VS Code extension Kanban Markdown and readable
+without it.
+
+- **Epic** — the area: Worker, Frontend, Wizard, Email, Calendars,
+  Security, Operations, Documentation. The board draws one swim lane
+  per epic.
+- **Labels** — the release, one of `0.1.x`, `0.2.0` and `later` (the
+  pool releases are selected from); and `bug` or `decision` where
+  apt.
+- **Columns** — Backlog, To Do, In Progress, Review, Done. A finished
+  card moves into `done/`, so a card is referred to by its id, its
+  filename without `.md`, never by path.
+- Cards are edited as plain Markdown (the extension's
+  `markdownEditorMode`); its rich editor joins hard-wrapped lines.
 
 ## Done — M0 to M6.4, released as 0.1.0
 
