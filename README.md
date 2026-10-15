@@ -69,6 +69,29 @@ Radicale it starts itself. The credentialed backends, and the email
 round trip, run on `main`, on manual dispatch and weekly. The browser
 end-to-end test runs locally only.
 
+## Alternatives
+
+As of October 2026. *Free tier* means production use at no cost, hosting
+included; this project's are the free tiers of GitHub, Cloudflare and,
+optionally, Brevo.
+
+| Alternative | OSS | Free tier | How this project differs |
+|-------------|-----|-----------|--------------------------|
+| [Nylas Scheduler](https://www.nylas.com/) | No | No | Reaches self-hosted CalDAV such as Radicale; your calendar credentials stay in your own accounts |
+| [Cronofy](https://www.cronofy.com/) | No | No | No vendor-side copy of your calendar |
+| [Aurinko](https://www.aurinko.io/) | No | No | Speaks generic CalDAV (Radicale, Nextcloud) |
+| [Apiroc](https://www.apiroc.com/), formerly OneCal's calendar API | No | No | Computes slots and takes bookings; Apiroc only relays calendar access |
+| [Unipile](https://www.unipile.com/) | No | No | Speaks CalDAV; Unipile covers Google and Microsoft only |
+| [Unified.to](https://unified.to/) | No | No | A booking page, not an integration API for developers |
+| [Cal.com](https://cal.com/) | No* | Yes, one user | Bookings live only in your own calendar, not also in a vendor's database |
+| [Cal.diy](https://github.com/calcom/cal.diy) | Yes | No | No server or database to run |
+| [Easy!Appointments](https://github.com/alextselegidis/easyappointments) | Yes | No | Reads the calendar live; no database kept in step by cron |
+| [Tymeslot](https://github.com/Tymeslot/tymeslot) | Yes | Yes, hosted | Self-hosting needs no server or database |
+| [Nextcloud Calendar appointments](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/calendar.html) | Yes | If on Nextcloud | Customers cancel from the emailed link; not tied to Nextcloud |
+| [Appointments for Nextcloud](https://github.com/SergeyMosin/Appointments) | Yes | If on Nextcloud | The closest design; not tied to Nextcloud, and an API rather than an iframe |
+
+ * Cal.com is no longer open source, since April 2026.
+
 ## Development
 
 Three npm packages — `worker/`, `frontend/` and `wizard/` (the setup

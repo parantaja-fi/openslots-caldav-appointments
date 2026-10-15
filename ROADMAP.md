@@ -112,7 +112,27 @@ milestones when 0.1.0 closes:
   `ALLOWED_ORIGINS` and the build-time API URL are features, not
   deployment glue, and why the API must keep working cross-origin.
 - **Reminder email before the appointment** — reuses the M3 delivery
-  mechanism and the booking's own data; may require a cron-like wakeup mechanism.
+  mechanism and the booking's own data, and needs no stored state:
+  - A scheduled trigger fires every interval *I* (a Cron Trigger on
+    Cloudflare, any host's cron elsewhere: a thin seam, so the Worker
+    stays portable). At tick *T* it reads the store for bookings
+    starting in [*T* + *L*, *T* + *L* + *I*), *L* being the lead time.
+    *T* is the tick's scheduled time, not the clock, so the windows
+    tile time: each booking falls in exactly one, and no "sent" flag is
+    needed. A re-delivered tick sends its reminders twice; rare, and
+    only a duplicate.
+  - Bookings are recognised by uid, as everywhere. The address is the
+    first line of the `DESCRIPTION` (`ARCHITECTURE.md` §2); a
+    description the practitioner has edited out of shape is skipped.
+  - The reminder carries a freshly issued cancellation token, the same
+    capability as the confirmation's, so nothing is stored.
+  - A booking made after its window's tick gets no reminder (with an
+    hourly *I*, roughly those made less than *L* ahead): the
+    confirmation stands in. A missed tick loses its window's
+    reminders.
+  - One setting, the lead time; absent means off.
+  - Three messages per booking instead of two:
+    `docs/tasks/email-monitoring.md`'s thresholds assume two.
 - **ICS URL as an availability source** — an alternative to CalDAV
   for the read-only role; also the prerequisite for the Proton path,
   whose verification and write-up stay in "Later".
@@ -150,6 +170,15 @@ milestones when 0.1.0 closes:
   transport (rejected for 0.1.0 — `ARCHITECTURE.md` §6).
 - Configurable minimum cancellation notice (cancellation token expiring
   N hours before slot start instead of at it).
+- **Reschedule** from the emailed link (low priority; Nylas, Aurinko,
+  Tymeslot, calrs and Calnode offer it). Needs no Worker change: the
+  cancellation page offers another time, the booking page books it
+  under a fresh grant, and only then deletes the old booking with the
+  token it already holds. Book before delete, so a failure leaves two
+  bookings, both visible to the practitioner, never none; the token's
+  expiry at slot start bounds it. The customer re-enters name and
+  address, since `GET /v1/bookings/:uid` deliberately returns times
+  alone.
 - Wizard resilience after a mid-flight crash: remember in
   localStorage that an attempt was made and adapt the guidance —
   which pastes to redo, what is already done — secrets still never
