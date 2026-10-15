@@ -187,6 +187,7 @@ touching local testing or production), `TESTMAIL_APIKEY` and
 | [SCOPE.md](SCOPE.md)       | What is being built, for whom, and what is out |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The mechanisms: calendar model, API, security |
 | [ROADMAP.md](ROADMAP.md)   | Met milestones, and what each coming release is for |
+| [METHODOLOGY.md](METHODOLOGY.md) | How decisions carry statuses, and links stay checked |
 | [.devtool/features/](.devtool/features/) | The work, one card per item, labelled with its release |
 | [SECURITY.md](SECURITY.md) | How to report a vulnerability |
 | [PRIVACY.md](PRIVACY.md)   | What personal data the system handles, and who processes it |

@@ -22,6 +22,10 @@ testing continues past it.
   writes cards in its exact format). Conventions — epics, labels,
   referring to cards by id — in `ROADMAP.md`'s "The board". Open
   decisions are the cards labelled `decision`.
+- `METHODOLOGY.md` — decision statuses, anchored references, the link
+  check, and their ancestry. One of its rules binds this file too:
+  CLAUDE.md is instructions, not the record — never cite it as the
+  home of a fact.
 - `SETUP.md` — the by-hand route for the operator, and the reference
   behind the wizard's steps.
 - `NOW.md` — where the work stands between sessions; the `handoff`

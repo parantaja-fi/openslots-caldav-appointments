@@ -16,7 +16,8 @@ without it.
   per epic.
 - **Labels** — the release, one of `0.1.x`, `0.2.0` and `later` (the
   pool releases are selected from); and `bug` or `decision` where
-  apt.
+  apt. A `decision` card opens with an italic status line; the words
+  and what each binds are `METHODOLOGY.md` §1.
 - **Columns** — Backlog, To Do, In Progress, Review, Done. A finished
   card moves into `done/`, so a card is referred to by its id, its
   filename without `.md`, never by path.

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Every relative Markdown link and fragment resolves before the push leaves
+# the machine — the same check as ci.yml's docs job (METHODOLOGY.md §2).
+# Enabled per clone by: git config core.hooksPath .githooks
+# Without lychee installed the hook waves the push through; CI still checks.
+if command -v lychee >/dev/null 2>&1; then
+  exec lychee --offline --include-fragments --no-progress .
+fi
+echo "pre-push: lychee not installed, link check left to CI" >&2

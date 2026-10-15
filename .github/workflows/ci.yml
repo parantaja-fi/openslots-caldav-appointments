@@ -114,6 +114,18 @@ jobs:
       - run: npm run build
       - run: npm test
 
+  # Every relative Markdown link and fragment resolves (METHODOLOGY.md §2).
+  # Offline on purpose: a dead external URL is an editorial problem, not a
+  # build failure, and checking them would make CI flaky.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: lychee
+        run: |
+          curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz | tar xz lychee
+          ./lychee --offline --include-fragments --no-progress .
+
   # The email path end to end, and the only job that sends real mail. It needs
   # every other job first: each run spends two messages of a small monthly
   # receive quota, so it is not worth spending on a commit already known bad.
@@ -121,7 +133,7 @@ jobs:
   # mail latency makes a poor per-commit gate.
   email-roundtrip:
     if: github.event_name != 'pull_request'
-    needs: [worker, live-radicale, live-remote, frontend, wizard]
+    needs: [worker, live-radicale, live-remote, frontend, wizard, docs]
     runs-on: ubuntu-latest
     # One run at a time: the inbox is shared, and two runs in the same window
     # would match each other's messages.
