@@ -183,7 +183,8 @@ touching local testing or production), `TESTMAIL_APIKEY` and
 | [SETUP.md](SETUP.md)       | Setting up by hand, and the why behind each wizard step |
 | [SCOPE.md](SCOPE.md)       | What is being built, for whom, and what is out |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The mechanisms: calendar model, API, security |
-| [ROADMAP.md](ROADMAP.md)   | Milestones from here to 0.2.0 |
+| [ROADMAP.md](ROADMAP.md)   | Met milestones, and what each coming release is for |
+| [.devtool/features/](.devtool/features/) | The work, one card per item, labelled with its release |
 | [SECURITY.md](SECURITY.md) | How to report a vulnerability |
 | [PRIVACY.md](PRIVACY.md)   | What personal data the system handles, and who processes it |
 

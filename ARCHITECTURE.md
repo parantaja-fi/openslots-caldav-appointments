@@ -256,7 +256,9 @@ rather than two rollbacks leaving the slot empty.
 A residual window remains: a request whose re-query lands before the
 other's `PUT` sees no conflict, so two overlapping bookings can still
 stand. That is acceptable at practitioner-scale traffic.
-A per-slot Durable Object lock is the known escalation, if ever needed.
+Closing it, if ever needed, must stay portable: no Durable Object or
+other Cloudflare-only binding (card
+`close-the-booking-race-window-portably-2026-08-01`).
 
 **Abuse.**
 
@@ -328,9 +330,9 @@ Brevo; a production deployment that meant to send mail and forgot the
 secret is what the M5.1 health check is for.
 
 SMTP submission to the operator's own mailbox was considered and
-deferred (`ROADMAP.md` Later): Workers cannot speak SMTP over `fetch`,
-so it needs the TCP-sockets API plus an SMTP client dependency, and
-mailbox credentials in the Worker would grant mail-*reading* access — a
+deferred (card `smtp-submission-as-an-email-transport-2026-08-01`):
+Workers cannot speak SMTP over `fetch`, so it needs the TCP-sockets API
+plus an SMTP client dependency, and mailbox credentials in the Worker would grant mail-*reading* access — a
 worse blast radius than a send-only API key.
 
 ## 7. Configuration

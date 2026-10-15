@@ -121,7 +121,9 @@ Operator experience (the actual 0.1.0 substance):
 - Proton (or any provider) as a booking store via unofficial APIs.
 - The documented Proton path (store elsewhere + ICS subscription for
   viewing). §3 still supports it in principle; what is deferred is
-  verifying and writing it up — `ROADMAP.md` "Later".
+  verifying and writing it up — card
+  `the-proton-path-verified-then-written-up-2026-08-02`, labelled
+  `later`.
 - Native apps; anything requiring a database.
 
 Out of scope permanently unless the goal changes: features whose natural

@@ -1,9 +1,10 @@
 # Booking Calendar — Roadmap
 
-> Milestones, each with an exit criterion. Order is dependency-driven,
-> not a schedule. Scope per `SCOPE.md`; mechanisms per
-> `ARCHITECTURE.md`. Met milestones are kept to summaries here; their
-> full exit stories live in this file's git history.
+> Releases and their milestones. Order is dependency-driven, not a
+> schedule. Scope per `SCOPE.md`; mechanisms per `ARCHITECTURE.md`; the
+> work itself is on the board, `.devtool/features/`, one card per item,
+> labelled with its release. Met milestones are kept to summaries here;
+> their full exit stories live in this file's git history.
 
 ## Done — M0 to M6.4, released as 0.1.0
 
@@ -65,8 +66,7 @@
     tab (`ARCHITECTURE.md` §1), per-owner Worker names, and the
     guided Google Calendar sub-wizard
     (`docs/google-calendar-wizard.md`, landed 2026-10-11) among them.
-    Residue for 0.1.x: the Google cards walked with a fresh Google
-    account, and the postponed usability remarks.
+    Its residue is on the board, labelled `0.1.x`.
 
 ## 0.1.0
 
@@ -74,112 +74,22 @@ M0–M6.4 done (M4 descoped along the way): the wizard's proxy
 acceptance passed. M6.5, reconfiguration, and M6.6, the external
 acceptance, follow the release — the latter deliberately.
 
-## M6.5 — Reconfiguration
+## 0.1.x
 
-Changing one setting later without re-entering the rest. Today the
-store writes the whole configuration from the tab, so once the tab
-has forgotten the secrets a single change means re-entering every
-credential — a new Cloudflare token and Brevo key among them, both
-shown only once — and in a browser that has forgotten the form as
-well, the booking-shape settings fall back to their defaults and the
-next store overwrites the stored ones without a word. After the first
-store, the store step instead writes only the cards changed in this
-tab and leaves the rest as stored; what a calendar-provider switch
-must then delete is part of the design. Done when a stored setup is
-changed in one card from a fresh browser with every other stored
-value intact. It is what makes the living-with-it closer's "come back
-here … store and deploy again" cheap (walk attempt 2, 2026-09-08).
-
-## M6.6 — External acceptance
-
-The original bar, and what closes M6: a practitioner who is not the
-author, observed (think-aloud where possible), completes setup in the
-wizard tab alone, `SETUP.md` open only as reference, and takes a real
-booking. Deliberately scheduled after the 0.1.0 release — no second
-practitioner was at hand, and the release should not wait; what trips
-them becomes 0.1.x fixes. Per-role calendar providers (availability
-and booking store on different backends; today one provider choice
-serves both) were deferred here from the walks.
+Fixes to 0.1.0, and the two milestones that close M6: M6.5,
+reconfiguration, and M6.6, the external acceptance by a practitioner
+who is not the author, whose card holds the original bar. What trips
+that practitioner becomes 0.1.x fixes. The work: the cards labelled
+`0.1.x`.
 
 ## 0.2.0
 
-Selected 2026-08-10 from the "Later" pool; to be carved into
-milestones when 0.1.0 closes:
-
-- **Booking page integrated into the operator's own site.** The
-  first case is the author's: parantaja.fi, served by GitHub Pages, so
-  the page and the Worker live on different origins. This is why
-  `ALLOWED_ORIGINS` and the build-time API URL are features, not
-  deployment glue, and why the API must keep working cross-origin.
-- **Reminder email before the appointment** — reuses the M3 delivery
-  mechanism and the booking's own data, and needs no stored state:
-  - A scheduled trigger fires every interval *I* (a Cron Trigger on
-    Cloudflare, any host's cron elsewhere: a thin seam, so the Worker
-    stays portable). At tick *T* it reads the store for bookings
-    starting in [*T* + *L*, *T* + *L* + *I*), *L* being the lead time.
-    *T* is the tick's scheduled time, not the clock, so the windows
-    tile time: each booking falls in exactly one, and no "sent" flag is
-    needed. A re-delivered tick sends its reminders twice; rare, and
-    only a duplicate.
-  - Bookings are recognised by uid, as everywhere. The address is the
-    first line of the `DESCRIPTION` (`ARCHITECTURE.md` §2); a
-    description the practitioner has edited out of shape is skipped.
-  - The reminder carries a freshly issued cancellation token, the same
-    capability as the confirmation's, so nothing is stored.
-  - A booking made after its window's tick gets no reminder (with an
-    hourly *I*, roughly those made less than *L* ahead): the
-    confirmation stands in. A missed tick loses its window's
-    reminders.
-  - One setting, the lead time; absent means off.
-  - Three messages per booking instead of two:
-    `docs/tasks/email-monitoring.md`'s thresholds assume two.
-- **ICS URL as an availability source** — an alternative to CalDAV
-  for the read-only role; also the prerequisite for the Proton path,
-  whose verification and write-up stay in "Later".
-- **Proper booking UX on a phone** — current booking calendar
-  works well enough on a laptop, but has never been tried on
-  a phone. Most probably both UX:es need improvements.
-- **`SETUP.md` second edition** — happy path rewritten around the
-  fork: browser-only, no Node, no git, no terminal; today's terminal
-  path becomes the appendix for operators who want it. The Brevo/DNS
-  part rewritten around the API-returned record set. Displaced from
-  the descoped M4.
+Selected 2026-08-10 from the Later pool, and grown since; to be carved
+into milestones when 0.1.0 closes. It brings the booking page into the
+operator's own site, the author's parantaja.fi first, on another origin
+than the Worker; and the `SETUP.md` second edition. The work: the cards
+labelled `0.2.0`.
 
 ## Later
 
-- Better cancellation. If possible, deletion of an event from
-  the bookings calendar should send an email to the customer.
-  This may be technically impossible, so also other options
-  should be explored.
-- **WordPress plugin** (0.3.0 or later), if practitioners embedding
-  into WP materialise. Same cross-origin story as the site
-  integration.
-- The Proton path, verified then written up: booking store on a CalDAV
-  backend, Proton subscribing to its ICS URL for viewing, a standard
-  CalDAV client for painting `OPEN`. Verify against a real Proton
-  account first — in particular the subscription refresh interval, which
-  their documentation puts in hours, and whether a Nextcloud or Google
-  secret-ICS URL is accepted at all. Describing it from their published
-  behaviour instead would repeat the M2 `<c:expand>` mistake. Then a
-  short `docs/proton.md` linked from the operator guide.
-- Further verified backends (Baïkal, Fastmail, …) — marginal cost is one
-  CI job per backend once the M2 suite exists.
-- Per-slot Durable Object lock, if real traffic ever makes the
-  check-after-insert race window matter (`ARCHITECTURE.md` §5).
-- SMTP submission to the operator's own mailbox as an alternative email
-  transport (rejected for 0.1.0 — `ARCHITECTURE.md` §6).
-- Configurable minimum cancellation notice (cancellation token expiring
-  N hours before slot start instead of at it).
-- **Reschedule** from the emailed link (low priority; Nylas, Aurinko,
-  Tymeslot, calrs and Calnode offer it). Needs no Worker change: the
-  cancellation page offers another time, the booking page books it
-  under a fresh grant, and only then deletes the old booking with the
-  token it already holds. Book before delete, so a failure leaves two
-  bookings, both visible to the practitioner, never none; the token's
-  expiry at slot start bounds it. The customer re-enters name and
-  address, since `GET /v1/bookings/:uid` deliberately returns times
-  alone.
-- Wizard resilience after a mid-flight crash: remember in
-  localStorage that an attempt was made and adapt the guidance —
-  which pastes to redo, what is already done — secrets still never
-  persisted (idea 2026-08-11; M6 ships plain restart).
+The pool releases are selected from: the cards labelled `later`.

@@ -16,8 +16,15 @@ testing continues past it.
 - `PRIVACY.md` — ARCHITECTURE §2/§5/§6 restated for the practitioner
   as data controller. A change to those sections must be checked
   against it (and against `SECURITY.md`'s scope list).
-- `ROADMAP.md` — met milestones as dated summaries; the live work
-  (M6.5, M6.6), then 0.2.0 and the Later pool.
+- `ROADMAP.md` — met milestones as dated summaries, and what each
+  coming release (0.1.x, 0.2.0, Later) is for; it lists no work items.
+- `.devtool/features/` — the work, one card per item, as the VS Code
+  Kanban Markdown extension renders it (the `kanban-markdown` skill
+  writes cards in its exact format). Epic: the area — Worker,
+  Frontend, Wizard, Email, Calendars, Security, Operations,
+  Documentation. Labels: the release (`0.1.x`, `0.2.0`, `later`), and
+  `bug` or `decision` where apt. Finished cards move into `done/`, so
+  refer to a card by its id, never by path.
 - `LESSONS.md` — dated, hard-won facts (browser quirks, test and
   automation gotchas); read the relevant entry before re-measuring one.
 - `docs/` — per-feature design notes and walk logs;

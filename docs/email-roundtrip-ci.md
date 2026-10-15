@@ -1,11 +1,11 @@
-# Task — email round-trip test in CI
+# Email round-trip test in CI
 
-> Status: **built** 2026-08-02. `worker/test/roundtrip.mjs`, the
-> `email-roundtrip` job in `ci.yml`, `npm run roundtrip` locally.
-> Companion to [[email-monitoring]] (`email-monitoring.md`); they share
-> the Brevo account and the parantaja.fi addresses but are different
-> things — that one watches production over weeks, this one proves the
-> email path in minutes, on demand.
+> Built 2026-08-02: `worker/test/roundtrip.mjs`, the `email-roundtrip`
+> job in `ci.yml`, `npm run roundtrip` locally. Companion to the board's
+> `email-volume-and-authentication-monitoring-2026-08-03` card; they
+> share the Brevo account and the parantaja.fi addresses but are
+> different things — that one watches production over weeks, this one
+> proves the email path in minutes, on demand.
 
 ## Goal
 
@@ -60,7 +60,7 @@ Rejected, and worth not re-deriving:
 - **Cloudflare Email Routing into an Email Worker.** Architecturally the
   best fit for this stack and blocked: Email Routing requires the zone
   on Cloudflare nameservers, and parantaja.fi is on Gandi's. Same
-  blocker as [[email-monitoring]]. Do not move DNS for this; if it ever
+  blocker as the monitoring card. Do not move DNS for this; if it ever
   moves for other reasons, revisit both tasks together.
 - **Self-hosted SMTP at home.** An MX pointing at a residential
   connection, inbound port 25, dynamic DNS, and some way for a GitHub
@@ -125,7 +125,7 @@ pushes a month plus four crons that is 30–70 messages — headroom, not
 comfort. Watch it over the first month.
 
 Brevo's side is trivial against 300/day, but **it lands in the same
-account statistics [[email-monitoring]] reads**, where the month is
+account statistics the monitoring card reads**, where the month is
 capped at 100. Left open there deliberately: tagging CI sends (the Brevo
 API accepts a `tags` array, a one-line addition to `sendEmail()`) is the
 cleaner reconciliation, but adding it before a monitor exists is
@@ -144,5 +144,5 @@ thresholds.
   no message spent. Note that `wrangler dev` does not always reload a
   rewritten `.dev.vars`; restart it, or the run silently uses the old
   key and the red test is not the test you think it is.
-- A month of runs stays within whatever budget [[email-monitoring]]
+- A month of runs stays within whatever budget the monitoring card
   settles on, without tripping its alerts.
