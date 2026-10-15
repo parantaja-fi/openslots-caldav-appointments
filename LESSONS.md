@@ -4,6 +4,38 @@ Dated notes for agents working in this repository: hard-won facts and
 practices that fit neither CLAUDE.md's brief nor ARCHITECTURE.md's
 mechanisms. Append new entries at the top; leave old ones as written.
 
+## 2026-10-15 — Local Network Access, wrangler dev's trace store, and Google's CalDAV freshness
+
+### Chromium blocks a fulfilled page's fetch to a loopback Worker
+
+Chromium 151.0.7922.34, as Playwright 1.62.1 ships it, denies a fetch
+from a document served by `route.fulfill` — so on a public origin — to a
+Worker on localhost: Local Network Access. Grant it on the context,
+`await context.grantPermissions(['local-network-access'])`. A page
+served from localhost itself needs no grant.
+
+### `wrangler dev` keeps a trace store, and answers SQL over it
+
+wrangler 4.118.0 records the local Worker's requests and subrequests.
+`POST /cdn-cgi/local/explorer/api/local/observability/query` on the dev
+port, body `{ "sql": "…" }`, queries a `spans` table: an incoming
+request is a span named after its method, a subrequest one named
+`fetch`, the two joined on `trace_id`. URL, method and status are in the
+JSON `attributes` column as `url.full`, `http.request.method` and
+`http.response.status_code`, read with
+`json_extract(attributes, '$."url.full"')`. That counts a request's
+CalDAV calls exactly. `duration_ms` is real, but the CPU and wall-time
+fields read 0, so it cannot measure CPU. The store survives restarts in
+`.wrangler/`, full subrequest URLs (calendar IDs) included: delete it
+after a live run. It refuses a page from another origin with 403.
+
+### Google's CalDAV reads an API write at once
+
+A write through Calendar API v3, as the service account, was in the
+next CalDAV REPORT 0.3–0.4 s after the API call returned (two trials).
+A test that writes through one and reads through the other need not
+wait.
+
 ## 2026-10-11 — The work window, Safari's window policy, and driving Safari from the shell
 
 ### Safari ignores `window.open` geometry; place the window yourself

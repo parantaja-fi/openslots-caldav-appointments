@@ -6,7 +6,7 @@ assignee: null
 epic: "Worker"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T08:40:42.000Z"
+modified: "2026-10-15T13:03:40.000Z"
 completedAt: null
 labels: ["0.1.x", "decision"]
 order: "Zz"
@@ -20,6 +20,7 @@ order: "Zz"
 > re-checks. A decision to take first, with a recommendation. Changes
 > `eventsIn` and `CalendarEvent`, as does
 > `a-moved-occurrence-breaks-recurrence-expansion-2026-10-15`.
+> Per-occurrence transparency added 2026-10-15.
 
 `eventsIn` (`caldav.ts`) carries no `TRANSP`, so an event marked Free
 (`TRANSP:TRANSPARENT`) blocks like any other. Google marks all-day
@@ -41,10 +42,16 @@ every booking visible. Confirm on the Google profile that an all-day
 event made in Google's own UI arrives with `TRANSP:TRANSPARENT`, rather
 than inferring it — the M2 `<c:expand>` lesson.
 
+Transparency is per occurrence: an override carries its own `TRANSP`,
+so one occurrence can be Free in a Busy series, or Busy in a Free one.
+Read it from the override where there is one (`getOccurrenceDetails`'
+`item`), as the summary already is, not from the master.
+
 ## Acceptance, if done
 
-- Unit: `eventsIn` reading `TRANSP`, and `computeSlots` and `lostRace`
-  ignoring transparent events other than bookings. CI green.
+- Unit: `eventsIn` reading `TRANSP`, an override's own winning over its
+  master's, and `computeSlots` and `lostRace` ignoring transparent
+  events other than bookings. CI green.
 - The Google observation above, recorded.
 - `ARCHITECTURE.md` §2's slot rule says what the code does; `PRIVACY.md`
   checked against it.
