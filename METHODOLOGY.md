@@ -61,6 +61,13 @@ enabled once per clone by `git config core.hooksPath .githooks`.
 Without lychee installed the hook waves the push through: CI remains
 the gate, the hook only shortens the loop.
 
+The board's own links are the backticked card ids, which lychee cannot
+see. `scripts/check-cards.sh`, run by the same hook and job, checks
+that every card's frontmatter id matches its filename and that every
+id cited in tracked Markdown names a card that exists — in
+`.devtool/features/` or its `done/`, which is why cards are referred
+to by id, never by path.
+
 ## 3. CLAUDE.md is instructions, not the record
 
 `CLAUDE.md` tells the working agent how to behave and changes freely.

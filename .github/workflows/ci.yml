@@ -114,13 +114,15 @@ jobs:
       - run: npm run build
       - run: npm test
 
-  # Every relative Markdown link and fragment resolves (METHODOLOGY.md §2).
-  # Offline on purpose: a dead external URL is an editorial problem, not a
-  # build failure, and checking them would make CI flaky.
+  # Every relative Markdown link and fragment resolves, and every card
+  # reference names an existing card (METHODOLOGY.md §2). Offline on purpose:
+  # a dead external URL is an editorial problem, not a build failure, and
+  # checking them would make CI flaky.
   docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: scripts/check-cards.sh
       - name: lychee
         run: |
           curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz | tar xz lychee
