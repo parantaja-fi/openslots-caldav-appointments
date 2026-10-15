@@ -26,7 +26,7 @@ chose during setup — your processors, in GDPR terms:
   server sees: the visitor's address and requests, under GitHub's own
   log policy. The page itself sets no cookies and runs no analytics;
   the browser session key (`ARCHITECTURE.md` §5) is anonymous and
-  never leaves the browser.
+  the private half never leaves the browser.
 - **Cloudflare** runs the API, and sees its requests as any host
   would — the per-IP rate limit is Cloudflare's own counter.
   Our Worker is stateless: it holds a booking in memory for the one

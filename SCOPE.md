@@ -61,9 +61,11 @@ Carried forward as constraints, not open questions — rationale in
   ICS subscription, never as the store. The store may live on the
   practitioner's existing provider (Google, Fastmail, Nextcloud, …) or a
   small self-hosted server (Radicale, Baïkal).
-- **Three-part topology**: static SPA (free static hosting) + small
-  serverless API (free-tier Cloudflare Worker) + the CalDAV store. The API
-  is booking-domain-shaped (`slots`, `bookings`), never a calendar proxy.
+- **Four-part topology**: static SPA (free static hosting) + small
+  serverless API (free-tier Cloudflare Worker) + the CalDAV store, and
+  the setup wizard beside the system, outside the booking flow
+  (`ARCHITECTURE.md` §1). The API is booking-domain-shaped (`slots`,
+  `bookings`), never a calendar proxy.
 - **Security = capability grants as plain signed JWTs.** Per-slot,
   short-lived create-grants issued with the slot list (the grant doubles as
   the availability proof); a bearer cancellation token issued per booking,
@@ -166,8 +168,9 @@ Out of scope permanently unless the goal changes: features whose natural
 home is an automation platform (CRM rows, follow-up sequences). The API
 stays clean enough that n8n/Windmill can consume it; we do not become them.
 
-## 7. Open decisions to settle first
+## 7. Open decisions
 
-None remaining. Email, backends, and cancellation-link semantics were
-settled 2026-08-01; the decisions are recorded in `ARCHITECTURE.md`
-(§5, §6) and `ROADMAP.md` M0.
+The seed decisions — email, backends, cancellation-link semantics —
+were settled 2026-08-01 and are recorded in `ARCHITECTURE.md` (§5, §6)
+and `ROADMAP.md` M0. Decisions opened since live on the Kanban board as the
+cards labelled `decision` (`ROADMAP.md`, "The board").

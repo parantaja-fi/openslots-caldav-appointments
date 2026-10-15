@@ -40,13 +40,14 @@ The bookings are written to the booking calendar.
 Beside the actual system and separate from it.
 The wizard is a second static page served at `/wizard/`.
 Its provisioning stage commits one additional file to the fork
-(`.wizard/fork.json`), and writes Github Actions secrets and variables.
+(`.wizard/fork.json`), and writes GitHub Actions secrets and variables.
 The committed file contains the fork's
 provenance and when its configuration was last stored, public facts only.
 With it, any browser can tell a configured fork without a token.
 The wizard's outside links all open in one work window beside it.
 Google Calendar, the one provider whose by-hand route crosses
 two consoles, has its own guided sub-wizard inside the calendars step.
+
 ## 2. Calendar model
 
 The system uses **two logical calendars**, configured independently:

@@ -7,8 +7,7 @@ testing continues past it.
 
 ## Document map
 
-- `SCOPE.md` — what is being built, for whom, what is out. Open
-  decisions live in its §7.
+- `SCOPE.md` — what is being built, for whom, what is out.
 - `ARCHITECTURE.md` — authoritative home for every mechanism (topology,
   calendar model, API, security). Do not restate mechanisms elsewhere;
   reference them. When two documents describe the same mechanism they
@@ -21,11 +20,18 @@ testing continues past it.
 - `.devtool/features/` — the work, one card per item, as the VS Code
   Kanban Markdown extension renders it (the `kanban-markdown` skill
   writes cards in its exact format). Conventions — epics, labels,
-  referring to cards by id — in `ROADMAP.md`'s "The board".
+  referring to cards by id — in `ROADMAP.md`'s "The board". Open
+  decisions are the cards labelled `decision`.
+- `SETUP.md` — the by-hand route for the operator, and the reference
+  behind the wizard's steps.
+- `NOW.md` — where the work stands between sessions; the `handoff`
+  skill updates it.
 - `LESSONS.md` — dated, hard-won facts (browser quirks, test and
   automation gotchas); read the relevant entry before re-measuring one.
 - `docs/` — per-feature design notes and walk logs;
   `docs/fork-guided-setup.md` is the wizard's design doc.
+- `spike/` — the work-window and Safari-driving probes;
+  `spike/RESULTS.md` holds the measurements `LESSONS.md` cites.
 - `../parantaja-booking-calendar-spikes/LEARNINGS.md` — rationale from the
   spike phase; consult before re-deriving a settled decision.
 

@@ -29,7 +29,7 @@ web page, and writes confirmed bookings back as ordinary calendar events.
 Cancellation deletes the event. There is no database: CalDAV is the sole
 persistence layer.
 
-Three parts:
+Four parts:
 
 - a static single-page app (free static hosting),
 - a small serverless API on a Cloudflare Worker (free tier),
@@ -37,6 +37,8 @@ Three parts:
   only reads, and a **booking store** it reads and writes. These may be
   the same calendar, or separate — e.g. availability in a calendar the
   system cannot modify.
+- the setup wizard, beside the system — a static page used once, to
+  deploy and configure the other three.
 
 ## Setting up your own
 
