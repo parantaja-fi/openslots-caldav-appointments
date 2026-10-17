@@ -144,7 +144,7 @@ Five endpoints, booking-domain-shaped:
 
 | Endpoint | Requires (§5) | Returns |
 |----------|---------------|---------|
-| `GET /v1/slots` | the session's key thumbprint | computed open slots for a window, with one create-grant covering the returned list |
+| `GET /v1/slots` | nothing; the session's key thumbprint, when a grant is wanted | computed open slots for a window, with one create-grant covering the returned list for a caller that sent a thumbprint |
 | `POST /v1/bookings` | the slot's create-grant and a session proof | the booking, its cancellation token, and `confirmation_email` |
 | `GET /v1/bookings/:uid` | that booking's cancellation token | the booking's times, for the page the emailed link lands on |
 | `DELETE /v1/bookings/:uid` | that booking's cancellation token | cancellation |
@@ -336,7 +336,9 @@ and the practitioner can always cancel from their own client.
 ### 5.4 Wire format
 
 `GET /v1/slots` carries the session's JWK thumbprint in
-`X-Session-Thumbprint`.
+`X-Session-Thumbprint` when the caller wants a grant; without the
+header the list comes back without one, for a viewer who holds no
+session.
 
 `POST /v1/bookings` carries the create-grant in `Authorization: Bearer`
 and a session proof in `X-Session-Proof`.

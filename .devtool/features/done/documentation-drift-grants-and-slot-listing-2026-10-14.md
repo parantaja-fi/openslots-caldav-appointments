@@ -1,15 +1,15 @@
 ---
 id: "documentation-drift-grants-and-slot-listing-2026-10-14"
-status: "backlog"
+status: "done"
 priority: "low"
 assignee: null
 epic: "Documentation"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-17T07:36:00.000Z"
-completedAt: null
+modified: "2026-10-17T11:45:00.000Z"
+completedAt: "2026-10-17T11:45:00.000Z"
 labels: ["0.1.x"]
-order: "a5"
+order: "aB"
 ---
 # Documentation drift: grants and slot listing
 
@@ -38,3 +38,8 @@ Note 2026-10-17: the `SCOPE.md` §3 item is done (999955c, with
 `decide-re-check-open-coverage-at-booking-2026-10-14`). What remains is
 `ARCHITECTURE.md` §3's table and §5.4, which still present the
 thumbprint as mandatory.
+
+Done 2026-10-17: `ARCHITECTURE.md` §3's table and §5.4 now present the
+thumbprint as optional, a listing without one coming back without a
+grant. `PRIVACY.md` and `SECURITY.md` checked: neither describes the
+header, no change.
