@@ -117,9 +117,9 @@
   {
     "name": "DISPLAY_TIMEZONE",
     "kind": "variable",
-    "group": "email",
-    "label": "Timezone",
-    "help": "Appointment times in the emails are written in this zone.",
+    "group": "shape",
+    "label": "Time zone",
+    "help": "Your zone. All-day calendar entries, and any without a zone of their own, are read in it; the confirmation email gives times in it.",
     "validate": "timezone",
     "placeholder": "Europe/Helsinki"
   },

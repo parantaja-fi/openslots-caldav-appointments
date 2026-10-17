@@ -43,11 +43,11 @@ describe("visibility", () => {
     expect(visible(entry("AVAILABILITY_PASSWORD"), google)).toBe(false);
   });
 
-  it("hides the whole email group when email is off", () => {
+  it("hides the whole email group when email is off, and keeps the zone", () => {
     const off = form({ emailOn: false });
     expect(visible(entry("BREVO_API_KEY"), off)).toBe(false);
     expect(visible(entry("SENDER_EMAIL"), off)).toBe(false);
-    expect(visible(entry("DISPLAY_TIMEZONE"), off)).toBe(false);
+    expect(visible(entry("DISPLAY_TIMEZONE"), off)).toBe(true);
   });
 });
 
@@ -103,7 +103,7 @@ describe("effectiveValues", () => {
     const eff = effectiveValues(MANIFEST, form({ emailOn: false }), SECRETS);
     expect(eff.variables["SLOT_MINUTES"]).toBe("30");
     expect(eff.variables["GRANT_TTL_SECS"]).toBe("1800");
-    expect(eff.variables["DISPLAY_TIMEZONE"]).toBeUndefined();
+    expect(eff.variables["DISPLAY_TIMEZONE"]).toBe("Europe/Helsinki");
     expect(eff.secrets["BREVO_API_KEY"]).toBeUndefined();
     expect(eff.secrets["SENDER_EMAIL"]).toBeUndefined();
   });
