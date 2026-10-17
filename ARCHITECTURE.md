@@ -218,17 +218,19 @@ Create-grants (see below) are bound to the session's public key
 
 Creating a booking requires a create-grant, bound to the session (§5.4).
 
-**Create-grants as availability proofs.**
+**Create-grants as the offer.**
 
 For each available slot list, a *single* short-lived (30 min) create-grant is
-minted. It enumerates the open slot beginnings in a `slots` claim.
-Its possession proves those slots were open when listed.
-Hence, the booking path re-checks only for conflicting bookings,
-never again for `OPEN` events.
+minted for the session that asked. It enumerates the open slot beginnings in a `slots` claim.
+Its possession confines a booking to a slot start actually listed.
+The booking path re-checks the offer itself after its insert:
+the slot must still be covered by the availability calendar's `OPEN` events,
+their union containing it with no seam inside (§4),
+and nothing in either calendar may block it (§5.3).
 
-The explicit enumeration of the slots is not the time-window wildcard;
-a wildcard (once considered) would lose the claiming property and
-need a compensating availability check.
+The explicit enumeration of the slots is not the time-window wildcard.
+A wildcard (once considered) would leave the slot's phase (§4) unchecked,
+for the re-check tests coverage, not phase.
 
 One grant per list rather than one per slot, because per-slot issuance would be costly:
 80 ES256 signatures cost ≈ 3.8 ms of the 10 ms free-tier CPU allowance and
@@ -268,8 +270,9 @@ Hence, no single-use state is needed.
 **Double-booking.**
 
 CalDAV `PUT` is not atomic, so the Worker checks after inserting:
-insert, re-query the slot in the store, roll back with `DELETE` on
-conflict, return 409.
+insert, re-query the slot in both calendars (one query when they coincide),
+roll back with `DELETE` when the slot is no longer covered (§5.2) or is
+blocked, return 409.
 The slot belongs to the *earliest* booking UID in it (§2),
 and outright to any event the system did not write that is not marked Free.
 Hence, two simultaneous bookings settle into one 200 and one 409,
@@ -418,7 +421,7 @@ a side effect of push.
 | §5 | The browser session key | `frontend/src/session.ts` |
 | §5 | The wire headers | `frontend/src/api.ts` |
 | §5 | The page the emailed link opens | `frontend/src/cancel.ts` |
-| §5 | Double-booking arbitration | `lostRace` in `worker/src/slots.ts`, under the booking route of `worker/src/index.ts` |
+| §5 | The offer re-check: coverage, double-booking arbitration | `covered` and `lostRace` in `worker/src/slots.ts`, under the booking route of `worker/src/index.ts` |
 | §6 | `sendEmail()` seam, both messages | `worker/src/email.ts` |
 | §7 | Parsing as validation | `worker/src/config.ts` |
 | §7 | The deriving fork deploy | `.github/workflows/deploy.yml` |

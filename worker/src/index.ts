@@ -10,7 +10,7 @@ import {
   verifySessionProof,
 } from "./grants";
 import { problem } from "./problem";
-import { bookingUid, computeSlots, lostRace } from "./slots";
+import { bookingUid, computeSlots, covered, lostRace } from "./slots";
 
 const UTC_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 /** Base64url SHA-256, per RFC 7638. */
@@ -140,8 +140,9 @@ async function postBooking(
       "A create-grant and a session proof are required to book.", cors);
   }
   try {
-    // The proof says which session is calling; the grant says that session was
-    // offered this slot. Together they replace re-reading the OPEN events.
+    // The proof says which session is calling; the grant, that this session
+    // was offered this slot start. The offer itself is re-checked after the
+    // insert.
     await verifyCreateGrant(cfg, grant, slotStart, await verifySessionProof(cfg, proof));
   } catch (e) {
     return rejected(e, cors);
@@ -150,7 +151,7 @@ async function postBooking(
   const start = new Date(slotStart).toISOString();
   const end = new Date(Date.parse(start) + cfg.slotMs).toISOString();
   const uid = bookingUid();
-  const { store } = cfg.calendars;
+  const { availability, store, coincide } = cfg.calendars;
 
   // The practitioner reads their customer's address in their own calendar
   // client; a DESCRIPTION line is inert on every backend, where an ATTENDEE
@@ -164,9 +165,18 @@ async function postBooking(
     return problem(502, "Bad Gateway", "The booking could not be stored.", cors);
   }
 
-  // CalDAV has no conditional insert, so detect the race afterwards.
+  // CalDAV has no conditional insert, so the offer is re-checked afterwards,
+  // with the listing's reads narrowed to the slot.
   try {
-    if (lostRace(uid, await reportEvents(store, start, end, cfg.timezone), start, end)) {
+    const [availabilityEvents, storeEvents] = await Promise.all([
+      reportEvents(availability, start, end, cfg.timezone),
+      coincide ? Promise.resolve([]) : reportEvents(store, start, end, cfg.timezone),
+    ]);
+    if (!covered(availabilityEvents, start, end)) {
+      await deleteEvent(store, uid);
+      return problem(409, "Conflict", "The slot is no longer offered.", cors);
+    }
+    if (lostRace(uid, [...availabilityEvents, ...storeEvents], start, end)) {
       await deleteEvent(store, uid);
       return problem(409, "Conflict", "The slot was taken while you were booking it.", cors);
     }

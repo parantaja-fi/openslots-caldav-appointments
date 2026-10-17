@@ -53,9 +53,9 @@ function sign(
 }
 
 /**
- * One grant for the whole slot list (`ARCHITECTURE.md` §5). Possession
- * proves those slots were open when listed, so the booking path never
- * re-checks OPEN events.
+ * One grant for the whole slot list (`ARCHITECTURE.md` §5), bound to the
+ * session. It confines a booking to the slot starts actually listed; the
+ * booking path re-checks the offer itself after its insert.
  */
 export async function issueCreateGrant(
   config: Config,

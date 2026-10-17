@@ -79,6 +79,19 @@ function union(open: CalendarEvent[]): { open: Interval[]; seams: Interval[] } {
 }
 
 /**
+ * Whether the availability calendar still offers the slot: the union of its
+ * OPEN events contains it, with no seam inside. Phase is not checked; the
+ * grant attested it.
+ */
+export function covered(availability: CalendarEvent[], start: string, end: string): boolean {
+  const { open, seams } = union(availability.filter(isOpen));
+  const from = Date.parse(start);
+  const to = Date.parse(end);
+  return open.some(i => i.start <= from && i.end >= to) &&
+    !seams.some(s => s.start > from && s.start < to);
+}
+
+/**
  * `ARCHITECTURE.md` §4. OPEN counts only from the availability calendar;
  * everything else in either calendar blocks, save events marked Free that we
  * did not write. When the two roles coincide, pass the single query's events

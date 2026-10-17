@@ -66,12 +66,12 @@ Carried forward as constraints, not open questions — rationale in
   the setup wizard beside the system, outside the booking flow
   (`ARCHITECTURE.md` §1). The API is booking-domain-shaped (`slots`,
   `bookings`), never a calendar proxy.
-- **Security = capability grants as plain signed JWTs.** Per-slot,
-  short-lived create-grants issued with the slot list (the grant doubles as
-  the availability proof); a bearer cancellation token issued per booking,
-  carried by the emailed cancellation link, expiring at slot start. ES256,
-  sessions identified by browser-held non-extractable keys. No UCAN, no
-  DIDs, no server-side session state.
+- **Security = capability grants as plain signed JWTs.** ES256: a
+  create-grant issued with the slot list and bound to a browser-held
+  session key, and a bearer cancellation token per booking, carried by
+  the emailed link. `ARCHITECTURE.md` [§5](ARCHITECTURE.md#5-security)
+  says what each proves and what the booking path re-checks. No UCAN,
+  no DIDs, no server-side session state.
 - **Minimal dependencies, TypeScript strict throughout.** FullCalendar on
   the frontend, `ical.js` + `jose` (or raw Web Crypto) on the Worker;
   nothing else without a fight.

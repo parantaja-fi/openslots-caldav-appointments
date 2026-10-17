@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "../src/caldav";
-import { bookingUid, computeSlots, lostRace } from "../src/slots";
+import { bookingUid, computeSlots, covered, lostRace } from "../src/slots";
 
 const DAY = "2026-09-01";
 
@@ -145,6 +145,43 @@ describe("race arbitration", () => {
       open("09:00", "10:00"),
       booking("booking-20260901T000000000Z-theirs", "09:30", "10:00"),
     ])).toBe(false);
+  });
+});
+
+describe("coverage", () => {
+  const slot = { start: t("09:00"), end: t("09:30") };
+  const offered = (availability: CalendarEvent[]) => covered(availability, slot.start, slot.end);
+
+  it("accepts a slot inside one OPEN event", () => {
+    expect(offered([open("08:00", "10:00")])).toBe(true);
+  });
+
+  it("refuses a slot no OPEN event covers", () => {
+    expect(offered([event("Dentist", "08:00", "10:00")])).toBe(false);
+  });
+
+  it("refuses a slot its OPEN event ends inside", () => {
+    expect(offered([open("08:00", "09:15")])).toBe(false);
+  });
+
+  it("accepts a slot inside the union of overlapping OPEN events", () => {
+    expect(offered([open("08:00", "09:15"), open("09:10", "10:00")])).toBe(true);
+  });
+
+  it("refuses a slot the seam between abutting OPEN events runs through", () => {
+    expect(offered([open("08:00", "09:15"), open("09:15", "10:00")])).toBe(false);
+  });
+
+  it("accepts a slot a seam merely bounds", () => {
+    expect(offered([open("08:00", "09:00"), open("09:00", "10:00")])).toBe(true);
+  });
+
+  it("accepts a slot inside an OPEN event marked Free", () => {
+    expect(offered([event("OPEN", "08:00", "10:00", true)])).toBe(true);
+  });
+
+  it("refuses a slot covered only by our own booking titled OPEN", () => {
+    expect(offered([{ ...open("08:00", "10:00"), uid: bookingUid() }])).toBe(false);
   });
 });
 

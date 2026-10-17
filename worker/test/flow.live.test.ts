@@ -1,8 +1,9 @@
 import { env } from "cloudflare:workers";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { reportEvents } from "../src/caldav";
+import { deleteEvent, reportEvents } from "../src/caldav";
 import type { Env } from "../src/config";
 import worker from "../src/index";
+import { isBooking } from "../src/slots";
 import { at, clear, futureWindow, paint, writable } from "./fixture";
 import { newSession } from "./session";
 
@@ -110,5 +111,29 @@ describe.each(Object.entries(configurations))("%s", (_name, config) => {
     expect(response.status).toBe(200);
 
     expect((await list(session.thumbprint)).slots).toEqual(listed.slots.slice(1));
+  });
+
+  it("refuses a booking over an appointment added to the availability calendar after the listing", async () => {
+    await paint(availability, "OPEN", at(start, 60), at(start, 180));
+    const session = await newSession();
+
+    const listed = await list(session.thumbprint);
+    const slot = listed.slots[0]!;
+    await paint(availability, "Dentist", slot, at(slot, 30));
+
+    expect((await book(listed.grant, await session.proof(), slot)).status).toBe(409);
+    const stored = await reportEvents(store, start, end, env.DISPLAY_TIMEZONE);
+    expect(stored.filter(e => isBooking(e.uid))).toEqual([]);
+  });
+
+  it("refuses a booking whose OPEN event was deleted after the listing", async () => {
+    const uid = await paint(availability, "OPEN", at(start, 60), at(start, 180));
+    const session = await newSession();
+
+    const listed = await list(session.thumbprint);
+    await deleteEvent(availability, uid);
+
+    expect((await book(listed.grant, await session.proof(), listed.slots[0]!)).status).toBe(409);
+    expect(await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).toEqual([]);
   });
 });

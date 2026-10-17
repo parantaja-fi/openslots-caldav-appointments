@@ -40,7 +40,12 @@ async function reset(): Promise<void> {
   await clear(store, start, end);
 }
 
-beforeAll(reset);
+// The grants below are minted, not listed, and the booking path re-checks
+// that their slot is still offered.
+beforeAll(async () => {
+  await reset();
+  await paint(availability, "OPEN", SLOT, SLOT_END);
+});
 afterAll(reset);
 
 beforeEach(async () => {
