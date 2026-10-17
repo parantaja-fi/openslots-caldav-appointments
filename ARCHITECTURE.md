@@ -81,7 +81,12 @@ logical calendar, blocks — including a booking whose attendee happens to
 be called `OPEN`, which the uid distinguishes. With coinciding calendars
 this is exactly the spike behaviour; with separate calendars, bookings in
 the store block, and any stray non-`OPEN` events in the availability
-calendar block too.
+calendar block too. The exception is an event marked Free
+(`TRANSP:TRANSPARENT`, RFC 5545 §3.8.2.7), which does not block unless
+it is one of the system's own bookings: those block whatever their
+transparency, the uid again distinguishing. An `OPEN` event marked Free
+is still availability, and transparency is read per occurrence, from
+the override where there is one.
 
 CalDAV usage is deliberately narrow: `REPORT` (calendar-query with
 time-range filter, `Depth: 1`), `PUT`, `DELETE`, `GET` of a single event.
@@ -172,7 +177,7 @@ and prefixed by role (`slot_start`, not `start`).
    `cursor < t < slotEnd`, and neither the slot ending at `t` nor the one
    starting at `t`.
 3. **Blocking.** Every event in *either* calendar that is not availability
-   blocks, plus the phantoms. When the two roles resolve to one calendar this is one query.
+   blocks, unless §2 exempts it as Free, plus the phantoms. When the two roles resolve to one calendar this is one query.
 4. **Emission.** Clamp the union to `[now + minimum notice, now + horizon]`,
    then walk a cursor from each merged interval's start in `SLOT_MINUTES`
    steps. Emit `[cursor, cursor + SLOT_MINUTES)` when it fits inside the
@@ -256,7 +261,7 @@ CalDAV `PUT` is not atomic, so the Worker checks after inserting:
 insert, re-query the slot in the store, roll back with `DELETE` on
 conflict, return 409.
 The slot belongs to the *earliest* booking UID in it (§2),
-and outright to any event the system did not write.
+and outright to any event the system did not write that is not marked Free.
 Hence, two simultaneous bookings settle into one 200 and one 409,
 rather than two rollbacks leaving the slot empty.
 

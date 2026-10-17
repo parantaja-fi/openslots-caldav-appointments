@@ -8,8 +8,8 @@ function t(time: string): string {
   return `${DAY}T${time}:00.000Z`;
 }
 
-function event(summary: string, start: string, end: string): CalendarEvent {
-  return { uid: crypto.randomUUID(), summary, start: t(start), end: t(end) };
+function event(summary: string, start: string, end: string, transparent = false): CalendarEvent {
+  return { uid: crypto.randomUUID(), summary, start: t(start), end: t(end), transparent };
 }
 
 const open = (start: string, end: string) => event("OPEN", start, end);
@@ -28,6 +28,10 @@ function starts(
 describe("emission", () => {
   it("subdivides an OPEN event", () => {
     expect(starts([open("09:00", "10:00")])).toEqual(["09:00", "09:30"]);
+  });
+
+  it("still subdivides an OPEN event marked Free", () => {
+    expect(starts([event("OPEN", "09:00", "10:00", true)])).toEqual(["09:00", "09:30"]);
   });
 
   it("discards a trailing remainder shorter than a slot", () => {
@@ -87,6 +91,21 @@ describe("blocking", () => {
     const attendeeCalledOpen: CalendarEvent = { ...open("09:00", "09:30"), uid: bookingUid() };
     expect(starts([open("09:00", "10:00"), attendeeCalledOpen])).toEqual(["09:30"]);
   });
+
+  it("does not block on an event marked Free", () => {
+    expect(starts([open("09:00", "10:00"), event("Reminder", "09:00", "09:30", true)]))
+      .toEqual(["09:00", "09:30"]);
+  });
+
+  it("does not block on an event marked Free in the store", () => {
+    expect(starts([open("09:00", "10:00")], [event("Reminder", "09:00", "09:30", true)]))
+      .toEqual(["09:00", "09:30"]);
+  });
+
+  it("blocks on our own booking even when it is marked Free", () => {
+    const freed: CalendarEvent = { ...event("Alice", "09:30", "10:00", true), uid: bookingUid() };
+    expect(starts([open("09:00", "10:00")], [freed])).toEqual(["09:00"]);
+  });
 });
 
 describe("race arbitration", () => {
@@ -109,6 +128,15 @@ describe("race arbitration", () => {
 
   it("yields to an event we did not write, whatever its uid sorts as", () => {
     expect(lost([booking("aardvark", "09:15", "10:00")])).toBe(true);
+  });
+
+  it("does not yield to an event we did not write that is marked Free", () => {
+    expect(lost([{ ...booking("aardvark", "09:15", "10:00"), transparent: true }])).toBe(false);
+  });
+
+  it("yields to an earlier booking even when it is marked Free", () => {
+    const earlier = booking("booking-20260901T085958000Z-theirs", "09:00", "09:30");
+    expect(lost([{ ...earlier, transparent: true }])).toBe(true);
   });
 
   it("ignores our own event, availability, and events outside the slot", () => {
@@ -137,6 +165,7 @@ describe("window", () => {
       summary: "OPEN",
       start: "2020-01-01T09:00:00.000Z",
       end: t("11:00"),
+      transparent: false,
     };
     expect(starts([longOpen], [], t("09:07"))).toEqual(["09:30", "10:00", "10:30"]);
   });

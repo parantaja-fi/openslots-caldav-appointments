@@ -6,6 +6,7 @@ export interface CalendarEvent {
   summary: string;
   start: string; // ISO 8601, UTC
   end: string;   // ISO 8601, UTC
+  transparent: boolean;
 }
 
 export function toCalDAVDate(iso: string): string {
@@ -105,12 +106,19 @@ function unescapeXml(text: string): string {
  */
 const MAX_ITERATIONS = 10_000;
 
-function toEvent(uid: string, summary: string, start: ICAL.Time, end: ICAL.Time): CalendarEvent {
+function toEvent(
+  uid: string,
+  summary: string,
+  start: ICAL.Time,
+  end: ICAL.Time,
+  transparent: boolean,
+): CalendarEvent {
   return {
     uid,
     summary,
     start: start.toJSDate().toISOString(),
     end: end.toJSDate().toISOString(),
+    transparent,
   };
 }
 
@@ -142,7 +150,8 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
 
     const event = new ICAL.Event(vevent);
     if (!event.isRecurring()) {
-      events.push(toEvent(event.uid, event.summary, event.startDate, event.endDate));
+      const transparent = vevent.getFirstPropertyValue("transp") === "TRANSPARENT";
+      events.push(toEvent(event.uid, event.summary, event.startDate, event.endDate, transparent));
       continue;
     }
 
@@ -165,7 +174,8 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
       // How an occurrence deleted through an override, rather than through
       // EXDATE, is recorded. EXDATE the expansion already honours.
       if (item.component.getFirstPropertyValue("status") === "CANCELLED") continue;
-      events.push(toEvent(event.uid, item.summary, startDate, endDate));
+      const transparent = item.component.getFirstPropertyValue("transp") === "TRANSPARENT";
+      events.push(toEvent(event.uid, item.summary, startDate, endDate, transparent));
     }
 
     // An override the walk did not reach, such as one moved into the window
@@ -174,7 +184,10 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
       if (reached.has(override)) continue;
       if (override.startDate.toJSDate() >= to || override.endDate.toJSDate() <= from) continue;
       if (override.component.getFirstPropertyValue("status") === "CANCELLED") continue;
-      events.push(toEvent(event.uid, override.summary, override.startDate, override.endDate));
+      const transparent = override.component.getFirstPropertyValue("transp") === "TRANSPARENT";
+      events.push(
+        toEvent(event.uid, override.summary, override.startDate, override.endDate, transparent),
+      );
     }
   }
   return events;
@@ -248,7 +261,8 @@ export async function getEvent(cal: Calendar, uid: string): Promise<CalendarEven
   if (!vevent) return null;
 
   const event = new ICAL.Event(vevent);
-  return toEvent(event.uid, event.summary, event.startDate, event.endDate);
+  const transparent = vevent.getFirstPropertyValue("transp") === "TRANSPARENT";
+  return toEvent(event.uid, event.summary, event.startDate, event.endDate, transparent);
 }
 
 export async function putEvent(cal: Calendar, uid: string, ics: string): Promise<void> {

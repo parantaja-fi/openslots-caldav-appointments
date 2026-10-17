@@ -21,6 +21,10 @@ export function isOpen(event: CalendarEvent): boolean {
   return event.summary === OPEN && !isBooking(event.uid);
 }
 
+function blocks(event: CalendarEvent): boolean {
+  return isBooking(event.uid) || !event.transparent;
+}
+
 export interface Slot {
   slot_start: string; // ISO 8601, UTC
   slot_end: string;   // ISO 8601, UTC
@@ -28,8 +32,9 @@ export interface Slot {
 
 /**
  * Whether the event we just inserted must be rolled back. The slot belongs to
- * the earliest booking in it, and outright to any event we did not write; two
- * simultaneous bookings therefore yield one winner rather than two losers.
+ * the earliest booking in it, and outright to any event we did not write that
+ * is not marked Free; two simultaneous bookings therefore yield one winner
+ * rather than two losers.
  */
 export function lostRace(
   uid: string,
@@ -38,7 +43,7 @@ export function lostRace(
   end: string,
 ): boolean {
   return events.some(e =>
-    e.uid !== uid && !isOpen(e) && e.start < end && e.end > start &&
+    e.uid !== uid && !isOpen(e) && blocks(e) && e.start < end && e.end > start &&
     (!isBooking(e.uid) || e.uid < uid));
 }
 
@@ -75,8 +80,9 @@ function union(open: CalendarEvent[]): { open: Interval[]; seams: Interval[] } {
 
 /**
  * `ARCHITECTURE.md` §4. OPEN counts only from the availability calendar;
- * everything else in either calendar blocks. When the two roles coincide,
- * pass the single query's events as `availability` and nothing as `store`.
+ * everything else in either calendar blocks, save events marked Free that we
+ * did not write. When the two roles coincide, pass the single query's events
+ * as `availability` and nothing as `store`.
  */
 export function computeSlots(
   availability: CalendarEvent[],
@@ -87,8 +93,8 @@ export function computeSlots(
 ): Slot[] {
   const { open, seams } = union(availability.filter(isOpen));
   const blocking = [
-    ...intervals(availability.filter(e => !isOpen(e))),
-    ...intervals(store),
+    ...intervals(availability.filter(e => !isOpen(e) && blocks(e))),
+    ...intervals(store.filter(blocks)),
     ...seams,
   ];
 

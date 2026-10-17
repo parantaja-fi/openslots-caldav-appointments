@@ -33,6 +33,7 @@ describe("non-recurring events", () => {
       summary: "OPEN",
       start: "2026-09-08T09:00:00.000Z",
       end: "2026-09-08T10:00:00.000Z",
+      transparent: false,
     }]);
   });
 
@@ -73,6 +74,18 @@ describe("non-recurring events", () => {
     // would come back as 12:00Z.
     expect(starts(eventsIn(withZone, FROM, TO))).toEqual(["2026-09-08T09:00:00.000Z"]);
   });
+
+  it("reads an event marked Free as transparent", () => {
+    const events = eventsIn(ics([
+      "UID:free",
+      "DTSTART:20260908T090000Z",
+      "DTEND:20260908T100000Z",
+      "SUMMARY:Reminder",
+      "TRANSP:TRANSPARENT",
+    ]), FROM, TO);
+
+    expect(events.map(event => event.transparent)).toEqual([true]);
+  });
 });
 
 describe("expansion", () => {
@@ -95,6 +108,7 @@ describe("expansion", () => {
       summary: "OPEN",
       start: "2026-09-07T09:00:00.000Z",
       end: "2026-09-07T10:30:00.000Z",
+      transparent: false,
     }]);
   });
 
@@ -180,7 +194,23 @@ describe("overrides", () => {
       summary: "Supervision",
       start: "2026-09-07T14:00:00.000Z",
       end: "2026-09-07T15:00:00.000Z",
+      transparent: false,
     }]);
+  });
+
+  it("takes transparency from the override, not from its master", () => {
+    const override = [
+      "UID:weekly",
+      "RECURRENCE-ID:20260907T090000Z",
+      "DTSTART:20260907T090000Z",
+      "DTEND:20260907T103000Z",
+      "SUMMARY:OPEN",
+    ];
+    const busyInFree = eventsIn(ics([...master, "TRANSP:TRANSPARENT"], override), FROM, TO);
+    const freeInBusy = eventsIn(ics(master, [...override, "TRANSP:TRANSPARENT"]), FROM, TO);
+
+    expect(busyInFree.map(event => event.transparent)).toEqual([false]);
+    expect(freeInBusy.map(event => event.transparent)).toEqual([true]);
   });
 
   it("drops an occurrence cancelled through an override", () => {
@@ -236,11 +266,13 @@ describe("overrides", () => {
       summary: "OPEN",
       start: "2026-09-07T09:00:00.000Z",
       end: "2026-09-07T10:30:00.000Z",
+      transparent: false,
     }, {
       uid: "weekly",
       summary: "Supervision",
       start: "2026-09-10T09:00:00.000Z",
       end: "2026-09-10T10:00:00.000Z",
+      transparent: false,
     }]);
   });
 
