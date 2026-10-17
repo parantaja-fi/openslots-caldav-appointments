@@ -3,6 +3,8 @@ import { eventsIn } from "../src/caldav";
 
 const FROM = new Date("2026-09-07T00:00:00Z");
 const TO = new Date("2026-09-14T00:00:00Z");
+const HELSINKI = "Europe/Helsinki";
+const NEW_YORK = "America/New_York";
 
 /** A VCALENDAR around the given lines, which are the body of one VEVENT. */
 function ics(...vevents: string[][]): string {
@@ -26,7 +28,7 @@ describe("non-recurring events", () => {
       "DTSTART:20260908T090000Z",
       "DTEND:20260908T100000Z",
       "SUMMARY:OPEN",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(events).toEqual([{
       uid: "plain",
@@ -70,9 +72,9 @@ describe("non-recurring events", () => {
       "END:VCALENDAR",
     ].join("\r\n");
 
-    // September is EEST, +3, so noon local is 09:00Z. Read as floating it
-    // would come back as 12:00Z.
-    expect(starts(eventsIn(withZone, FROM, TO))).toEqual(["2026-09-08T09:00:00.000Z"]);
+    // September is EEST, +3, so noon local is 09:00Z. Read as floating, in the
+    // New York zone given, it would come back as 16:00Z.
+    expect(starts(eventsIn(withZone, FROM, TO, NEW_YORK))).toEqual(["2026-09-08T09:00:00.000Z"]);
   });
 
   it("reads an event marked Free as transparent", () => {
@@ -82,7 +84,7 @@ describe("non-recurring events", () => {
       "DTEND:20260908T100000Z",
       "SUMMARY:Reminder",
       "TRANSP:TRANSPARENT",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(events.map(event => event.transparent)).toEqual([true]);
   });
@@ -94,7 +96,7 @@ describe("non-recurring events", () => {
       "DTEND:20260908T100000Z",
       "SUMMARY:OPEN",
       "STATUS:CANCELLED",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(events).toEqual([]);
   });
@@ -112,7 +114,7 @@ describe("expansion", () => {
   ]);
 
   it("finds the occurrence of a master that starts long before the window", () => {
-    const events = eventsIn(weekly(), FROM, TO);
+    const events = eventsIn(weekly(), FROM, TO, HELSINKI);
 
     // 2026-09-07 is the Monday inside the window.
     expect(events).toEqual([{
@@ -134,7 +136,7 @@ describe("expansion", () => {
       "RRULE:FREQ=WEEKLY",
     ]);
 
-    expect(starts(eventsIn(tuesday, FROM, TO))).toEqual(["2026-09-08T09:00:00.000Z"]);
+    expect(starts(eventsIn(tuesday, FROM, TO, HELSINKI))).toEqual(["2026-09-08T09:00:00.000Z"]);
   });
 
   it("keeps an occurrence that straddles the start of the window", () => {
@@ -150,7 +152,7 @@ describe("expansion", () => {
 
     // The second occurrence starts an hour before the window closes, and so
     // is caught by the same overlap rule at the other end.
-    expect(starts(eventsIn(straddling, FROM, TO)))
+    expect(starts(eventsIn(straddling, FROM, TO, HELSINKI)))
       .toEqual(["2026-09-06T23:00:00.000Z", "2026-09-13T23:00:00.000Z"]);
   });
 
@@ -163,11 +165,11 @@ describe("expansion", () => {
       "RRULE:FREQ=DAILY",
     ]);
 
-    expect(eventsIn(daily, FROM, TO)).toHaveLength(7);
+    expect(eventsIn(daily, FROM, TO, HELSINKI)).toHaveLength(7);
   });
 
   it("honours EXDATE", () => {
-    expect(eventsIn(weekly("EXDATE:20260907T090000Z"), FROM, TO)).toEqual([]);
+    expect(eventsIn(weekly("EXDATE:20260907T090000Z"), FROM, TO, HELSINKI)).toEqual([]);
   });
 
   it("refuses a rule it cannot expand within the iteration bound", () => {
@@ -179,7 +181,7 @@ describe("expansion", () => {
       "RRULE:FREQ=MINUTELY",
     ]);
 
-    expect(() => eventsIn(minutely, FROM, TO)).toThrow(/exceeds 10000 occurrences/);
+    expect(() => eventsIn(minutely, FROM, TO, HELSINKI)).toThrow(/exceeds 10000 occurrences/);
   });
 });
 
@@ -199,7 +201,7 @@ describe("overrides", () => {
       "DTSTART:20260907T140000Z",
       "DTEND:20260907T150000Z",
       "SUMMARY:Supervision",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(events).toEqual([{
       uid: "weekly",
@@ -218,8 +220,10 @@ describe("overrides", () => {
       "DTEND:20260907T103000Z",
       "SUMMARY:OPEN",
     ];
-    const busyInFree = eventsIn(ics([...master, "TRANSP:TRANSPARENT"], override), FROM, TO);
-    const freeInBusy = eventsIn(ics(master, [...override, "TRANSP:TRANSPARENT"]), FROM, TO);
+    const busyInFree =
+      eventsIn(ics([...master, "TRANSP:TRANSPARENT"], override), FROM, TO, HELSINKI);
+    const freeInBusy =
+      eventsIn(ics(master, [...override, "TRANSP:TRANSPARENT"]), FROM, TO, HELSINKI);
 
     expect(busyInFree.map(event => event.transparent)).toEqual([false]);
     expect(freeInBusy.map(event => event.transparent)).toEqual([true]);
@@ -233,7 +237,7 @@ describe("overrides", () => {
       "DTEND:20260907T103000Z",
       "SUMMARY:OPEN",
       "STATUS:CANCELLED",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(events).toEqual([]);
   });
@@ -252,7 +256,7 @@ describe("overrides", () => {
       "DTSTART:20261008T090000Z",
       "DTEND:20261008T100000Z",
       "SUMMARY:OPEN",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(starts(events)).toEqual([
       "2026-09-07T09:00:00.000Z",
@@ -271,7 +275,7 @@ describe("overrides", () => {
       "DTSTART:20260910T090000Z",
       "DTEND:20260910T100000Z",
       "SUMMARY:Supervision",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(events).toEqual([{
       uid: "weekly",
@@ -297,7 +301,7 @@ describe("overrides", () => {
       "DTSTART:20260910T090000Z",
       "DTEND:20260910T100000Z",
       "SUMMARY:Supervision",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(events).toEqual([{
       uid: "weekly",
@@ -316,8 +320,102 @@ describe("overrides", () => {
       "DTEND:20260910T100000Z",
       "SUMMARY:OPEN",
       "STATUS:CANCELLED",
-    ]), FROM, TO);
+    ]), FROM, TO, HELSINKI);
 
     expect(starts(events)).toEqual(["2026-09-07T09:00:00.000Z"]);
+  });
+});
+
+describe("floating and all-day values", () => {
+  it("reads an all-day event as that day in the zone given", () => {
+    const allDay = ics([
+      "UID:all-day",
+      "DTSTART;VALUE=DATE:20260908",
+      "DTEND;VALUE=DATE:20260909",
+      "SUMMARY:Away",
+    ]);
+
+    expect(eventsIn(allDay, FROM, TO, HELSINKI)).toEqual([{
+      uid: "all-day",
+      summary: "Away",
+      start: "2026-09-07T21:00:00.000Z",
+      end: "2026-09-08T21:00:00.000Z",
+      transparent: false,
+    }]);
+    expect(eventsIn(allDay, FROM, TO, NEW_YORK)).toEqual([{
+      uid: "all-day",
+      summary: "Away",
+      start: "2026-09-08T04:00:00.000Z",
+      end: "2026-09-09T04:00:00.000Z",
+      transparent: false,
+    }]);
+  });
+
+  it("reads a floating time as wall-clock time in the zone given", () => {
+    const floating = ics([
+      "UID:floating",
+      "DTSTART:20260908T090000",
+      "DTEND:20260908T100000",
+      "SUMMARY:OPEN",
+    ]);
+
+    expect(eventsIn(floating, FROM, TO, HELSINKI)).toEqual([{
+      uid: "floating",
+      summary: "OPEN",
+      start: "2026-09-08T06:00:00.000Z",
+      end: "2026-09-08T07:00:00.000Z",
+      transparent: false,
+    }]);
+    expect(eventsIn(floating, FROM, TO, NEW_YORK)).toEqual([{
+      uid: "floating",
+      summary: "OPEN",
+      start: "2026-09-08T13:00:00.000Z",
+      end: "2026-09-08T14:00:00.000Z",
+      transparent: false,
+    }]);
+  });
+
+  it("follows the end of summer time through a floating series", () => {
+    const daily = ics([
+      "UID:daily",
+      "DTSTART:20260901T090000",
+      "DTEND:20260901T100000",
+      "SUMMARY:OPEN",
+      "RRULE:FREQ=DAILY",
+    ]);
+    // Summer time ends on 25 October in Helsinki, on 1 November in New York.
+    const helsinki = eventsIn(daily,
+      new Date("2026-10-23T00:00:00Z"), new Date("2026-10-27T00:00:00Z"), HELSINKI);
+    const newYork = eventsIn(daily,
+      new Date("2026-10-30T00:00:00Z"), new Date("2026-11-03T00:00:00Z"), NEW_YORK);
+
+    expect(starts(helsinki)).toEqual([
+      "2026-10-23T06:00:00.000Z",
+      "2026-10-24T06:00:00.000Z",
+      "2026-10-25T07:00:00.000Z",
+      "2026-10-26T07:00:00.000Z",
+    ]);
+    expect(starts(newYork)).toEqual([
+      "2026-10-30T13:00:00.000Z",
+      "2026-10-31T13:00:00.000Z",
+      "2026-11-01T14:00:00.000Z",
+      "2026-11-02T14:00:00.000Z",
+    ]);
+  });
+
+  it("takes the offset in force at the instant, not at the wall-clock time read as UTC", () => {
+    // 02:30 on the night summer time ends is still EEST, so 23:30Z the evening
+    // before; 02:30Z itself falls after the change, and the offset found there
+    // alone would put the event an hour late.
+    const early = ics([
+      "UID:early",
+      "DTSTART:20261025T023000",
+      "DTEND:20261025T024500",
+      "SUMMARY:OPEN",
+    ]);
+    const events = eventsIn(early,
+      new Date("2026-10-24T00:00:00Z"), new Date("2026-10-26T00:00:00Z"), HELSINKI);
+
+    expect(starts(events)).toEqual(["2026-10-24T23:30:00.000Z"]);
   });
 });

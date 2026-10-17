@@ -12,7 +12,8 @@ afterAll(() => clear(availability, start, end));
 it("round-trips an OPEN event through a real CalDAV backend", async () => {
   await paint(availability, "OPEN", at(start, 60), at(start, 180));
 
-  const events = await reportEvents(availability, at(start, 60), at(start, 180));
+  const events =
+    await reportEvents(availability, at(start, 60), at(start, 180), env.DISPLAY_TIMEZONE);
 
   expect(events).toHaveLength(1);
   expect(events[0]).toMatchObject({
@@ -27,7 +28,8 @@ it("escapes attendee text rather than letting it alter the ICS", async () => {
   const summary = "Doe, John & Co <b>\nX-INJECTED:yes";
   await paint(availability, summary, at(start, 300), at(start, 330));
 
-  const events = await reportEvents(availability, at(start, 300), at(start, 330));
+  const events =
+    await reportEvents(availability, at(start, 300), at(start, 330), env.DISPLAY_TIMEZONE);
 
   expect(events).toHaveLength(1);
   expect(events[0]?.summary).toBe(summary);

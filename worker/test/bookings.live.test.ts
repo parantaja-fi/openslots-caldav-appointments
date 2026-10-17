@@ -64,7 +64,7 @@ it("writes the booking into the store and returns a cancellation token", async (
   // than implying a confirmation nobody sent.
   expect(body.confirmation_email).toBe("disabled");
 
-  const stored = await reportEvents(store, SLOT, body.slot_end);
+  const stored = await reportEvents(store, SLOT, body.slot_end, env.DISPLAY_TIMEZONE);
   expect(stored.map(event => event.uid)).toEqual([body.uid]);
   expect(stored[0]?.summary).toBe("Alice");
 });
@@ -77,7 +77,7 @@ it("reports a conflict and leaves no remnant when the slot was taken meanwhile",
   expect(response.status).toBe(409);
 
   // Only Bob's event survives: the rollback removed ours.
-  const stored = await reportEvents(store, SLOT, SLOT_END);
+  const stored = await reportEvents(store, SLOT, SLOT_END, env.DISPLAY_TIMEZONE);
   expect(stored.map(event => event.summary)).toEqual(["Bob"]);
 });
 
@@ -85,7 +85,7 @@ it("refuses a slot the grant does not cover", async () => {
   const grant = await issueCreateGrant(cfg, session.thumbprint, [at(SLOT, 120)]);
 
   expect((await book(grant, await session.proof())).status).toBe(403);
-  expect(await reportEvents(store, start, end)).toEqual([]);
+  expect(await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).toEqual([]);
 });
 
 it("refuses another session's grant", async () => {
@@ -93,7 +93,7 @@ it("refuses another session's grant", async () => {
   const grant = await issueCreateGrant(cfg, other.thumbprint, [SLOT]);
 
   expect((await book(grant, await session.proof())).status).toBe(401);
-  expect(await reportEvents(store, start, end)).toEqual([]);
+  expect(await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).toEqual([]);
 });
 
 it("refuses a stale proof", async () => {
@@ -101,7 +101,7 @@ it("refuses a stale proof", async () => {
   const stale = await session.proof(cfg.proofMaxAgeSecs + 60);
 
   expect((await book(grant, stale)).status).toBe(401);
-  expect(await reportEvents(store, start, end)).toEqual([]);
+  expect(await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).toEqual([]);
 });
 
 it("refuses a request with no credentials at all", async () => {

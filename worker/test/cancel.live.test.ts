@@ -34,7 +34,7 @@ it("removes the booking, and says so again on replay", async () => {
   const token = await issueCancellationToken(cfg, uid, SLOT);
 
   expect((await cancel(uid, token)).status).toBe(204);
-  expect(await reportEvents(store, start, end)).toEqual([]);
+  expect(await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).toEqual([]);
 
   // The event is already gone; cancelling again is still a success.
   expect((await cancel(uid, token)).status).toBe(204);
@@ -68,7 +68,8 @@ it("refuses a token issued for another booking", async () => {
   const token = await issueCancellationToken(cfg, crypto.randomUUID(), SLOT);
 
   expect((await cancel(uid, token)).status).toBe(403);
-  expect((await reportEvents(store, start, end)).map(e => e.uid)).toEqual([uid]);
+  expect((await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).map(e => e.uid))
+    .toEqual([uid]);
 });
 
 it("refuses a token that expired at slot start", async () => {
@@ -76,7 +77,8 @@ it("refuses a token that expired at slot start", async () => {
   const token = await issueCancellationToken(cfg, uid, at(new Date().toISOString(), -60));
 
   expect((await cancel(uid, token)).status).toBe(401);
-  expect((await reportEvents(store, start, end)).map(e => e.uid)).toEqual([uid]);
+  expect((await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).map(e => e.uid))
+    .toEqual([uid]);
 });
 
 it("refuses a request with no token", async () => {
@@ -87,5 +89,6 @@ it("refuses a request with no token", async () => {
   ));
 
   expect(response.status).toBe(401);
-  expect((await reportEvents(store, start, end)).map(e => e.uid)).toEqual([uid]);
+  expect((await reportEvents(store, start, end, env.DISPLAY_TIMEZONE)).map(e => e.uid))
+    .toEqual([uid]);
 });

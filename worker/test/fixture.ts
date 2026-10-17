@@ -55,7 +55,7 @@ export async function paint(
  * them was written by this fixture, so href == uid.ics holds.
  */
 export async function clear(cal: Calendar, start: string, end: string): Promise<void> {
-  for (const event of await reportEvents(cal, start, end)) {
+  for (const event of await reportEvents(cal, start, end, env.DISPLAY_TIMEZONE)) {
     await deleteEvent(cal, event.uid);
   }
 }

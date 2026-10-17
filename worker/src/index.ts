@@ -64,8 +64,8 @@ async function getSlots(
   let availabilityEvents, storeEvents;
   try {
     [availabilityEvents, storeEvents] = await Promise.all([
-      reportEvents(availability, from_, to_),
-      coincide ? Promise.resolve([]) : reportEvents(store, from_, to_),
+      reportEvents(availability, from_, to_, cfg.timezone),
+      coincide ? Promise.resolve([]) : reportEvents(store, from_, to_, cfg.timezone),
     ]);
   } catch (e) {
     console.error("CalDAV REPORT failed:", e);
@@ -166,7 +166,7 @@ async function postBooking(
 
   // CalDAV has no conditional insert, so detect the race afterwards.
   try {
-    if (lostRace(uid, await reportEvents(store, start, end), start, end)) {
+    if (lostRace(uid, await reportEvents(store, start, end, cfg.timezone), start, end)) {
       await deleteEvent(store, uid);
       return problem(409, "Conflict", "The slot was taken while you were booking it.", cors);
     }
@@ -208,12 +208,13 @@ interface Probe {
  * Worker's own error text passes through: a runtime failure message may embed
  * the backend's hostname, which the health response must not.
  */
-function probeCalendar(cal: Calendar): Promise<Probe> {
+function probeCalendar(cal: Calendar, timezone: string): Promise<Probe> {
   const now = Date.now();
   const probe = reportEvents(
     cal,
     new Date(now).toISOString(),
     new Date(now + 3_600_000).toISOString(),
+    timezone,
   )
     .then((): Probe => ({ ok: true }))
     .catch((e: unknown): Probe => ({
@@ -234,11 +235,11 @@ function healthResponse(ok: boolean, body: Record<string, unknown>): Response {
 
 async function getHealth(cfg: Config, env: Env): Promise<Response> {
   const { availability, store, coincide } = cfg.calendars;
-  const availabilityProbe = probeCalendar(availability);
+  const availabilityProbe = probeCalendar(availability, cfg.timezone);
   // `store` internally, `appointments` on the wire (`ARCHITECTURE.md` §3).
   const [availabilityHealth, appointments] = await Promise.all([
     availabilityProbe,
-    coincide ? availabilityProbe : probeCalendar(store),
+    coincide ? availabilityProbe : probeCalendar(store, cfg.timezone),
   ]);
 
   // The sender travels with the ordinary vars, the API key separately as a
@@ -291,7 +292,7 @@ async function getBooking(
 
   let event;
   try {
-    event = await getEvent(cfg.calendars.store, uid);
+    event = await getEvent(cfg.calendars.store, uid, cfg.timezone);
   } catch (e) {
     console.error("CalDAV GET failed:", e);
     return problem(502, "Bad Gateway", "The booking could not be read.", cors);

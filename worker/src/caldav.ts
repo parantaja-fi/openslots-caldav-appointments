@@ -109,24 +109,53 @@ const MAX_ITERATIONS = 10_000;
 function toEvent(
   uid: string,
   summary: string,
-  start: ICAL.Time,
-  end: ICAL.Time,
+  start: Date,
+  end: Date,
   transparent: boolean,
 ): CalendarEvent {
   return {
     uid,
     summary,
-    start: start.toJSDate().toISOString(),
-    end: end.toJSDate().toISOString(),
+    start: start.toISOString(),
+    end: end.toISOString(),
     transparent,
   };
 }
 
 /**
+ * The instant an `ICAL.Time` names. A floating value — a DATE, or a DATE-TIME
+ * with neither `Z` nor `TZID` — is wall-clock time, read here in `timezone`;
+ * `toJSDate()` would read it in the runtime's zone, which in a Worker is UTC.
+ */
+function instantIn(timezone: string): (time: ICAL.Time) => Date {
+  let format: Intl.DateTimeFormat | undefined;
+  const offset = (ms: number): number => {
+    format ??= new Intl.DateTimeFormat("en", {
+      timeZone: timezone, hourCycle: "h23",
+      year: "numeric", month: "numeric", day: "numeric",
+      hour: "numeric", minute: "numeric", second: "numeric",
+    });
+    const parts = format.formatToParts(ms);
+    const field = (type: Intl.DateTimeFormatPartTypes): number =>
+      Number(parts.find(part => part.type === type)?.value);
+    return Date.UTC(field("year"), field("month") - 1, field("day"),
+      field("hour"), field("minute"), field("second")) - ms;
+  };
+  return time => {
+    if (time.zone !== ICAL.Timezone.localTimezone) return time.toJSDate();
+    const wall = Date.UTC(time.year, time.month - 1, time.day, time.hour, time.minute, time.second);
+    // Read as UTC, the wall-clock time can fall on the other side of a change
+    // of offset from the instant it names; a second look, from the first
+    // estimate, finds the offset in force.
+    return new Date(wall - offset(wall - offset(wall)));
+  };
+}
+
+/**
  * A `TZID` resolves only against a registered zone; unregistered, `ICAL.Time`
- * treats the value as floating, which in a Worker means UTC and puts a
- * Helsinki event three hours out. The registry is isolate-global and outlives
- * the request, which is harmless: a `TZID` names one zone.
+ * treats the value as floating, which is then read in the practitioner's zone
+ * whatever zone it was written in. The registry is isolate-global and
+ * outlives the request, which is harmless: a `TZID` names one zone.
  */
 function registerTimezones(calendar: ICAL.Component): void {
   for (const vtimezone of calendar.getAllSubcomponents("vtimezone")) {
@@ -138,9 +167,10 @@ function registerTimezones(calendar: ICAL.Component): void {
 }
 
 /** The events of one VCALENDAR that overlap `[from, to)`, recurrences expanded. */
-export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
+export function eventsIn(ics: string, from: Date, to: Date, timezone: string): CalendarEvent[] {
   const calendar = new ICAL.Component(ICAL.parse(ics));
   registerTimezones(calendar);
+  const instant = instantIn(timezone);
 
   const events: CalendarEvent[] = [];
   const vevents = calendar.getAllSubcomponents("vevent");
@@ -161,7 +191,9 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
     if (!event.isRecurring()) {
       if (vevent.getFirstPropertyValue("status") === "CANCELLED") continue;
       const transparent = vevent.getFirstPropertyValue("transp") === "TRANSPARENT";
-      events.push(toEvent(event.uid, event.summary, event.startDate, event.endDate, transparent));
+      events.push(toEvent(
+        event.uid, event.summary, instant(event.startDate), instant(event.endDate), transparent,
+      ));
       continue;
     }
 
@@ -177,27 +209,29 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
       }
       // The nominal time, not an override's: an occurrence moved past the
       // window must not end the walk before the window's later ones.
-      if (next.toJSDate() >= to) break;
+      if (instant(next) >= to) break;
       const { item, startDate, endDate } = event.getOccurrenceDetails(next);
       reached.add(item);
-      if (startDate.toJSDate() >= to || endDate.toJSDate() <= from) continue;
+      const start = instant(startDate);
+      const end = instant(endDate);
+      if (start >= to || end <= from) continue;
       // How an occurrence deleted through an override, rather than through
       // EXDATE, is recorded. EXDATE the expansion already honours.
       if (item.component.getFirstPropertyValue("status") === "CANCELLED") continue;
       const transparent = item.component.getFirstPropertyValue("transp") === "TRANSPARENT";
-      events.push(toEvent(event.uid, item.summary, startDate, endDate, transparent));
+      events.push(toEvent(event.uid, item.summary, start, end, transparent));
     }
 
     // An override the walk did not reach, such as one moved into the window
     // from beyond its end, counts by its own times.
     for (const override of Object.values(event.exceptions)) {
       if (reached.has(override)) continue;
-      if (override.startDate.toJSDate() >= to || override.endDate.toJSDate() <= from) continue;
+      const start = instant(override.startDate);
+      const end = instant(override.endDate);
+      if (start >= to || end <= from) continue;
       if (override.component.getFirstPropertyValue("status") === "CANCELLED") continue;
       const transparent = override.component.getFirstPropertyValue("transp") === "TRANSPARENT";
-      events.push(
-        toEvent(event.uid, override.summary, override.startDate, override.endDate, transparent),
-      );
+      events.push(toEvent(event.uid, override.summary, start, end, transparent));
     }
   }
   return events;
@@ -207,6 +241,7 @@ export async function reportEvents(
   cal: Calendar,
   start: string,
   end: string,
+  timezone: string,
 ): Promise<CalendarEvent[]> {
   const from = new Date(start);
   const to = new Date(end);
@@ -248,7 +283,7 @@ export async function reportEvents(
   const re = /<[^:>\s]+:calendar-data[^>]*>([\s\S]*?)<\/[^:>\s]+:calendar-data>/g;
   for (const match of xml.matchAll(re)) {
     const ics = match[1]?.trim();
-    if (ics) events.push(...eventsIn(unescapeXml(ics), from, to));
+    if (ics) events.push(...eventsIn(unescapeXml(ics), from, to, timezone));
   }
   return events;
 }
@@ -258,7 +293,11 @@ export async function reportEvents(
  * cancelled booking looks like. No recurrence handling: the only resources
  * fetched this way are the single VEVENTs the system wrote itself.
  */
-export async function getEvent(cal: Calendar, uid: string): Promise<CalendarEvent | null> {
+export async function getEvent(
+  cal: Calendar,
+  uid: string,
+  timezone: string,
+): Promise<CalendarEvent | null> {
   const response = await fetch(resourceUrl(cal, uid), {
     headers: { Authorization: await cal.authHeader() },
   });
@@ -272,7 +311,10 @@ export async function getEvent(cal: Calendar, uid: string): Promise<CalendarEven
 
   const event = new ICAL.Event(vevent);
   const transparent = vevent.getFirstPropertyValue("transp") === "TRANSPARENT";
-  return toEvent(event.uid, event.summary, event.startDate, event.endDate, transparent);
+  const instant = instantIn(timezone);
+  return toEvent(
+    event.uid, event.summary, instant(event.startDate), instant(event.endDate), transparent,
+  );
 }
 
 export async function putEvent(cal: Calendar, uid: string, ics: string): Promise<void> {

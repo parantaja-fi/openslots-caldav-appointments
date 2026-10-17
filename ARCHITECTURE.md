@@ -97,7 +97,11 @@ filter alone. Every backend evaluates that filter against occurrences, so
 a recurring master whose `DTSTART` precedes the window still arrives; the
 Worker then expands `RRULE`, `EXDATE` and `RECURRENCE-ID` itself with
 `ical.js`, registering any `VTIMEZONE` it was sent so a `TZID` resolves to
-the right instant. The walk through a series ends at the window's end by
+the right instant. A floating value — a `DATE`, as an all-day entry has,
+or a `DATE-TIME` with neither `Z` nor `TZID` — is taken in the
+practitioner's zone, `DISPLAY_TIMEZONE`, a Worker's own clock being UTC;
+a `TZID` whose `VTIMEZONE` did not arrive falls back the same way.
+The walk through a series ends at the window's end by
 nominal time, the time a `RECURRENCE-ID` names; an override counts by its
 own, moved times wherever its nominal time lies, so an occurrence moved
 out of the window drops out and one moved in from beyond its end counts.
@@ -359,10 +363,12 @@ single-calendar setup.
 
 The email settings follow the same rule as the rest, with one wrinkle:
 the API key decides whether they are read at all. Without it there is no
-email configuration; with it, the sender address, the cancellation page's
-URL and the display zone must all be present and usable — a zone the
-runtime cannot resolve or a URL that will not parse is refused there,
-not discovered in a sent message.
+email configuration; with it, the sender address and the cancellation
+page's URL must both be present and usable — a URL that will not parse
+is refused there, not discovered in a sent message. The display zone is
+not one of them: slot reading needs it as much as the email does (§2),
+so it is read, and a zone the runtime cannot resolve refused, with or
+without the key.
 
 Configuration is parsed once at the top of `fetch` — Workers have no
 startup hook — into the units the code uses (durations in milliseconds,

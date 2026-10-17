@@ -162,6 +162,7 @@ If this works, the hard part is done. If it does not, see
 | `SLOT_MINUTES` | Length of one appointment |
 | `MIN_NOTICE_MINUTES` | How soon someone may book — `120` blocks the next two hours |
 | `BOOKING_HORIZON_DAYS` | How far ahead the page shows |
+| `DISPLAY_TIMEZONE` | Your time zone, e.g. `Europe/London`. All-day calendar entries, and any without a zone of their own, are read in it; the confirmation email gives times in it |
 
 ---
 
@@ -336,11 +337,10 @@ message, and it scores what it finds.
 
 ### 4.5 Switch the email on
 
-Two settings in `worker/wrangler.toml`:
+Two settings in `worker/wrangler.toml`, and two optional ones:
 
 ```toml
 CANCEL_URL         = "https://booking.yourpractice.com/cancel"
-DISPLAY_TIMEZONE   = "Europe/Helsinki"
 SENDER_EMAIL       = "info@yourpractice.com"
 SENDER_NAME        = "Your Practice"
 PRACTITIONER_EMAIL = "info@yourpractice.com"
@@ -353,8 +353,6 @@ PRACTITIONER_EMAIL = "info@yourpractice.com"
   in the part of the link after `#`, which survives a redirect only by
   browser convention. Do not make a customer's only way out depend on
   that. Open the address yourself before switching the email on.
-- `DISPLAY_TIMEZONE` is the zone appointment times are written in, e.g.
-  `Europe/Helsinki`, `Europe/London`.
 - `SENDER_EMAIL` must be at the domain you just authenticated, and
   should be a real mailbox you read. A `From:` address that bounces is
   itself a spam signal.

@@ -55,6 +55,7 @@ export interface Email {
 /** The Worker's configuration, in the units the code actually uses. */
 export interface Config {
   calendars: Calendars;
+  timezone: string;
   email?: Email;
   slotMs: number;
   noticeMs: number;
@@ -113,15 +114,12 @@ function positive(env: Env, name: keyof Env): number {
 /**
  * No API key means the deployment deliberately sends no mail — which is what
  * lets `wrangler dev` and the live test suites run without reaching Brevo.
- * With one, the rest must be there and usable: an unresolvable zone or a
- * malformed cancellation URL would otherwise surface only in a sent message.
+ * With one, the rest must be there and usable: a malformed cancellation URL
+ * would otherwise surface only in a sent message.
  */
-function email(env: Env): Email | undefined {
+function email(env: Env, timezone: string): Email | undefined {
   if (!env.BREVO_API_KEY) return undefined;
 
-  const timezone = required(env, "DISPLAY_TIMEZONE");
-  // Throws RangeError on a zone the runtime cannot resolve.
-  new Intl.DateTimeFormat("en", { timeZone: timezone });
   const cancelUrl = required(env, "CANCEL_URL");
   new URL(cancelUrl);
 
@@ -146,6 +144,9 @@ export function config(env: Env): Config {
   const origins = required(env, "ALLOWED_ORIGINS")
     .split(",").map(origin => origin.trim()).filter(Boolean);
   if (!origins.length) throw new Error("ALLOWED_ORIGINS lists no origin");
+  const timezone = required(env, "DISPLAY_TIMEZONE");
+  // Throws RangeError on a zone the runtime cannot resolve.
+  new Intl.DateTimeFormat("en", { timeZone: timezone });
 
   return {
     calendars: {
@@ -165,7 +166,8 @@ export function config(env: Env): Config {
       ),
       coincide: availabilityUrl === storeUrl,
     },
-    email: email(env),
+    timezone,
+    email: email(env, timezone),
     slotMs: positive(env, "SLOT_MINUTES") * 60_000,
     noticeMs: positive(env, "MIN_NOTICE_MINUTES") * 60_000,
     horizonMs: positive(env, "BOOKING_HORIZON_DAYS") * 86_400_000,

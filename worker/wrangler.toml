@@ -23,14 +23,17 @@ PROOF_MAX_AGE_SECS = "60"
 
 ALLOWED_ORIGINS = "http://localhost:5173"
 
-# The confirmation email. Read only when BREVO_API_KEY is set, and then all
-# three must be usable: the page the cancellation link points at, the zone the
-# appointment times are written in, and a sender address whose domain carries
-# your SPF and DKIM records. PRACTITIONER_EMAIL, if set, also gets a notice.
-CANCEL_URL       = "http://localhost:5173/cancel.html"
+# The practitioner's zone. All-day calendar entries, and any without a zone of
+# their own, are read in it; the email writes appointment times in it.
 DISPLAY_TIMEZONE = "Europe/Helsinki"
-SENDER_EMAIL     = "info@parantaja.fi"
-SENDER_NAME      = "Parantaja"
+
+# The confirmation email. Read only when BREVO_API_KEY is set, and then both
+# must be usable: the page the cancellation link points at, and a sender address
+# whose domain carries your SPF and DKIM records. PRACTITIONER_EMAIL, if set,
+# also gets a notice.
+CANCEL_URL   = "http://localhost:5173/cancel.html"
+SENDER_EMAIL = "info@parantaja.fi"
+SENDER_NAME  = "Parantaja"
 # PRACTITIONER_EMAIL = "info@parantaja.fi"
 
 # Per-IP limit on every request, checked before routing. Unbound under

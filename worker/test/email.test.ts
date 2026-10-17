@@ -112,9 +112,8 @@ describe("configuration", () => {
     expect(config(env).email).toBeUndefined();
   });
 
-  it("refuses a zone it cannot resolve once mail is configured", () => {
-    expect(() => config({ ...env, BREVO_API_KEY: "k", DISPLAY_TIMEZONE: "Mars/Olympus" }))
-      .toThrow();
+  it("refuses a zone it cannot resolve even with mail off", () => {
+    expect(() => config({ ...env, DISPLAY_TIMEZONE: "Mars/Olympus" })).toThrow();
   });
 
   it("refuses a cancellation URL that is not a URL", () => {

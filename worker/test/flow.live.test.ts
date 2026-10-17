@@ -84,7 +84,8 @@ describe.each(Object.entries(configurations))("%s", (_name, config) => {
     expect(stale.status).toBe(409);
 
     // The 409 rolled its own event back: the rival's booking stands alone.
-    const inSlot = await reportEvents(store, listed.slots[1]!, listed.slots[2]!);
+    const inSlot =
+      await reportEvents(store, listed.slots[1]!, listed.slots[2]!, env.DISPLAY_TIMEZONE);
     expect(inSlot.filter(e => e.summary !== "OPEN").map(e => e.uid)).toEqual([second.uid]);
 
     const cancelled = await worker.fetch(new Request(
