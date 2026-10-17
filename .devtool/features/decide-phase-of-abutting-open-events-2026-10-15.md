@@ -6,18 +6,18 @@ assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T06:51:43.000Z"
-modified: "2026-10-15T13:59:27.000Z"
+modified: "2026-10-17T05:46:55.000Z"
 completedAt: null
-labels: ["0.1.x", "decision"]
+labels: ["0.1.x"]
 order: "a2F"
 ---
-# Decide: phase of abutting OPEN events
+# Phase of abutting OPEN events
 
-*Draft, opened 2026-10-15.*
+*Accepted, ruled 2026-10-17.*
 
 > Written 2026-10-15 from the point `docs/open-event-precedents.md` §4
-> leaves open, the precedents not deciding it. To be ruled when this
-> card is worked; recommendation: unmerge.
+> leaves open, the precedents not deciding it. Ruled 2026-10-17: unmerge, as
+> recommended.
 
 `union()` (`slots.ts`; `ARCHITECTURE.md` §4 steps 1–2) merges abutting
 `OPEN` events like overlapping ones, phases the merged interval from the

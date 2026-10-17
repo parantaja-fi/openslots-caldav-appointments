@@ -6,18 +6,21 @@ assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T13:59:27.000Z"
+modified: "2026-10-17T05:46:55.000Z"
 completedAt: null
-labels: ["0.1.x", "decision"]
+labels: ["0.1.x"]
 order: "Zz"
 ---
-# Decide: events marked Free should not block
+# Events marked Free should not block
 
-*Draft, opened 2026-10-14.*
+*Provisional, ruled 2026-10-17: until
+`widen-the-open-convention-2026-10-15` is worked, which reconsiders
+this ruling.*
 
 > Written 2026-10-14 from a reading of the Worker during that day's
 > competitor comparison, found while specifying the booking path's
-> re-checks. A decision to take first, with a recommendation. Changes
+> re-checks. A decision to take first, with a recommendation; ruled
+> 2026-10-17 as recommended, provisionally. Changes
 > `eventsIn` and `CalendarEvent`, as does
 > `a-moved-occurrence-breaks-recurrence-expansion-2026-10-15`.
 > Per-occurrence transparency added 2026-10-15.

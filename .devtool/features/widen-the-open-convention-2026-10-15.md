@@ -6,7 +6,7 @@ assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T13:59:27.000Z"
-modified: "2026-10-15T13:59:27.000Z"
+modified: "2026-10-17T05:46:55.000Z"
 completedAt: null
 labels: ["later"]
 order: "aQ"
@@ -19,7 +19,9 @@ order: "aQ"
 > from the `REPORT`, and what the booking path re-checks. This card is
 > the second half, to be worked once those have landed: the rule it
 > widens must be the settled one, and both halves touch the same code,
-> `eventsIn`'s per-occurrence read and `CalendarEvent`.
+> `eventsIn`'s per-occurrence read and `CalendarEvent`. Working it also
+> reconsiders the provisional ruling on
+> `decide-events-marked-free-should-not-block-2026-10-14`.
 
 Today the marker is a `SUMMARY` exactly `OPEN`, in the availability
 role, with a uid the system did not write (`slots.ts`, `isOpen`), and
