@@ -3,10 +3,10 @@ id: "offered-times-can-shift-during-the-day-2026-10-15"
 status: "backlog"
 priority: "low"
 assignee: null
-epic: "Worker"
+epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-15T06:51:43.000Z"
+modified: "2026-10-15T13:59:27.000Z"
 completedAt: null
 labels: ["0.1.x", "bug"]
 order: "a4"

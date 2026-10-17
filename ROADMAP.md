@@ -12,8 +12,9 @@ per item, drawn by the VS Code extension Kanban Markdown and readable
 without it.
 
 - **Epic** — the area: Worker, Frontend, Wizard, Email, Calendars,
-  Security, Operations, Documentation. The board draws one swim lane
-  per epic.
+  Security, Operations, Documentation; and one theme cutting across
+  them, Slot rule: which events count, how they are read, and what the
+  booking path re-checks. The board draws one swim lane per epic.
 - **Labels** — the release, one of `0.1.x`, `0.2.0` and `later` (the
   pool releases are selected from); and `bug` or `decision` where
   apt. A `decision` card opens with an italic status line; the words

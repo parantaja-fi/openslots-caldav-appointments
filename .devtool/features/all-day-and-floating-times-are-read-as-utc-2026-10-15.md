@@ -3,10 +3,10 @@ id: "all-day-and-floating-times-are-read-as-utc-2026-10-15"
 status: "todo"
 priority: "high"
 assignee: null
-epic: "Worker"
+epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-15T05:30:39.000Z"
+modified: "2026-10-15T13:59:27.000Z"
 completedAt: null
 labels: ["0.1.x", "bug"]
 order: "a1"

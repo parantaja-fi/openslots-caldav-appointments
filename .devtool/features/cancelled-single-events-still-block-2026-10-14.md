@@ -3,10 +3,10 @@ id: "cancelled-single-events-still-block-2026-10-14"
 status: "backlog"
 priority: "medium"
 assignee: null
-epic: "Worker"
+epic: "Slot rule"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T05:30:39.000Z"
+modified: "2026-10-15T13:59:27.000Z"
 completedAt: null
 labels: ["0.1.x", "bug"]
 order: "a3"
