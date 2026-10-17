@@ -288,6 +288,26 @@ describe("overrides", () => {
     }]);
   });
 
+  // What Google returns for a series whose only overlap with the window is a
+  // moved occurrence: the override alone, its master pruned.
+  it("reads an override arriving without its master as the event it describes", () => {
+    const events = eventsIn(ics([
+      "UID:weekly",
+      "RECURRENCE-ID:20260921T090000Z",
+      "DTSTART:20260910T090000Z",
+      "DTEND:20260910T100000Z",
+      "SUMMARY:Supervision",
+    ]), FROM, TO);
+
+    expect(events).toEqual([{
+      uid: "weekly",
+      summary: "Supervision",
+      start: "2026-09-10T09:00:00.000Z",
+      end: "2026-09-10T10:00:00.000Z",
+      transparent: false,
+    }]);
+  });
+
   it("drops a cancelled override whose recurrence-id lies beyond the window's end", () => {
     const events = eventsIn(ics(master, [
       "UID:weekly",

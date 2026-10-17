@@ -4,6 +4,18 @@ Dated notes for agents working in this repository: hard-won facts and
 practices that fit neither CLAUDE.md's brief nor ARCHITECTURE.md's
 mechanisms. Append new entries at the top; leave old ones as written.
 
+## 2026-10-17 — Google's calendar-query prunes a series to the components in range
+
+A `calendar-query` with a time-range filter and no `<c:expand>` returns,
+on Google, a recurring resource reduced to the VEVENTs that themselves
+put an instance in the range: a weekly series starting after the window
+with its first occurrence moved into it arrived as that override alone,
+master gone, VTIMEZONE kept. RFC 4791 keeps the master in every reduced
+form it defines (§9.6.5), and Radicale and Nextcloud return the whole
+resource. `eventsIn` therefore reads an override whose master is absent
+as the single event it describes; the live case "moved in from a series
+the window does not otherwise see" is what shows it on each backend.
+
 ## 2026-10-15 — Local Network Access, wrangler dev's trace store, and Google's CalDAV freshness
 
 ### Chromium blocks a fulfilled page's fetch to a loopback Worker

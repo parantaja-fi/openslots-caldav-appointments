@@ -143,10 +143,19 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
   registerTimezones(calendar);
 
   const events: CalendarEvent[] = [];
-  for (const vevent of calendar.getAllSubcomponents("vevent")) {
-    // Overrides are reached through their master, which ICAL.Event relates by
-    // walking the VCALENDAR itself.
-    if (vevent.hasProperty("recurrence-id")) continue;
+  const vevents = calendar.getAllSubcomponents("vevent");
+  // Overrides are reached through their master, which ICAL.Event relates by
+  // walking the VCALENDAR itself. Google's time-range filter returns a series
+  // whose only overlap with the window is a moved occurrence as that override
+  // alone, master pruned; without its master an override is the single event
+  // it describes.
+  const masters = new Set(vevents
+    .filter(vevent => !vevent.hasProperty("recurrence-id"))
+    .map(vevent => vevent.getFirstPropertyValue("uid")));
+  for (const vevent of vevents) {
+    if (vevent.hasProperty("recurrence-id") && masters.has(vevent.getFirstPropertyValue("uid"))) {
+      continue;
+    }
 
     const event = new ICAL.Event(vevent);
     if (!event.isRecurring()) {

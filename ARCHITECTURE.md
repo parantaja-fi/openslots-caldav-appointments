@@ -102,7 +102,10 @@ nominal time, the time a `RECURRENCE-ID` names; an override counts by its
 own, moved times wherever its nominal time lies, so an occurrence moved
 out of the window drops out and one moved in from beyond its end counts.
 Whether a series that overlaps the window only through such an override
-arrives at all is for the backend's time-range filter to decide.
+arrives at all is for the backend's time-range filter to decide: Radicale
+and Nextcloud return the whole resource, Google the matching override
+alone with its master pruned, which the Worker reads as the single event
+it describes.
 The `REPORT` used to ask for `<c:expand>` instead.
 Google ignores that element and returns the unexpanded master without
 saying so, which turned a practitioner's weekly `OPEN` events into an
