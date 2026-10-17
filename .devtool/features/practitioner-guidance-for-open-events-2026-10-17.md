@@ -6,7 +6,7 @@ assignee: null
 epic: "Documentation"
 dueDate: null
 created: "2026-10-17T06:28:50.000Z"
-modified: "2026-10-17T06:28:50.000Z"
+modified: "2026-10-17T09:53:57.000Z"
 completedAt: null
 labels: ["0.1.x"]
 order: "a6"
@@ -32,10 +32,10 @@ well. §6 has the points, each from the precedents it cites:
   there again. Until `decide-re-check-open-coverage-at-booking-2026-10-14`
   lands, a deleted `OPEN` event also stays bookable from pages already
   open for up to `GRANT_TTL_SECS`.
-- Overlap blocks meant to be continuous; abutting blocks leave a seam no
-  booking spans, per the ruling of
-  `decide-phase-of-abutting-open-events-2026-10-15` (unmerge,
-  2026-10-17); word it from the code once that card lands.
+- Overlap blocks meant to be continuous; abutting blocks stay separate,
+  each phased from its own start, and no booking spans the join
+  (`decide-phase-of-abutting-open-events-2026-10-15`, landed
+  2026-10-17).
 - Paint timed `OPEN` events, not all-day ones: the Worker gives an
   all-day `OPEN` event no special meaning and offers slots round the
   clock.

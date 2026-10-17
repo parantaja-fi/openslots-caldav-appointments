@@ -1,15 +1,15 @@
 ---
 id: "offered-times-can-shift-during-the-day-2026-10-15"
-status: "backlog"
+status: "done"
 priority: "low"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-15T13:59:27.000Z"
-completedAt: null
+modified: "2026-10-17T09:53:57.000Z"
+completedAt: "2026-10-17T09:53:57.000Z"
 labels: ["0.1.x", "bug"]
-order: "a4"
+order: "a9"
 ---
 # Offered times can shift during the day
 
@@ -51,3 +51,12 @@ agree.
   on the next `main` run.
 - `ARCHITECTURE.md` §4 says what the code does: the query margin and its
   limit, or the accepted shift.
+
+Done 2026-10-17 (9bda100): the abutting case went with
+`decide-phase-of-abutting-open-events-2026-10-15`; for the overlapping
+case the listing's availability `REPORT` begins a day before the
+window, emission clamped as before, so a past overlapping `OPEN` event
+still anchors the phase. The live test above, which gave 160 and 190
+minutes in place of 150, 180 and 210 before the fix. `ARCHITECTURE.md`
+§4 states the margin and that a chain of overlapping `OPEN` events
+longer than a day stays exposed. CI runs on the next push.

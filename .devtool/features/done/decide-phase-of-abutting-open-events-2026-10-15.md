@@ -1,15 +1,15 @@
 ---
 id: "decide-phase-of-abutting-open-events-2026-10-15"
-status: "todo"
+status: "done"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T06:51:43.000Z"
-modified: "2026-10-17T05:46:55.000Z"
-completedAt: null
+modified: "2026-10-17T09:53:57.000Z"
+completedAt: "2026-10-17T09:53:57.000Z"
 labels: ["0.1.x"]
-order: "a2F"
+order: "a8"
 ---
 # Phase of abutting OPEN events
 
@@ -52,3 +52,9 @@ changed half-way, restarts its phase at the split; with hourly slots
   CI green.
 - `ARCHITECTURE.md` §4 says what the code does; so does the coverage
   predicate, if the re-check has landed.
+
+Done 2026-10-17 (3f488ff): `union()` merges overlaps only and the
+seams go; `covered()` loses its seam clause; the unit tests above;
+`ARCHITECTURE.md` §4 (the seam step removed, the rest renumbered), §5.2
+and §9 updated; `docs/open-event-precedents.md` and
+`docs/programmable-slotting.md` dated. CI runs on the next push.

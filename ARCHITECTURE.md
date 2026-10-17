@@ -196,7 +196,7 @@ and prefixed by role (`slot_start`, not `start`).
    (§2), and those §2 exempts as Free. When the two roles coincide (§2)
    this is one query.
 3. **Emission.** Clamp the union to `[now + minimum notice, now + horizon]`,
-   then walk a cursor from each merged interval's start in `SLOT_MINUTES`
+   then walk a cursor from each interval's start in `SLOT_MINUTES`
    steps. Emit `[cursor, cursor + SLOT_MINUTES)` when it fits inside the
    interval and no blocking event `b` satisfies
    `b.start < slotEnd && b.end > cursor`.
