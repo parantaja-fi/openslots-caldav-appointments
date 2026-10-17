@@ -49,18 +49,23 @@ describe("overlapping and abutting OPEN events", () => {
       .toEqual(["09:00", "09:30", "10:00", "10:30"]);
   });
 
-  it("refuses the slot that would span the seam between abutting OPEN events", () => {
-    // Union is 09:00-10:30; the phantom at 09:45 removes 09:30-10:00.
+  it("phases abutting OPEN events from their own starts", () => {
     expect(starts([open("09:00", "09:45"), open("09:45", "10:30")]))
-      .toEqual(["09:00", "10:00"]);
+      .toEqual(["09:00", "09:45"]);
   });
 
-  it("lets a seam falling on a slot boundary through untouched", () => {
+  it("gives an abutting OPEN event the same starts with or without its predecessor", () => {
+    const second = open("09:45", "10:30");
+    expect(starts([open("09:00", "09:45"), second]).filter(s => s >= "09:45"))
+      .toEqual(starts([second]));
+  });
+
+  it("offers what one OPEN event would when abutting events share a grid", () => {
     expect(starts([open("09:00", "10:00"), open("10:00", "11:00")]))
       .toEqual(["09:00", "09:30", "10:00", "10:30"]);
   });
 
-  it("raises no seam where a third OPEN event covers the join", () => {
+  it("merges abutting OPEN events that a third one overlaps", () => {
     expect(starts([open("09:00", "09:45"), open("09:45", "10:30"), open("09:30", "10:00")]))
       .toEqual(["09:00", "09:30", "10:00"]);
   });
@@ -178,11 +183,11 @@ describe("coverage", () => {
     expect(offered([open("08:00", "09:15"), open("09:10", "10:00")])).toBe(true);
   });
 
-  it("refuses a slot the seam between abutting OPEN events runs through", () => {
+  it("refuses a slot that spans abutting OPEN events", () => {
     expect(offered([open("08:00", "09:15"), open("09:15", "10:00")])).toBe(false);
   });
 
-  it("accepts a slot a seam merely bounds", () => {
+  it("accepts a slot that begins where the previous OPEN event ends", () => {
     expect(offered([open("08:00", "09:00"), open("09:00", "10:00")])).toBe(true);
   });
 

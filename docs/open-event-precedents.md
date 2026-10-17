@@ -175,7 +175,7 @@ document little beyond their marker and appear only in the text.
 
 | Design | Marker | Marker's Free/Busy | Subdivision and phase | Overlap; abutment | Recurrence | Bookings go to | What blocks |
 |---|---|---|---|---|---|---|---|
-| **Ours** | `SUMMARY` exactly `OPEN`, availability role only, uid not `booking-…` | ignored | stepped from each merged interval's start | merged; abutment leaves a seam | expanded in the Worker | booking calendar, which may be the same one | every other event in either calendar that is not Free; the system's own bookings block whatever their transparency (until 2026-10-17 Free events blocked too, as did an `OPEN` event in a separate store) |
+| **Ours** | `SUMMARY` exactly `OPEN`, availability role only, uid not `booking-…` | ignored | stepped from each merged interval's start | merged; kept separate, each phased from its own start (until 2026-10-17 merged, leaving a seam) | expanded in the Worker | booking calendar, which may be the same one | every other event in either calendar that is not Free; the system's own bookings block whatever their transparency (until 2026-10-17 Free events blocked too, as did an `OPEN` event in a separate store) |
 | YouCanBookMe | key phrase in title; documented as exact and case-sensitive, matched as substring | must be Free | global grid; events must sit on it | union across calendars; — | yes | linked calendar, on top of the block | Busy events, declined invitations |
 | Google appointment slots, 2011–24 | special event type | n/a | block split into slots of a chosen length | — | yes; booked slots duplicated when a block was made recurring | new event, inside the block | its own bookings; apparently nothing else |
 | meetergo | exact title | Free on Google, Outlook; Busy on iCloud, CalDAV, ICS | — | — | — | — | non-Free events, rules per provider |
@@ -235,13 +235,14 @@ open-source projects that subdivide each take one uniform position:
 calendar-scheduler merges, so a booking may straddle abutting events;
 the SKAWINSKI plugin never merges, so every join is a seam and an
 overlap offers start times from both windows. Only we read intent from
-the geometry, and only in part: the seam forbids spanning the join, but
-the second event is phased from the first, so with 30-minute slots
-09:00–09:45 plus 09:45–10:30 offers 10:00, not 09:45
-([slots.test.ts](../worker/test/slots.test.ts)). Leaving abutting events
-unmerged, each phased from its own start, would be the literal reading
-of "two separately-painted sessions" and would need no phantom event.
-The precedents do not decide between the two.
+the geometry, and until 2026-10-17 only in part: the seam forbade
+spanning the join, but the second event was phased from the first, so
+with 30-minute slots 09:00–09:45 plus 09:45–10:30 offered 10:00, not
+09:45. Leaving abutting events unmerged, each phased from its own start,
+would be the literal reading of "two separately-painted sessions" and
+would need no phantom event. The precedents do not decide between the
+two; we have left abutting events unmerged since 2026-10-17
+([slots.test.ts](../worker/test/slots.test.ts)).
 
 **Recurrence and bookings.** No vendor documents how it expands
 recurring markers; on Google's CalDAV that is the client's job,
@@ -269,7 +270,8 @@ precedent this survey found. That is absence of evidence: vendors
 document little beyond the marker, and GitHub's code search answered no
 phrase query.
 
-1. **Overlap merges; abutment leaves a seam** (§4).
+1. **Overlap merges; abutting events stay separate** (§4), each phased
+   from its own start; until 2026-10-17 abutment left a seam.
 2. **Phase is anchored to each merged interval**, not to a grid or to
    the query.
 3. **A role-scoped title marker guarded by uid provenance.** `OPEN`
@@ -362,8 +364,9 @@ wizard's "Open some time for booking" step
   Until 2026-10-17 a deleted `OPEN` event also stayed bookable from
   pages already open for up to `GRANT_TTL_SECS`, 30 minutes by default;
   the booking path now re-checks coverage.
-- **Overlap blocks meant to be continuous; abutting blocks leave a seam
-  no booking spans.** No other tool will have taught this.
+- **Overlap blocks meant to be continuous; abutting blocks stay separate,
+  and no booking spans the join.** Since 2026-10-17 each is phased from
+  its own start. No other tool will have taught this.
 - **Paint timed `OPEN` events, not all-day ones.** RFC 7953 excludes
   all-day availability, SergeyMosin's app skips all-day sources, and the
   first spike gave the same advice; the Worker gives an all-day `OPEN`
@@ -399,8 +402,8 @@ all, is an artefact of engines that see only busy intervals; reading
 whole events, we may ignore a marker's transparency, but nothing excuses
 ignoring it on blockers, where every standard and server agrees. The
 grant as availability proof was an economy no precedent shares, and the
-coverage re-check rightly spends it. What remains ours, the seam,
-interval-anchored phase and uid provenance, has no external test to
-fail: it is behaviour
-no other tool will have taught a practitioner, so it belongs in their
-guidance as well as in [ARCHITECTURE.md](../ARCHITECTURE.md) §4.
+coverage re-check rightly spends it. What remains ours, abutting events
+kept separate (a seam until 2026-10-17), interval-anchored phase and uid
+provenance, has no external test to fail: it is behaviour no other tool
+will have taught a practitioner, so it belongs in their guidance as well
+as in [ARCHITECTURE.md §4](../ARCHITECTURE.md#4-slot-computation).

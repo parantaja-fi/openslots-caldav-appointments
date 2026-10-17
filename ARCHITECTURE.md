@@ -180,22 +180,18 @@ and prefixed by role (`slot_start`, not `start`).
 ## 4. Slot computation
 
 1. **Availability.** Take the window's availability events (§2) from the
-   availability calendar and normalise them to their **union**: sort by start, merge any
-   pair that overlaps or abuts. Overlapping `OPEN` events must not yield
-   duplicate or differently-phased slots.
-2. **Seams.** Where two `OPEN` events merely *abut*, emit a zero-length
-   **phantom blocking event** at the join. A booking must not span a seam the
-   practitioner painted: an overlap is evidence of intended continuous
-   availability, mere abutment is two separately-painted sessions. The
-   phantom needs no special case below — under the strict inequalities in
-   step 4 a zero-length interval at `t` blocks exactly the slots with
-   `cursor < t < slotEnd`, and neither the slot ending at `t` nor the one
-   starting at `t`.
-3. **Blocking.** Every event in *either* calendar blocks, save
+   availability calendar and normalise them to their **union**: sort by
+   start, merge any pair that overlaps. Overlapping `OPEN` events must not
+   yield duplicate or differently-phased slots; an overlap is evidence of
+   intended continuous availability. Mere abutment, though, is two
+   separately-painted sessions: abutting events stay separate intervals,
+   each phased from its own start, and a slot must fit inside one
+   interval, so none spans the join.
+2. **Blocking.** Every event in *either* calendar blocks, save
    availability, `OPEN` events in the store that the system did not write
-   (§2), and those §2 exempts as Free. The phantoms block too. When the
-   two roles coincide (§2) this is one query.
-4. **Emission.** Clamp the union to `[now + minimum notice, now + horizon]`,
+   (§2), and those §2 exempts as Free. When the two roles coincide (§2)
+   this is one query.
+3. **Emission.** Clamp the union to `[now + minimum notice, now + horizon]`,
    then walk a cursor from each merged interval's start in `SLOT_MINUTES`
    steps. Emit `[cursor, cursor + SLOT_MINUTES)` when it fits inside the
    interval and no blocking event `b` satisfies
@@ -205,7 +201,7 @@ Consequently a blocking event *partially* overlapping an `OPEN` interval
 removes exactly the sub-slots it touches and leaves the rest bookable —
 identical treatment to an existing booking. Touching at an endpoint does not
 block. A trailing remainder shorter than `SLOT_MINUTES` is discarded. Slot
-phase is anchored to each merged interval's start, not to the clock hour.
+phase is anchored to each `OPEN` interval's start, not to the clock hour.
 
 Configurable: slot length, booking horizon, minimum notice.
 
@@ -232,7 +228,7 @@ minted for the session that asked. It enumerates the open slot beginnings in a `
 Its possession confines a booking to a slot start actually listed.
 The booking path re-checks the offer itself after its insert:
 the slot must still be covered by the availability calendar's `OPEN` events,
-their union containing it with no seam inside (§4),
+one of their merged intervals (§4) containing it,
 and nothing in either calendar may block it (§5.3).
 Before the insert, it also refuses a slot start the minimum notice (§4)
 has since overtaken.
@@ -425,7 +421,7 @@ a side effect of push.
 | §2 | OAuth tokens for Google's CalDAV endpoint | `worker/src/auth.ts` |
 | §3 | The five routes, CORS, rate limiting | `worker/src/index.ts` |
 | §3 | Problem Details errors | `worker/src/problem.ts` |
-| §4 | Union, seams, emission | `computeSlots` in `worker/src/slots.ts` |
+| §4 | Union, emission | `computeSlots` in `worker/src/slots.ts` |
 | §5 | Create-grant, session proof, cancellation token — issue and verify | `worker/src/grants.ts` |
 | §5 | The browser session key | `frontend/src/session.ts` |
 | §5 | The wire headers | `frontend/src/api.ts` |

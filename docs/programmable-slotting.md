@@ -58,7 +58,7 @@ Slotting:
   feature).
 - **S3 blocker avoidance** — no slot interval overlaps any blocker
   (strict inequalities; touching at an endpoint does not block, matching
-  today's seam semantics).
+  today's blocking rule).
 - **S4 determinism** — f is a function of its arguments and nothing
   else. No clock reads beyond the `now` argument, no randomness.
 - **S5 phase stability** — narrowing the window does not move surviving

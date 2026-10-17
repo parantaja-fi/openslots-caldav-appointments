@@ -57,38 +57,36 @@ function intervals(events: CalendarEvent[]): Interval[] {
 }
 
 /**
- * The union of the OPEN events, plus a zero-length seam wherever two of them
- * merely abut. Overlap is evidence of intended continuous availability; mere
- * abutment is two separately-painted sessions, and no booking may span it.
+ * The union of the OPEN events, merging only those that overlap. Overlap is
+ * evidence of intended continuous availability; mere abutment is two
+ * separately-painted sessions, each phased from its own start. A slot must fit
+ * inside one interval, so none spans the join.
  */
-function union(open: CalendarEvent[]): { open: Interval[]; seams: Interval[] } {
+function union(open: CalendarEvent[]): Interval[] {
   const sorted = intervals(open).sort((a, b) => a.start - b.start);
   const merged: Interval[] = [];
-  const seams: Interval[] = [];
 
   for (const next of sorted) {
     const current = merged[merged.length - 1];
-    if (!current || next.start > current.end) {
+    if (!current || next.start >= current.end) {
       merged.push({ ...next });
       continue;
     }
-    if (next.start === current.end) seams.push({ start: next.start, end: next.start });
     current.end = Math.max(current.end, next.end);
   }
-  return { open: merged, seams };
+  return merged;
 }
 
 /**
- * Whether the availability calendar still offers the slot: the union of its
- * OPEN events contains it, with no seam inside. Phase is not checked; the
- * grant attested it.
+ * Whether the availability calendar still offers the slot: one interval of
+ * the union of its OPEN events contains it. Phase is not checked; the grant
+ * attested it.
  */
 export function covered(availability: CalendarEvent[], start: string, end: string): boolean {
-  const { open, seams } = union(availability.filter(isOpen));
+  const open = union(availability.filter(isOpen));
   const from = Date.parse(start);
   const to = Date.parse(end);
-  return open.some(i => i.start <= from && i.end >= to) &&
-    !seams.some(s => s.start > from && s.start < to);
+  return open.some(i => i.start <= from && i.end >= to);
 }
 
 /**
@@ -105,11 +103,8 @@ export function computeSlots(
   from: Date,
   to: Date,
 ): Slot[] {
-  const { open, seams } = union(availability.filter(isOpen));
-  const blocking = [
-    ...intervals([...availability, ...store].filter(e => !isOpen(e) && blocks(e))),
-    ...seams,
-  ];
+  const open = union(availability.filter(isOpen));
+  const blocking = intervals([...availability, ...store].filter(e => !isOpen(e) && blocks(e)));
 
   const windowStart = from.getTime();
   const windowEnd = to.getTime();
