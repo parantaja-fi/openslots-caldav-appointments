@@ -76,7 +76,12 @@ tool must not modify. Code always addresses the two roles; whether they
 coincide is configuration.
 
 **Slot rule:** availability is an `OPEN` event in the availability
-calendar that the system did not write. Every other event, in either
+calendar that the system did not write. In a separate store such an
+event is neither availability nor a blocker, so listing and booking
+(§5.3) agree about it. One calendar named under two spellings, its
+`OPEN` events read again as the store's, thus behaves as the coinciding
+configuration: detecting coincidence, by equal URL strings, only saves
+a query. Every other event, in either
 logical calendar, blocks — including a booking whose attendee happens to
 be called `OPEN`, which the uid distinguishes. With coinciding calendars
 this is exactly the spike behaviour; with separate calendars, bookings in
@@ -186,8 +191,10 @@ and prefixed by role (`slot_start`, not `start`).
    step 4 a zero-length interval at `t` blocks exactly the slots with
    `cursor < t < slotEnd`, and neither the slot ending at `t` nor the one
    starting at `t`.
-3. **Blocking.** Every event in *either* calendar that is not availability
-   blocks, unless §2 exempts it as Free, plus the phantoms. When the two roles resolve to one calendar this is one query.
+3. **Blocking.** Every event in *either* calendar blocks, save
+   availability, `OPEN` events in the store that the system did not write
+   (§2), and those §2 exempts as Free. The phantoms block too. When the
+   two roles coincide (§2) this is one query.
 4. **Emission.** Clamp the union to `[now + minimum notice, now + horizon]`,
    then walk a cursor from each merged interval's start in `SLOT_MINUTES`
    steps. Emit `[cursor, cursor + SLOT_MINUTES)` when it fits inside the
@@ -276,7 +283,7 @@ insert, re-query the slot in both calendars (one query when they coincide),
 roll back with `DELETE` when the slot is no longer covered (§5.2) or is
 blocked, return 409.
 The slot belongs to the *earliest* booking UID in it (§2),
-and outright to any event the system did not write that is not marked Free.
+and outright to any event the system did not write that blocks (§2).
 Hence, two simultaneous bookings settle into one 200 and one 409,
 rather than two rollbacks leaving the slot empty.
 

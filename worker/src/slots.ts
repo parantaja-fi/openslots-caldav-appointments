@@ -92,10 +92,11 @@ export function covered(availability: CalendarEvent[], start: string, end: strin
 }
 
 /**
- * `ARCHITECTURE.md` §4. OPEN counts only from the availability calendar;
- * everything else in either calendar blocks, save events marked Free that we
- * did not write. When the two roles coincide, pass the single query's events
- * as `availability` and nothing as `store`.
+ * `ARCHITECTURE.md` §4. OPEN counts only from the availability calendar, and
+ * in the store neither offers nor blocks; everything else in either calendar
+ * blocks, save events marked Free that we did not write. One calendar's events
+ * passed in both roles therefore give what they give as `availability` alone,
+ * which is how coinciding roles are passed, to save a query.
  */
 export function computeSlots(
   availability: CalendarEvent[],
@@ -106,8 +107,7 @@ export function computeSlots(
 ): Slot[] {
   const { open, seams } = union(availability.filter(isOpen));
   const blocking = [
-    ...intervals(availability.filter(e => !isOpen(e) && blocks(e))),
-    ...intervals(store.filter(blocks)),
+    ...intervals([...availability, ...store].filter(e => !isOpen(e) && blocks(e))),
     ...seams,
   ];
 

@@ -82,14 +82,24 @@ describe("blocking", () => {
       .toEqual(["09:00"]);
   });
 
-  it("blocks on an event titled OPEN in the store, which is not availability", () => {
-    expect(starts([open("09:00", "10:00")], [open("09:00", "09:30")]))
-      .toEqual(["09:30"]);
+  it("neither offers nor blocks on an OPEN event in a separate store", () => {
+    expect(starts([open("09:00", "10:00")], [open("09:00", "11:00")]))
+      .toEqual(["09:00", "09:30"]);
+  });
+
+  it("gives one calendar passed in both roles the slots it gives alone", () => {
+    const events = [
+      open("09:00", "11:00"),
+      event("Dentist", "09:30", "10:00"),
+      { ...event("Alice", "10:30", "11:00"), uid: bookingUid() },
+    ];
+    expect(starts(events, events)).toEqual(starts(events));
   });
 
   it("blocks on our own booking titled OPEN, whichever calendar it is read from", () => {
     const attendeeCalledOpen: CalendarEvent = { ...open("09:00", "09:30"), uid: bookingUid() };
     expect(starts([open("09:00", "10:00"), attendeeCalledOpen])).toEqual(["09:30"]);
+    expect(starts([open("09:00", "10:00")], [attendeeCalledOpen])).toEqual(["09:30"]);
   });
 
   it("does not block on an event marked Free", () => {

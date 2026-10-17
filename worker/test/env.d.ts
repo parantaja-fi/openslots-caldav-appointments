@@ -5,6 +5,8 @@ declare global {
     interface Env {
       TEST_WRITE_USERNAME?: string;
       TEST_WRITE_PASSWORD?: string;
+      // AVAILABILITY_CALENDAR_URL in a second spelling, served without a redirect.
+      TEST_AVAILABILITY_URL_ALIAS?: string;
     }
   }
 }

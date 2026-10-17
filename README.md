@@ -133,7 +133,12 @@ gh secret set BACKEND_GOOGLE    < worker/test/backends/google.vars
 ```
 
 The live tests write to the calendars a profile names, so point them at
-dedicated test calendars.
+dedicated test calendars. `TEST_AVAILABILITY_URL_ALIAS` names the
+availability calendar in a second spelling the backend serves without
+redirecting, such as without its trailing slash, and the live suite then
+also runs with one calendar named twice, once in each role. Where it is
+empty, as for a backend with no such spelling, that configuration is
+skipped.
 
 For the local Radicale, serve it through waitress rather than its own
 server, which drops roughly one connection in a thousand when workerd is

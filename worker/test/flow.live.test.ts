@@ -15,6 +15,9 @@ const { start, end } = futureWindow();
 const configurations: Record<string, Env> = {
   "separate calendars": env,
   "one calendar in both roles": { ...env, BOOKING_STORE_URL: env.AVAILABILITY_CALENDAR_URL },
+  ...(env.TEST_AVAILABILITY_URL_ALIAS ? {
+    "one calendar under two spellings": { ...env, BOOKING_STORE_URL: env.TEST_AVAILABILITY_URL_ALIAS },
+  } : {}),
 };
 
 describe.each(Object.entries(configurations))("%s", (_name, config) => {
