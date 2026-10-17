@@ -326,6 +326,26 @@ describe("overrides", () => {
   });
 });
 
+describe("the window", () => {
+  it("drops a single event the window does not reach, whatever the server sent", () => {
+    const before = ics([
+      "UID:before",
+      "DTSTART:20260906T090000Z",
+      "DTEND:20260907T000000Z",
+      "SUMMARY:OPEN",
+    ]);
+    const after = ics([
+      "UID:after",
+      "DTSTART:20260914T000000Z",
+      "DTEND:20260914T100000Z",
+      "SUMMARY:OPEN",
+    ]);
+
+    expect(eventsIn(before, FROM, TO, HELSINKI)).toEqual([]);
+    expect(eventsIn(after, FROM, TO, HELSINKI)).toEqual([]);
+  });
+});
+
 describe("floating and all-day values", () => {
   it("reads an all-day event as that day in the zone given", () => {
     const allDay = ics([

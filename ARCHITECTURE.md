@@ -100,7 +100,10 @@ Worker then expands `RRULE`, `EXDATE` and `RECURRENCE-ID` itself with
 the right instant. A floating value — a `DATE`, as an all-day entry has,
 or a `DATE-TIME` with neither `Z` nor `TZID` — is taken in the
 practitioner's zone, `DISPLAY_TIMEZONE`, a Worker's own clock being UTC;
-a `TZID` whose `VTIMEZONE` did not arrive falls back the same way.
+a `TZID` whose `VTIMEZONE` did not arrive falls back the same way. The
+backend, though, evaluates a floating value by its own clock, so the
+`REPORT` asks for a day beyond the window on each side and `eventsIn`
+applies the window itself.
 The walk through a series ends at the window's end by
 nominal time, the time a `RECURRENCE-ID` names; an override counts by its
 own, moved times wherever its nominal time lies, so an occurrence moved

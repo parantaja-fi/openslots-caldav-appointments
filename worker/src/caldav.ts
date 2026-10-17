@@ -189,11 +189,12 @@ export function eventsIn(ics: string, from: Date, to: Date, timezone: string): C
 
     const event = new ICAL.Event(vevent);
     if (!event.isRecurring()) {
+      const start = instant(event.startDate);
+      const end = instant(event.endDate);
+      if (start >= to || end <= from) continue;
       if (vevent.getFirstPropertyValue("status") === "CANCELLED") continue;
       const transparent = vevent.getFirstPropertyValue("transp") === "TRANSPARENT";
-      events.push(toEvent(
-        event.uid, event.summary, instant(event.startDate), instant(event.endDate), transparent,
-      ));
+      events.push(toEvent(event.uid, event.summary, start, end, transparent));
       continue;
     }
 
@@ -245,8 +246,13 @@ export async function reportEvents(
 ): Promise<CalendarEvent[]> {
   const from = new Date(start);
   const to = new Date(end);
-  const range = `start="${toCalDAVDate(from.toISOString())}" ` +
-    `end="${toCalDAVDate(to.toISOString())}"`;
+  // A day beyond the window on each side: the backend evaluates a floating
+  // value by its own clock, not the practitioner's, so an all-day entry can
+  // lie outside its filter and inside the window. eventsIn() applies the
+  // window itself.
+  const margin = 86_400_000;
+  const range = `start="${toCalDAVDate(new Date(from.getTime() - margin).toISOString())}" ` +
+    `end="${toCalDAVDate(new Date(to.getTime() + margin).toISOString())}"`;
   // The filter alone: every backend evaluates the time-range against
   // occurrences, so a recurring master starting before the window still
   // arrives. Asking for <c:expand> as well would be pointless — google-caldav
