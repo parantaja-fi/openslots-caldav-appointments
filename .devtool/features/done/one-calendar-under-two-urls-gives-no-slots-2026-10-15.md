@@ -1,15 +1,15 @@
 ---
 id: "one-calendar-under-two-urls-gives-no-slots-2026-10-15"
-status: "backlog"
+status: "done"
 priority: "medium"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-15T13:59:27.000Z"
-completedAt: null
+modified: "2026-10-17T07:57:48.000Z"
+completedAt: "2026-10-17T07:57:48.000Z"
 labels: ["0.1.x", "bug"]
-order: "a0"
+order: "a7"
 ---
 # One calendar under two URLs gives no slots
 
@@ -53,3 +53,15 @@ both without redirecting.
   store ignored.
 - `PRIVACY.md` checked against the §2 edit, as `CLAUDE.md` requires; no
   change expected.
+
+Done 2026-10-17 (64ca721): `computeSlots` leaves `OPEN` events out of
+the store's blockers, as `lostRace` already did; the unit tests above;
+`flow.live.test.ts` runs a third configuration, the availability URL
+under a second spelling, wherever a profile sets
+`TEST_AVAILABILITY_URL_ALIAS` — tracked for Radicale, set locally for
+Nextcloud and Google, which both serve the slash-less spelling with 207
+and no redirect, and reaching their CI jobs once the `BACKEND_*`
+secrets are re-set from the profiles. `ARCHITECTURE.md` §2, §4 step 3
+and §5.3 updated; `PRIVACY.md` checked, no change;
+`docs/open-event-precedents.md` §4 table and §5 item 3 dated. CI runs
+on the next push.

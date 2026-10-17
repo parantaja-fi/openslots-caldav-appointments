@@ -175,7 +175,7 @@ document little beyond their marker and appear only in the text.
 
 | Design | Marker | Marker's Free/Busy | Subdivision and phase | Overlap; abutment | Recurrence | Bookings go to | What blocks |
 |---|---|---|---|---|---|---|---|
-| **Ours** | `SUMMARY` exactly `OPEN`, availability role only, uid not `booking-…` | ignored | stepped from each merged interval's start | merged; abutment leaves a seam | expanded in the Worker | booking calendar, which may be the same one | every other event in either calendar that is not Free; the system's own bookings block whatever their transparency (Free events blocked too until 2026-10-17) |
+| **Ours** | `SUMMARY` exactly `OPEN`, availability role only, uid not `booking-…` | ignored | stepped from each merged interval's start | merged; abutment leaves a seam | expanded in the Worker | booking calendar, which may be the same one | every other event in either calendar that is not Free; the system's own bookings block whatever their transparency (until 2026-10-17 Free events blocked too, as did an `OPEN` event in a separate store) |
 | YouCanBookMe | key phrase in title; documented as exact and case-sensitive, matched as substring | must be Free | global grid; events must sit on it | union across calendars; — | yes | linked calendar, on top of the block | Busy events, declined invitations |
 | Google appointment slots, 2011–24 | special event type | n/a | block split into slots of a chosen length | — | yes; booked slots duplicated when a block was made recurring | new event, inside the block | its own bookings; apparently nothing else |
 | meetergo | exact title | Free on Google, Outlook; Busy on iCloud, CalDAV, ICS | — | — | — | — | non-Free events, rules per provider |
@@ -273,11 +273,11 @@ phrase query.
 2. **Phase is anchored to each merged interval**, not to a grid or to
    the query.
 3. **A role-scoped title marker guarded by uid provenance.** `OPEN`
-   counts only in the availability role, the same title blocks in the
-   store, and the system knows its own writes by uid, a booking's
-   `SUMMARY` being the attendee's name
-   ([ARCHITECTURE.md](../ARCHITECTURE.md) §2). That is what makes
-   coinciding roles safe. The SKAWINSKI plugin also shares one calendar,
+   counts only in the availability role, the same title in the store
+   neither offers nor blocks (it blocked until 2026-10-17), and the
+   system knows its own writes by uid, a booking's `SUMMARY` being the
+   attendee's name ([ARCHITECTURE.md](../ARCHITECTURE.md) §2). That is
+   what makes coinciding roles safe. The SKAWINSKI plugin also shares one calendar,
    but titles bookings `<meeting type>: <name>` and finds windows by
    substring
    ([caldav-booking.php](https://github.com/SKAWINSKI-GmbH/wordpress-caldav_booking_plugin/blob/1b47b73dd7b3b3ba0c6ae3387162598ab7211241/caldav-booking.php#L1316)),
