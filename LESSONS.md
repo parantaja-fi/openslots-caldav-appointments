@@ -4,6 +4,19 @@ Dated notes for agents working in this repository: hard-won facts and
 practices that fit neither CLAUDE.md's brief nor ARCHITECTURE.md's
 mechanisms. Append new entries at the top; leave old ones as written.
 
+## 2026-10-17 — A deployed Worker's CPU, from its tail
+
+`wrangler tail --format json` prints an object per invocation holding
+`cpuTime` and `wallTime` in milliseconds and an `outcome`, which is
+`exceededCpu` for Error 1102: the deployed CPU the held clock (below)
+cannot show from inside. The tail is lossy, keeping 16 of 20 events and
+24 of 30, and every event carries the caller's IP address and
+location, so its raw output stays out of the repository. Measured so on
+workers.dev, a fresh isolate's first request costs several times a
+warm one, as a fresh Node process's does — 59 ms, then 16, 16 and 4–10;
+in another data centre 25, then 2–6 — and a later batch of the same
+requests may land in another data centre.
+
 ## 2026-10-17 — What a recurrence draw costs in workerd
 
 Measured on an M1 Pro, in workerd through `@cloudflare/vitest-pool-workers`,
