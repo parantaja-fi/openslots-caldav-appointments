@@ -1,15 +1,15 @@
 ---
 id: "decide-events-marked-free-should-not-block-2026-10-14"
-status: "todo"
+status: "review"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-17T05:46:55.000Z"
+modified: "2026-10-17T06:28:50.000Z"
 completedAt: null
 labels: ["0.1.x"]
-order: "Zz"
+order: "a0"
 ---
 # Events marked Free should not block
 
@@ -58,3 +58,11 @@ Read it from the override where there is one (`getOccurrenceDetails`'
 - The Google observation above, recorded.
 - `ARCHITECTURE.md` §2's slot rule says what the code does; `PRIVACY.md`
   checked against it.
+
+Code landed 2026-10-17 (7356bef): `transparent` on `CalendarEvent`, read
+per occurrence; `blocks()` in `slots.ts` for `computeSlots` and
+`lostRace`; unit tests; `ARCHITECTURE.md` §2, §4 and §5.3 updated;
+`PRIVACY.md` checked, no change. Outstanding: the Google observation,
+an all-day event made in Google Calendar's own UI on the availability
+calendar, read over CalDAV on the Google profile. The practitioner
+guidance is `practitioner-guidance-for-open-events-2026-10-17`.

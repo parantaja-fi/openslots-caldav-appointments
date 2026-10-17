@@ -1,13 +1,13 @@
 ---
 id: "a-moved-occurrence-breaks-recurrence-expansion-2026-10-15"
-status: "todo"
+status: "done"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-15T13:59:27.000Z"
-completedAt: null
+modified: "2026-10-17T06:28:50.000Z"
+completedAt: "2026-10-17T06:28:50.000Z"
 labels: ["0.1.x", "bug"]
 order: "a0"
 ---
@@ -62,3 +62,14 @@ which RFC 4791 §9.9 requires and no backend here has been seen to do.
   the window.
 - `PRIVACY.md` checked against the §2 edit, as `CLAUDE.md` requires; no
   change expected.
+
+Done 2026-10-17: the walk ends on nominal time, each occurrence's moved
+interval is tested for overlap, and overrides the walk did not reach
+count by their own times (3b455c3). The live case found a backend
+difference: Google's time-range `calendar-query` returns a series that
+overlaps the window only through a moved occurrence as that override
+alone, master pruned (`LESSONS.md`, 2026-10-17), so an override arriving
+without its master is read as the single event it describes (e0cf7c5).
+Radicale and Nextcloud return the whole resource. Unit and live suites
+green locally on all three backends; `ARCHITECTURE.md` §2 updated;
+`PRIVACY.md` checked, no change.

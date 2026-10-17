@@ -175,7 +175,7 @@ document little beyond their marker and appear only in the text.
 
 | Design | Marker | Marker's Free/Busy | Subdivision and phase | Overlap; abutment | Recurrence | Bookings go to | What blocks |
 |---|---|---|---|---|---|---|---|
-| **Ours** | `SUMMARY` exactly `OPEN`, availability role only, uid not `booking-…` | ignored | stepped from each merged interval's start | merged; abutment leaves a seam | expanded in the Worker | booking calendar, which may be the same one | every other event in either calendar, Free ones included |
+| **Ours** | `SUMMARY` exactly `OPEN`, availability role only, uid not `booking-…` | ignored | stepped from each merged interval's start | merged; abutment leaves a seam | expanded in the Worker | booking calendar, which may be the same one | every other event in either calendar that is not Free; the system's own bookings block whatever their transparency (Free events blocked too until 2026-10-17) |
 | YouCanBookMe | key phrase in title; documented as exact and case-sensitive, matched as substring | must be Free | global grid; events must sit on it | union across calendars; — | yes | linked calendar, on top of the block | Busy events, declined invitations |
 | Google appointment slots, 2011–24 | special event type | n/a | block split into slots of a chosen length | — | yes; booked slots duplicated when a block was made recurring | new event, inside the block | its own bookings; apparently nothing else |
 | meetergo | exact title | Free on Google, Outlook; Busy on iCloud, CalDAV, ICS | — | — | — | — | non-Free events, rules per provider |
