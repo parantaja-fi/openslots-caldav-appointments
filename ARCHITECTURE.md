@@ -186,7 +186,11 @@ and prefixed by role (`slot_start`, not `start`).
    intended continuous availability. Mere abutment, though, is two
    separately-painted sessions: abutting events stay separate intervals,
    each phased from its own start, and a slot must fit inside one
-   interval, so none spans the join.
+   interval, so none spans the join. The availability calendar is read
+   from a day before the window, so that an overlapping `OPEN` event
+   ending before it still anchors the phase; a chain of overlapping `OPEN`
+   events longer than a day can still shift phase as the window's start,
+   at the earliest `now + minimum notice`, passes its earlier members.
 2. **Blocking.** Every event in *either* calendar blocks, save
    availability, `OPEN` events in the store that the system did not write
    (§2), and those §2 exempts as Free. When the two roles coincide (§2)

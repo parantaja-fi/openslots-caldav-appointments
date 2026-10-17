@@ -107,3 +107,12 @@ it("sees an occurrence moved in from a series the window does not otherwise see"
     await deleteEvent(availability, uid);
   }
 });
+
+it("phases slots from an overlapping OPEN event that ends before the window", async () => {
+  await reset();
+  await paint(availability, "OPEN", at(start, 60), at(start, 140));
+  await paint(availability, "OPEN", at(start, 130), at(start, 240));
+
+  expect(await listSlots()).toEqual([60, 90, 120, 150, 180, 210].map(m => at(start, m)));
+  expect(await listSlots(at(start, 145))).toEqual([150, 180, 210].map(m => at(start, m)));
+});

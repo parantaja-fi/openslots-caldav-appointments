@@ -61,10 +61,14 @@ async function getSlots(
   const { availability, store, coincide } = cfg.calendars;
   const from_ = from.toISOString();
   const to_ = to.toISOString();
+  // Availability is read from a day earlier: phase is anchored to each OPEN
+  // interval's start (ARCHITECTURE.md §4), which an overlapping OPEN event
+  // ending before the window still sets.
+  const dayEarlier = new Date(from.getTime() - 86_400_000).toISOString();
   let availabilityEvents, storeEvents;
   try {
     [availabilityEvents, storeEvents] = await Promise.all([
-      reportEvents(availability, from_, to_, cfg.timezone),
+      reportEvents(availability, dayEarlier, to_, cfg.timezone),
       coincide ? Promise.resolve([]) : reportEvents(store, from_, to_, cfg.timezone),
     ]);
   } catch (e) {
