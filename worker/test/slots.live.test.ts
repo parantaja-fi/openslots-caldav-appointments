@@ -1,6 +1,7 @@
 import { env, exports } from "cloudflare:workers";
 import { decodeJwt } from "jose";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { deleteEvent } from "../src/caldav";
 import { at, clear, futureWindow, paint, writable } from "./fixture";
 import { newSession } from "./session";
 
@@ -64,4 +65,45 @@ it("sees the occurrences of weekly events inside the window", async () => {
   await paint(availability, "Supervision", lastWeek(90), lastWeek(120), "FREQ=WEEKLY");
 
   expect(await listSlots()).toEqual([at(start, 60), at(start, 120), at(start, 150)]);
+});
+
+// These two delete their series by uid: clear() sees only what the window's
+// REPORT yields, which a series with an occurrence moved across the window's
+// end can escape.
+it("sees an occurrence moved in from later in a series the window already sees", async () => {
+  await reset();
+  const day = 24 * 60;
+  await paint(availability, "OPEN", at(start, 60), at(start, 180));
+  // The third occurrence moves in, so that the second, unmoved and past the
+  // window's end, lies between it and the window.
+  const uid = await paint(
+    availability, "Supervision", at(start, day + 90), at(start, day + 120), "FREQ=WEEKLY",
+    { occurrence: at(start, 15 * day + 90), start: at(start, 90), end: at(start, 120) },
+  );
+
+  try {
+    expect(await listSlots()).toEqual([at(start, 60), at(start, 120), at(start, 150)]);
+  } finally {
+    await deleteEvent(availability, uid);
+  }
+});
+
+// What only the backend can show: that its time-range filter selects a
+// resource whose only overlap with the window is an overridden occurrence, as
+// RFC 4791 §9.9 requires. Every nominal occurrence of this series lies past
+// the window's end.
+it("sees an occurrence moved in from a series the window does not otherwise see", async () => {
+  await reset();
+  const nextWeek = at(start, 7 * 24 * 60 + 90);
+  await paint(availability, "OPEN", at(start, 60), at(start, 180));
+  const uid = await paint(
+    availability, "Supervision", nextWeek, at(nextWeek, 30), "FREQ=WEEKLY",
+    { occurrence: nextWeek, start: at(start, 90), end: at(start, 120) },
+  );
+
+  try {
+    expect(await listSlots()).toEqual([at(start, 60), at(start, 120), at(start, 150)]);
+  } finally {
+    await deleteEvent(availability, uid);
+  }
 });

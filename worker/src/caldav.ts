@@ -8,7 +8,7 @@ export interface CalendarEvent {
   end: string;   // ISO 8601, UTC
 }
 
-function toCalDAVDate(iso: string): string {
+export function toCalDAVDate(iso: string): string {
   return iso.replace(/-/g, "").replace(/:/g, "").replace(/\.\d+/, "");
 }
 
@@ -150,18 +150,31 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
     // re-anchors the rule on whatever time it is given, which would move a
     // weekly event onto a different weekday.
     const iterator = event.iterator();
+    const reached = new Set<ICAL.Event>();
     let iterations = 0;
     for (let next = iterator.next(); next; next = iterator.next()) {
       if (++iterations > MAX_ITERATIONS) {
         throw new Error(`Recurrence of ${event.uid} exceeds ${MAX_ITERATIONS} occurrences`);
       }
+      // The nominal time, not an override's: an occurrence moved past the
+      // window must not end the walk before the window's later ones.
+      if (next.toJSDate() >= to) break;
       const { item, startDate, endDate } = event.getOccurrenceDetails(next);
-      if (startDate.toJSDate() >= to) break;
-      if (endDate.toJSDate() <= from) continue;
+      reached.add(item);
+      if (startDate.toJSDate() >= to || endDate.toJSDate() <= from) continue;
       // How an occurrence deleted through an override, rather than through
       // EXDATE, is recorded. EXDATE the expansion already honours.
       if (item.component.getFirstPropertyValue("status") === "CANCELLED") continue;
       events.push(toEvent(event.uid, item.summary, startDate, endDate));
+    }
+
+    // An override the walk did not reach, such as one moved into the window
+    // from beyond its end, counts by its own times.
+    for (const override of Object.values(event.exceptions)) {
+      if (reached.has(override)) continue;
+      if (override.startDate.toJSDate() >= to || override.endDate.toJSDate() <= from) continue;
+      if (override.component.getFirstPropertyValue("status") === "CANCELLED") continue;
+      events.push(toEvent(event.uid, override.summary, override.startDate, override.endDate));
     }
   }
   return events;

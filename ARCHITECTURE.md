@@ -92,7 +92,13 @@ filter alone. Every backend evaluates that filter against occurrences, so
 a recurring master whose `DTSTART` precedes the window still arrives; the
 Worker then expands `RRULE`, `EXDATE` and `RECURRENCE-ID` itself with
 `ical.js`, registering any `VTIMEZONE` it was sent so a `TZID` resolves to
-the right instant. The `REPORT` used to ask for `<c:expand>` instead.
+the right instant. The walk through a series ends at the window's end by
+nominal time, the time a `RECURRENCE-ID` names; an override counts by its
+own, moved times wherever its nominal time lies, so an occurrence moved
+out of the window drops out and one moved in from beyond its end counts.
+Whether a series that overlaps the window only through such an override
+arrives at all is for the backend's time-range filter to decide.
+The `REPORT` used to ask for `<c:expand>` instead.
 Google ignores that element and returns the unexpanded master without
 saying so, which turned a practitioner's weekly `OPEN` events into an
 empty slot list — silently, and on the one backend most likely to be

@@ -195,4 +195,65 @@ describe("overrides", () => {
 
     expect(events).toEqual([]);
   });
+
+  it("keeps the window's later occurrences when an earlier one is moved past its end", () => {
+    const daily = [
+      "UID:daily",
+      "DTSTART:20260907T090000Z",
+      "DTEND:20260907T100000Z",
+      "SUMMARY:OPEN",
+      "RRULE:FREQ=DAILY",
+    ];
+    const events = eventsIn(ics(daily, [
+      "UID:daily",
+      "RECURRENCE-ID:20260908T090000Z",
+      "DTSTART:20261008T090000Z",
+      "DTEND:20261008T100000Z",
+      "SUMMARY:OPEN",
+    ]), FROM, TO);
+
+    expect(starts(events)).toEqual([
+      "2026-09-07T09:00:00.000Z",
+      "2026-09-09T09:00:00.000Z",
+      "2026-09-10T09:00:00.000Z",
+      "2026-09-11T09:00:00.000Z",
+      "2026-09-12T09:00:00.000Z",
+      "2026-09-13T09:00:00.000Z",
+    ]);
+  });
+
+  it("finds an occurrence moved into the window from beyond its end", () => {
+    const events = eventsIn(ics(master, [
+      "UID:weekly",
+      "RECURRENCE-ID:20260921T090000Z",
+      "DTSTART:20260910T090000Z",
+      "DTEND:20260910T100000Z",
+      "SUMMARY:Supervision",
+    ]), FROM, TO);
+
+    expect(events).toEqual([{
+      uid: "weekly",
+      summary: "OPEN",
+      start: "2026-09-07T09:00:00.000Z",
+      end: "2026-09-07T10:30:00.000Z",
+    }, {
+      uid: "weekly",
+      summary: "Supervision",
+      start: "2026-09-10T09:00:00.000Z",
+      end: "2026-09-10T10:00:00.000Z",
+    }]);
+  });
+
+  it("drops a cancelled override whose recurrence-id lies beyond the window's end", () => {
+    const events = eventsIn(ics(master, [
+      "UID:weekly",
+      "RECURRENCE-ID:20260921T090000Z",
+      "DTSTART:20260910T090000Z",
+      "DTEND:20260910T100000Z",
+      "SUMMARY:OPEN",
+      "STATUS:CANCELLED",
+    ]), FROM, TO);
+
+    expect(starts(events)).toEqual(["2026-09-07T09:00:00.000Z"]);
+  });
 });

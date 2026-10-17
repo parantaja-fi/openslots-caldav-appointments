@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { calendar, type Calendar } from "../src/config";
-import { buildVEvent, deleteEvent, putEvent, reportEvents } from "../src/caldav";
+import { buildVEvent, deleteEvent, putEvent, reportEvents, toCalDAVDate } from "../src/caldav";
 
 /**
  * A calendar handle with the fixture's own write credentials, so tests can
@@ -17,8 +17,10 @@ export function writable(url: string): Calendar {
 }
 
 /**
- * Creates an event and returns its uid. `rrule` is a test-only affordance —
- * production never writes recurrences, but it must read them.
+ * Creates an event and returns its uid. `rrule` and `override` are test-only
+ * affordances — production never writes recurrences, but it must read them.
+ * `override` moves the occurrence due at `occurrence` to its own `start` and
+ * `end`.
  */
 export async function paint(
   cal: Calendar,
@@ -26,11 +28,25 @@ export async function paint(
   start: string,
   end: string,
   rrule?: string,
+  override?: { occurrence: string; start: string; end: string },
 ): Promise<string> {
   const uid = crypto.randomUUID();
-  const ics = buildVEvent(uid, start, end, summary, "");
-  await putEvent(cal, uid,
-    rrule ? ics.replace("END:VEVENT", `RRULE:${rrule}\r\nEND:VEVENT`) : ics);
+  let ics = buildVEvent(uid, start, end, summary, "");
+  if (rrule) ics = ics.replace("END:VEVENT", `RRULE:${rrule}\r\nEND:VEVENT`);
+  if (override) {
+    ics = ics.replace("END:VCALENDAR", [
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${toCalDAVDate(new Date().toISOString())}`,
+      `RECURRENCE-ID:${toCalDAVDate(override.occurrence)}`,
+      `DTSTART:${toCalDAVDate(override.start)}`,
+      `DTEND:${toCalDAVDate(override.end)}`,
+      `SUMMARY:${summary}`,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n"));
+  }
+  await putEvent(cal, uid, ics);
   return uid;
 }
 
