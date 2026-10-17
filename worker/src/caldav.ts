@@ -161,21 +161,6 @@ function instantIn(timezone: string): (time: ICAL.Time) => Date {
   };
 }
 
-/**
- * A `TZID` resolves only against a registered zone; unregistered, `ICAL.Time`
- * treats the value as floating, which is then read in the practitioner's zone
- * whatever zone it was written in. The registry is isolate-global and
- * outlives the request, which is harmless: a `TZID` names one zone.
- */
-function registerTimezones(calendar: ICAL.Component): void {
-  for (const vtimezone of calendar.getAllSubcomponents("vtimezone")) {
-    const tzid = vtimezone.getFirstPropertyValue("tzid");
-    if (typeof tzid === "string" && !ICAL.TimezoneService.has(tzid)) {
-      ICAL.TimezoneService.register(vtimezone);
-    }
-  }
-}
-
 function walkStart(event: ICAL.Event, from: Date, instant: (time: ICAL.Time) => Date): ICAL.Time {
   const rules = event.component.getAllProperties("rrule");
   const rule = rules[0]?.getFirstValue();
@@ -203,7 +188,6 @@ function walkStart(event: ICAL.Event, from: Date, instant: (time: ICAL.Time) => 
 /** The events of one VCALENDAR that overlap `[from, to)`, recurrences expanded. */
 export function eventsIn(ics: string, from: Date, to: Date, timezone: string): CalendarEvent[] {
   const calendar = new ICAL.Component(ICAL.parse(ics));
-  registerTimezones(calendar);
   const instant = instantIn(timezone);
 
   const events: CalendarEvent[] = [];
@@ -344,7 +328,6 @@ export async function getEvent(
   if (!response.ok) throw new Error(`CalDAV GET failed: ${response.status}`);
 
   const calendar = new ICAL.Component(ICAL.parse(await response.text()));
-  registerTimezones(calendar);
   const vevent = calendar.getFirstSubcomponent("vevent");
   if (!vevent) return null;
 

@@ -101,14 +101,17 @@ Parse with `ical.js`; generate VCALENDAR text by hand (CRLF endings).
 filter alone. Every backend evaluates that filter against occurrences, so
 a recurring master whose `DTSTART` precedes the window still arrives; the
 Worker then expands `RRULE`, `EXDATE` and `RECURRENCE-ID` itself with
-`ical.js`, registering any `VTIMEZONE` it was sent so a `TZID` resolves to
-the right instant. A floating value — a `DATE`, as an all-day entry has,
+`ical.js`, which resolves a `TZID` against the `VTIMEZONE` sent beside
+it. A floating value — a `DATE`, as an all-day entry has,
 or a `DATE-TIME` with neither `Z` nor `TZID` — is taken in the
 practitioner's zone, `DISPLAY_TIMEZONE`, a Worker's own clock being UTC;
-a `TZID` whose `VTIMEZONE` did not arrive falls back the same way. The
-backend, though, evaluates a floating value by its own clock, so the
-`REPORT` asks for a day beyond the window on each side and `eventsIn`
-applies the window itself.
+a `TZID` whose `VTIMEZONE` did not arrive falls back the same way. In
+the hour an autumn change repeats, such a value is read at its second
+occurrence, the standard-time one, where RFC 5545 §3.3.5 reads the
+first; in the hour a spring change skips, both read it by the offset
+before the gap. The backend, though, evaluates a floating value by
+its own clock, so the `REPORT` asks for a day beyond the window on
+each side and `eventsIn` applies the window itself.
 The walk through a series begins at its `DTSTART` or, for a `DAILY` or
 `WEEKLY` rule without `COUNT`, `RDATE` or a `THISANDFUTURE` override, a
 whole number of periods later, at the last such point whose occurrence
