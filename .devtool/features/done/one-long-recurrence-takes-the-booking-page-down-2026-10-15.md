@@ -1,15 +1,15 @@
 ---
 id: "one-long-recurrence-takes-the-booking-page-down-2026-10-15"
-status: "todo"
+status: "done"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-17T10:40:00.000Z"
-completedAt: null
+modified: "2026-10-17T11:25:00.000Z"
+completedAt: "2026-10-17T11:25:00.000Z"
 labels: ["0.1.x", "bug"]
-order: "a3"
+order: "aA"
 ---
 # One long recurrence takes the booking page down
 
@@ -79,3 +79,17 @@ begun ten years ago (3,660 draws) costs 37 ms in UTC, 72 ms zoned and
 years old in UTC, 1.4 zoned or 1 floating, and by an hourly one six
 weeks old; a weekly series lasts about 17 years. Step 3 is demanded.
 `LESSONS.md` keeps the method.
+
+Done 2026-10-17: step 3 landed as 6f72e69 and 85b53f3. A series with one
+`RRULE`, `DAILY` or `WEEKLY`, and neither `COUNT`, `RDATE` nor a
+`THISANDFUTURE` override starts its walk at `DTSTART` plus whole
+periods, the last whose occurrence ends at or before the window's
+start. Two ical.js facts shaped the exclusions, found by probing before
+writing: an `RDATE` before the start it is given makes its `EXDATE`
+cursor lag, bringing excluded occurrences back, and the iterator emits
+its start unchecked against the `BY` parts, so the anchor must end
+before the window by the walk's own reckoning (a 25-hour all-day
+occurrence outlasts `DTSTART`'s duration). Seven unit tests compare
+each shape with the same series walked in full through a `COUNT`; the
+1990 daily series threw before. `ARCHITECTURE.md` §2 says where the
+walk begins, §3 the health state.
