@@ -6,7 +6,7 @@ assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-17T07:05:04.000Z"
+modified: "2026-10-17T10:40:00.000Z"
 completedAt: null
 labels: ["0.1.x", "bug"]
 order: "a3"
@@ -68,3 +68,14 @@ daily floating series begun three years before the window took about
 33 ms in Node 26, against 12 ms for the same series in UTC. Zoned and
 UTC series cost what they did. Step 2 should measure a floating series
 too.
+
+Note 2026-10-17, later: step 1 landed as fb4bfd4. Step 2, measured in
+workerd through the vitest pool on an M1 Pro, where the clock advances
+through synchronous code: a draw costs about 10 µs in UTC, 20 µs zoned
+(`VTIMEZONE`) and 29 µs floating, of which the ical.js iterator is
+about 5 µs; the free plan's 10 ms buys about 990 draws. A daily series
+begun ten years ago (3,660 draws) costs 37 ms in UTC, 72 ms zoned and
+105 ms floating, so the budget is spent by a daily series about 2.7
+years old in UTC, 1.4 zoned or 1 floating, and by an hourly one six
+weeks old; a weekly series lasts about 17 years. Step 3 is demanded.
+`LESSONS.md` keeps the method.

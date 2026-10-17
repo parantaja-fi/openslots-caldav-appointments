@@ -4,6 +4,23 @@ Dated notes for agents working in this repository: hard-won facts and
 practices that fit neither CLAUDE.md's brief nor ARCHITECTURE.md's
 mechanisms. Append new entries at the top; leave old ones as written.
 
+## 2026-10-17 — What a recurrence draw costs in workerd
+
+Measured on an M1 Pro, in workerd through `@cloudflare/vitest-pool-workers`,
+where `performance.now()` advances through synchronous code (a deployed
+Worker holds the clock still within a synchronous run, so measure here,
+not there). One draw of `eventsIn`'s walk costs about 10 µs for a UTC
+series, 20 µs zoned (`VTIMEZONE`) and 29 µs floating; the ical.js
+iterator alone is about 5 µs (10.7 zoned), the rest being the three
+`instant()` conversions per draw, floating ones paying two `Intl`
+offset lookups each. The free plan's 10 ms of CPU buys about 990 draws:
+a daily series begun ten years before the window (3,660 draws) costs
+37 ms in UTC, 72 ms zoned and 105 ms floating; weekly over ten years
+5.8 ms; hourly over thirteen months (9,673 draws) 98 ms. Node 26.8.1 is
+7–9 % slower than workerd on the same code. Measured for
+`one-long-recurrence-takes-the-booking-page-down-2026-10-15`, whose
+step 3 starts `DAILY` and `WEEKLY` walks near the window.
+
 ## 2026-10-17 — Google's calendar-query prunes a series to the components in range
 
 A `calendar-query` with a time-range filter and no `<c:expand>` returns,
