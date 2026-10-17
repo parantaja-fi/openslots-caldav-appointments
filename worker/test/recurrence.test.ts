@@ -563,6 +563,35 @@ describe("a series begun long before the window", () => {
     expect(near).toEqual(full);
   });
 
+  it("finds occurrences a THISANDFUTURE override moved into the window from before it", () => {
+    const { near, full } = walked(FROM, TO, [
+      "UID:daily",
+      "DTSTART:20240101T090000Z",
+      "DTEND:20240101T100000Z",
+      "SUMMARY:OPEN",
+      "RRULE:FREQ=DAILY",
+    ], [
+      "UID:daily",
+      // Three days later, from February 2024 on.
+      "RECURRENCE-ID;RANGE=THISANDFUTURE:20240201T090000Z",
+      "DTSTART:20240204T090000Z",
+      "DTEND:20240204T100000Z",
+      "SUMMARY:OPEN",
+    ]);
+
+    // Nominally the 4th to the 10th, moved onto the window's days.
+    expect(starts(near)).toEqual([
+      "2026-09-07T09:00:00.000Z",
+      "2026-09-08T09:00:00.000Z",
+      "2026-09-09T09:00:00.000Z",
+      "2026-09-10T09:00:00.000Z",
+      "2026-09-11T09:00:00.000Z",
+      "2026-09-12T09:00:00.000Z",
+      "2026-09-13T09:00:00.000Z",
+    ]);
+    expect(near).toEqual(full);
+  });
+
   it("lists no Saturday for a weekday series when the window opens in Saturday's hour", () => {
     const { near, full } = walked(
       new Date("2026-11-07T07:30:00Z"), new Date("2026-11-10T00:00:00Z"), [

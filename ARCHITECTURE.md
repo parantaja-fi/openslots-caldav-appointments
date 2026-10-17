@@ -110,9 +110,10 @@ backend, though, evaluates a floating value by its own clock, so the
 `REPORT` asks for a day beyond the window on each side and `eventsIn`
 applies the window itself.
 The walk through a series begins at its `DTSTART` or, for a `DAILY` or
-`WEEKLY` rule without `COUNT` or `RDATE`, a whole number of periods
-later, at the last such point whose occurrence ends at or before the
-window's start: that keeps the weekday and the week, so the rule
+`WEEKLY` rule without `COUNT`, `RDATE` or a `THISANDFUTURE` override, a
+whole number of periods later, at the last such point whose occurrence
+ends at or before the window's start, or one period short of it across
+a summer-time change: that keeps the weekday and the week, so the rule
 generates the same series from there.
 Either way it gives up after 10,000 occurrences, failing the read (§3):
 a blocker's series cut short would offer slots over real appointments.

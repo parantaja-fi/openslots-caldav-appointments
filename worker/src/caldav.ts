@@ -181,9 +181,12 @@ function walkStart(event: ICAL.Event, from: Date, instant: (time: ICAL.Time) => 
   const rule = rules[0]?.getFirstValue();
   // An RDATE keeps the walk at DTSTART: ical.js walks from one that precedes
   // the start it is given, and its EXDATE cursor then lags, so excluded
-  // occurrences come back.
+  // occurrences come back. So does a RANGE=THISANDFUTURE override, which moves
+  // every occurrence after it by its own shift, so one from before the anchor
+  // may land in the window.
   if (rules.length !== 1 || !(rule instanceof ICAL.Recur) || rule.count ||
-    (rule.freq !== "DAILY" && rule.freq !== "WEEKLY") || event.component.hasProperty("rdate")) {
+    (rule.freq !== "DAILY" && rule.freq !== "WEEKLY") || event.component.hasProperty("rdate") ||
+    event.rangeExceptions.length > 0) {
     return event.startDate;
   }
   const days = rule.freq === "DAILY" ? rule.interval : 7 * rule.interval;
