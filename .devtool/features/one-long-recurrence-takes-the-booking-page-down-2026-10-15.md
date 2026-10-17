@@ -6,7 +6,7 @@ assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T05:00:50.000Z"
-modified: "2026-10-15T13:59:27.000Z"
+modified: "2026-10-17T07:05:04.000Z"
 completedAt: null
 labels: ["0.1.x", "bug"]
 order: "a3"
@@ -60,3 +60,11 @@ agrees with the full walk on a series short enough for both.
 - The unit tests above; CI green.
 - `ARCHITECTURE.md` §3 says what the code does: the health check's new
   state.
+
+Note 2026-10-17: since
+`all-day-and-floating-times-are-read-as-utc-2026-10-15`, converting a
+floating occurrence costs about 19 µs more, two `Intl` offset lookups: a
+daily floating series begun three years before the window took about
+33 ms in Node 26, against 12 ms for the same series in UTC. Zoned and
+UTC series cost what they did. Step 2 should measure a floating series
+too.
