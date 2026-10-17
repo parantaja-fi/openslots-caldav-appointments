@@ -1,4 +1,12 @@
-import { buildVEvent, deleteEvent, getEvent, putEvent, reportEvents } from "./caldav";
+import {
+  buildVEvent,
+  deleteEvent,
+  getEvent,
+  MAX_ITERATIONS,
+  putEvent,
+  RecurrenceTooLongError,
+  reportEvents,
+} from "./caldav";
 import { type Calendar, config, type Config, type Env } from "./config";
 import { sendBookingEmails } from "./email";
 import {
@@ -73,7 +81,11 @@ async function getSlots(
     ]);
   } catch (e) {
     console.error("CalDAV REPORT failed:", e);
-    return problem(502, "Bad Gateway", "The calendar backend could not be read.", cors);
+    const detail = e instanceof RecurrenceTooLongError
+      ? `A recurring event in the calendar exceeds ${MAX_ITERATIONS} occurrences ` +
+        "and cannot be expanded."
+      : "The calendar backend could not be read.";
+    return problem(502, "Bad Gateway", detail, cors);
   }
 
   const slots = computeSlots(availabilityEvents, storeEvents, cfg.slotMs, from, to);
@@ -236,7 +248,9 @@ function probeCalendar(cal: Calendar, timezone: string): Promise<Probe> {
     .then((): Probe => ({ ok: true }))
     .catch((e: unknown): Probe => ({
       ok: false,
-      error: e instanceof Error && e.message.startsWith("CalDAV") ? e.message : "unreachable",
+      error: e instanceof RecurrenceTooLongError
+        ? `a recurring event exceeds ${MAX_ITERATIONS} occurrences`
+        : e instanceof Error && e.message.startsWith("CalDAV") ? e.message : "unreachable",
     }));
   const timeout = new Promise<Probe>(resolve =>
     setTimeout(() => resolve({ ok: false, error: "timed out" }), 5_000));

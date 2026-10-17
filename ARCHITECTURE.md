@@ -109,7 +109,10 @@ a `TZID` whose `VTIMEZONE` did not arrive falls back the same way. The
 backend, though, evaluates a floating value by its own clock, so the
 `REPORT` asks for a day beyond the window on each side and `eventsIn`
 applies the window itself.
-The walk through a series ends at the window's end by
+The walk through a series begins at its `DTSTART` and gives up after
+10,000 occurrences, failing the read (§3): a blocker's series cut short
+would offer slots over real appointments.
+The walk ends at the window's end by
 nominal time, the time a `RECURRENCE-ID` names; an override counts by its
 own, moved times wherever its nominal time lies, so an occurrence moved
 out of the window drops out and one moved in from beyond its end counts.
@@ -166,6 +169,13 @@ The endpoint checks the following:
   when a sender address is set but
   the API key secret is not, the forgot-the-secret shape a booking
   otherwise reports only in its own response (§6).
+
+A failed calendar probe reads `timed out`, the Worker's own
+`CalDAV …` message with the backend's status, or `unreachable`;
+a recurring event too long to expand (§2) is a state of its own,
+`a recurring event exceeds 10000 occurrences`, naming the cap rather
+than the event, whose uid may embed a hostname or an address.
+The listing's problem detail names it the same way.
 
 It reports 200 when everything is healthy (`off` is healthy: it is deliberate),
 503 otherwise, so a `curl -f` is the whole probe.

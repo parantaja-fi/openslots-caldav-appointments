@@ -104,7 +104,18 @@ function unescapeXml(text: string): string {
  * rule needing more is malformed, and failing loudly beats quietly returning a
  * truncated availability — the very failure this expansion exists to avoid.
  */
-const MAX_ITERATIONS = 10_000;
+export const MAX_ITERATIONS = 10_000;
+
+/**
+ * A series the walk gave up on. The message names its uid for the log alone:
+ * a uid may embed a hostname or an address, so callers name the cap instead.
+ */
+export class RecurrenceTooLongError extends Error {
+  constructor(uid: string) {
+    super(`Recurrence of ${uid} exceeds ${MAX_ITERATIONS} occurrences`);
+    this.name = "RecurrenceTooLongError";
+  }
+}
 
 function toEvent(
   uid: string,
@@ -205,9 +216,7 @@ export function eventsIn(ics: string, from: Date, to: Date, timezone: string): C
     const reached = new Set<ICAL.Event>();
     let iterations = 0;
     for (let next = iterator.next(); next; next = iterator.next()) {
-      if (++iterations > MAX_ITERATIONS) {
-        throw new Error(`Recurrence of ${event.uid} exceeds ${MAX_ITERATIONS} occurrences`);
-      }
+      if (++iterations > MAX_ITERATIONS) throw new RecurrenceTooLongError(event.uid);
       // The nominal time, not an override's: an occurrence moved past the
       // window must not end the walk before the window's later ones.
       if (instant(next) >= to) break;
