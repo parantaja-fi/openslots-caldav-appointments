@@ -86,6 +86,18 @@ describe("non-recurring events", () => {
 
     expect(events.map(event => event.transparent)).toEqual([true]);
   });
+
+  it("drops a cancelled event", () => {
+    const events = eventsIn(ics([
+      "UID:cancelled",
+      "DTSTART:20260908T090000Z",
+      "DTEND:20260908T100000Z",
+      "SUMMARY:OPEN",
+      "STATUS:CANCELLED",
+    ]), FROM, TO);
+
+    expect(events).toEqual([]);
+  });
 });
 
 describe("expansion", () => {

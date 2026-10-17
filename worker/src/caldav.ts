@@ -150,6 +150,7 @@ export function eventsIn(ics: string, from: Date, to: Date): CalendarEvent[] {
 
     const event = new ICAL.Event(vevent);
     if (!event.isRecurring()) {
+      if (vevent.getFirstPropertyValue("status") === "CANCELLED") continue;
       const transparent = vevent.getFirstPropertyValue("transp") === "TRANSPARENT";
       events.push(toEvent(event.uid, event.summary, event.startDate, event.endDate, transparent));
       continue;
