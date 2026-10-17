@@ -98,11 +98,10 @@ function unescapeXml(text: string): string {
 }
 
 /**
- * Occurrences are iterated from the event's own `DTSTART`, which may be years
- * before the window, so the bound is on iterations rather than on results.
- * Ten thousand covers a daily recurrence running for twenty-seven years; a
- * rule needing more is malformed, and failing loudly beats quietly returning a
- * truncated availability — the very failure this expansion exists to avoid.
+ * A rule the walk cannot begin near the window runs from its `DTSTART`, which
+ * may be years before it, so the bound is on iterations rather than on
+ * results. Failing loudly beats quietly returning a truncated availability —
+ * the very failure this expansion exists to avoid.
  */
 export const MAX_ITERATIONS = 10_000;
 
@@ -177,6 +176,27 @@ function registerTimezones(calendar: ICAL.Component): void {
   }
 }
 
+function walkStart(event: ICAL.Event, from: Date, instant: (time: ICAL.Time) => Date): ICAL.Time {
+  const rules = event.component.getAllProperties("rrule");
+  const rule = rules[0]?.getFirstValue();
+  // An RDATE keeps the walk at DTSTART: ical.js walks from one that precedes
+  // the start it is given, and its EXDATE cursor then lags, so excluded
+  // occurrences come back.
+  if (rules.length !== 1 || !(rule instanceof ICAL.Recur) || rule.count ||
+    (rule.freq !== "DAILY" && rule.freq !== "WEEKLY") || event.component.hasProperty("rdate")) {
+    return event.startDate;
+  }
+  const days = rule.freq === "DAILY" ? rule.interval : 7 * rule.interval;
+  const periods =
+    Math.floor((from.getTime() - instant(event.endDate).getTime()) / (days * 86_400_000));
+  if (periods <= 0) return event.startDate;
+  const anchor = event.startDate.clone().adjust(periods * days, 0, 0, 0);
+  // The iterator emits its start unchecked against the BY parts, so the anchor
+  // must end before the window opens.
+  if (instant(event.getOccurrenceDetails(anchor).endDate) > from) anchor.adjust(-days, 0, 0, 0);
+  return anchor;
+}
+
 /** The events of one VCALENDAR that overlap `[from, to)`, recurrences expanded. */
 export function eventsIn(ics: string, from: Date, to: Date, timezone: string): CalendarEvent[] {
   const calendar = new ICAL.Component(ICAL.parse(ics));
@@ -209,10 +229,11 @@ export function eventsIn(ics: string, from: Date, to: Date, timezone: string): C
       continue;
     }
 
-    // Iteration starts at DTSTART, never at the window: ICAL.Event.iterator()
-    // re-anchors the rule on whatever time it is given, which would move a
-    // weekly event onto a different weekday.
-    const iterator = event.iterator();
+    // ICAL.Event.iterator() re-anchors the rule on the time it is given, so the
+    // walk starts at DTSTART or, for a DAILY or WEEKLY rule, at DTSTART plus
+    // whole periods, which keeps the weekday and the week. A COUNT counts from
+    // DTSTART, so a counted rule starts there.
+    const iterator = event.iterator(walkStart(event, from, instant));
     const reached = new Set<ICAL.Event>();
     let iterations = 0;
     for (let next = iterator.next(); next; next = iterator.next()) {

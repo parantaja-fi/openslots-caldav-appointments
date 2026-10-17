@@ -439,3 +439,159 @@ describe("floating and all-day values", () => {
     expect(starts(events)).toEqual(["2026-10-24T23:30:00.000Z"]);
   });
 });
+
+describe("a series begun long before the window", () => {
+  // A series as written, and with a COUNT: a counted rule is walked from
+  // DTSTART, and five thousand occurrences outlast every window below, so the
+  // second is the first walked in full. Sorted by start: an override the walk
+  // reaches is listed in its place, one the walk began after is listed last.
+  const walked = (from: Date, to: Date, master: string[], ...overrides: string[][]) => {
+    const counted = master.map(line => line.startsWith("RRULE:") ? `${line};COUNT=5000` : line);
+    const sorted = (lines: string[]) => eventsIn(ics(lines, ...overrides), from, to, HELSINKI)
+      .sort((a, b) => a.start.localeCompare(b.start));
+    return { near: sorted(master), full: sorted(counted) };
+  };
+
+  it("finds this week's occurrences of a daily series begun in 1990", () => {
+    // Some thirteen thousand occurrences precede the window, beyond the bound.
+    const since1990 = ics([
+      "UID:since-1990",
+      "DTSTART:19900101T090000Z",
+      "DTEND:19900101T100000Z",
+      "SUMMARY:OPEN",
+      "RRULE:FREQ=DAILY",
+    ]);
+
+    expect(starts(eventsIn(since1990, FROM, TO, HELSINKI))).toEqual([
+      "2026-09-07T09:00:00.000Z",
+      "2026-09-08T09:00:00.000Z",
+      "2026-09-09T09:00:00.000Z",
+      "2026-09-10T09:00:00.000Z",
+      "2026-09-11T09:00:00.000Z",
+      "2026-09-12T09:00:00.000Z",
+      "2026-09-13T09:00:00.000Z",
+    ]);
+  });
+
+  it("keeps a fortnightly series on its weekdays and its weeks", () => {
+    const { near, full } = walked(
+      new Date("2026-09-09T00:00:00Z"), new Date("2026-09-23T00:00:00Z"), [
+        "UID:fortnightly",
+        // A Tuesday; Tuesday 8 September 2026 is a whole number of fortnights on.
+        "DTSTART:20000104T090000Z",
+        "DTEND:20000104T100000Z",
+        "SUMMARY:OPEN",
+        "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH",
+      ]);
+
+    // The window opens on that week's Wednesday.
+    expect(starts(near)).toEqual(["2026-09-10T09:00:00.000Z", "2026-09-22T09:00:00.000Z"]);
+    expect(near).toEqual(full);
+  });
+
+  it("honours an early and a late EXDATE, and an early occurrence moved into the window", () => {
+    // The window opens half an hour into Monday's occurrence.
+    const { near, full } = walked(
+      new Date("2026-11-09T07:30:00Z"), new Date("2026-11-12T00:00:00Z"), [
+        "UID:daily",
+        // Floating, begun in summer time; the window is in winter time.
+        "DTSTART:20240701T090000",
+        "DTEND:20240701T100000",
+        "SUMMARY:OPEN",
+        "RRULE:FREQ=DAILY",
+        "EXDATE:20240703T090000",
+        "EXDATE:20261111T090000",
+      ], [
+        "UID:daily",
+        "RECURRENCE-ID:20240702T090000",
+        "DTSTART:20261110T140000",
+        "DTEND:20261110T150000",
+        "SUMMARY:Supervision",
+      ]);
+
+    expect(near.map(event => [event.start, event.summary])).toEqual([
+      ["2026-11-09T07:00:00.000Z", "OPEN"],
+      ["2026-11-10T07:00:00.000Z", "OPEN"],
+      ["2026-11-10T12:00:00.000Z", "Supervision"],
+    ]);
+    expect(near).toEqual(full);
+  });
+
+  it("finds the window's days of an all-day series begun years before", () => {
+    const { near, full } = walked(FROM, TO, [
+      "UID:all-day",
+      "DTSTART;VALUE=DATE:20200101",
+      "DTEND;VALUE=DATE:20200102",
+      "SUMMARY:Away",
+      "RRULE:FREQ=DAILY",
+    ]);
+
+    // Helsinki's days from 7 to 14 September: the window opens three hours
+    // into the first and closes three hours into the last.
+    expect(starts(near)).toEqual([
+      "2026-09-06T21:00:00.000Z",
+      "2026-09-07T21:00:00.000Z",
+      "2026-09-08T21:00:00.000Z",
+      "2026-09-09T21:00:00.000Z",
+      "2026-09-10T21:00:00.000Z",
+      "2026-09-11T21:00:00.000Z",
+      "2026-09-12T21:00:00.000Z",
+      "2026-09-13T21:00:00.000Z",
+    ]);
+    expect(near).toEqual(full);
+  });
+
+  it("honours EXDATE in a series that also has an RDATE", () => {
+    const { near, full } = walked(FROM, TO, [
+      "UID:daily",
+      "DTSTART:20240101T090000Z",
+      "DTEND:20240101T100000Z",
+      "SUMMARY:OPEN",
+      "RRULE:FREQ=DAILY",
+      "RDATE:20240115T150000Z",
+      "EXDATE:20240201T090000Z,20240301T090000Z,20240401T090000Z",
+      "EXDATE:20260908T090000Z,20260909T090000Z",
+    ]);
+
+    expect(starts(near)).toEqual([
+      "2026-09-07T09:00:00.000Z",
+      "2026-09-10T09:00:00.000Z",
+      "2026-09-11T09:00:00.000Z",
+      "2026-09-12T09:00:00.000Z",
+      "2026-09-13T09:00:00.000Z",
+    ]);
+    expect(near).toEqual(full);
+  });
+
+  it("lists no Saturday for a weekday series when the window opens in Saturday's hour", () => {
+    const { near, full } = walked(
+      new Date("2026-11-07T07:30:00Z"), new Date("2026-11-10T00:00:00Z"), [
+        "UID:weekdays",
+        // Floating, from a Monday in summer time. In winter time 09:00 is
+        // 07:00Z, so the window opens half an hour into Saturday's 09:00.
+        "DTSTART:20250707T090000",
+        "DTEND:20250707T100000",
+        "SUMMARY:OPEN",
+        "RRULE:FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR",
+      ]);
+
+    expect(starts(near)).toEqual(["2026-11-09T07:00:00.000Z"]);
+    expect(near).toEqual(full);
+  });
+
+  it("lists no Sunday for an all-day weekday series on the day summer time ends", () => {
+    // Sunday 25 October lasts twenty-five hours; the window opens half an hour
+    // before it ends.
+    const { near, full } = walked(
+      new Date("2026-10-25T21:30:00Z"), new Date("2026-10-27T00:00:00Z"), [
+        "UID:weekdays",
+        "DTSTART;VALUE=DATE:20250707",
+        "DTEND;VALUE=DATE:20250708",
+        "SUMMARY:Away",
+        "RRULE:FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR",
+      ]);
+
+    expect(starts(near)).toEqual(["2026-10-25T22:00:00.000Z", "2026-10-26T22:00:00.000Z"]);
+    expect(near).toEqual(full);
+  });
+});
