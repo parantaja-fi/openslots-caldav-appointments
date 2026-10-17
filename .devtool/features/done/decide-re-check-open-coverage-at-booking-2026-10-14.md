@@ -1,15 +1,15 @@
 ---
 id: "decide-re-check-open-coverage-at-booking-2026-10-14"
-status: "todo"
+status: "done"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T13:59:27.000Z"
-completedAt: null
+modified: "2026-10-17T07:36:00.000Z"
+completedAt: "2026-10-17T07:36:00.000Z"
 labels: ["0.1.x"]
-order: "a2V"
+order: "a5"
 ---
 # Re-check OPEN coverage at booking
 
@@ -60,3 +60,16 @@ it.
   named above say what the code does.
 - Checked against `PRIVACY.md` and `SECURITY.md`'s scope list, as
   `CLAUDE.md` requires for §5 edits; no change expected.
+
+Done 2026-10-17 (999955c): `covered()` in `slots.ts`, the union of the
+availability calendar's `OPEN` events containing the slot with no seam
+inside, checked on the same re-query; phase stays the grant's. Live,
+both configurations: an `OPEN` event deleted after the listing refuses
+the booking, which failed in both before. `ARCHITECTURE.md` §5.2 now
+describes the grant as the offer and §9 names `covered`; `SCOPE.md`
+§3's security bullet is reduced to the constraint with an anchored link
+to §5, the first item of
+`documentation-drift-grants-and-slot-listing-2026-10-14`; the comments
+on `postBooking`'s grant check and on `issueCreateGrant` rewritten. The
+seam clause goes with `decide-phase-of-abutting-open-events-2026-10-15`.
+`PRIVACY.md` and `SECURITY.md`'s scope list checked, no change.

@@ -1,15 +1,15 @@
 ---
 id: "availability-blockers-are-not-re-checked-2026-10-14"
-status: "todo"
+status: "done"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T13:59:27.000Z"
-completedAt: null
+modified: "2026-10-17T07:36:00.000Z"
+completedAt: "2026-10-17T07:36:00.000Z"
 labels: ["0.1.x", "bug"]
-order: "a2"
+order: "a4"
 ---
 # Availability blockers are not re-checked
 
@@ -54,3 +54,16 @@ separate calendars. Write it first.
   `CLAUDE.md` requires for §5 edits. No change expected: the booking
   path reads a calendar the listing already reads, and no new data or
   party appears.
+
+Done 2026-10-17 (999955c): the post-insert re-query is the listing's
+paired `REPORT` narrowed to the slot, the availability calendar always
+and the store when the roles are separate, in parallel; `lostRace`
+reads the concatenation, and a failed availability read rolls the
+booking back with 502. Live, both configurations, in
+`flow.live.test.ts`: an appointment painted into the availability
+calendar after the listing refuses the booking and leaves nothing in
+the store; the separate-calendar case failed before the fix.
+`bookings.live.test.ts`, whose grants are minted rather than listed,
+now paints `OPEN` over its slot. `ARCHITECTURE.md` §5.2 and §5.3
+updated; `PRIVACY.md` and `SECURITY.md`'s scope list checked, no
+change. Unit, Radicale, Nextcloud and Google suites green locally.

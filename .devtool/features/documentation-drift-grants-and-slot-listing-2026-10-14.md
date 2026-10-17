@@ -6,7 +6,7 @@ assignee: null
 epic: "Documentation"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T05:30:39.000Z"
+modified: "2026-10-17T07:36:00.000Z"
 completedAt: null
 labels: ["0.1.x"]
 order: "a5"
@@ -33,3 +33,8 @@ order: "a5"
 - The documents say what the code does.
 - Checked against `PRIVACY.md` and `SECURITY.md`'s scope list, as
   `CLAUDE.md` requires for §5 edits; no change expected.
+
+Note 2026-10-17: the `SCOPE.md` §3 item is done (999955c, with
+`decide-re-check-open-coverage-at-booking-2026-10-14`). What remains is
+`ARCHITECTURE.md` §3's table and §5.4, which still present the
+thumbprint as mandatory.

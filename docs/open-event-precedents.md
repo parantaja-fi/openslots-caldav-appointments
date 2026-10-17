@@ -284,9 +284,10 @@ phrase query.
    so, judging by its code and untested, an attendee whose name contains
    the keyword turns a booking into a window: the failure commit
    `a3290e4` closed here.
-4. **A signed listing as the availability proof at booking**
-   ([ARCHITECTURE.md](../ARCHITECTURE.md) §5.2), which the precedents do
-   without (§6).
+4. **A signed listing as the availability proof at booking**, which the
+   precedents do without (§6). Since 2026-10-17 the listing is the offer
+   and the booking path re-checks coverage
+   ([ARCHITECTURE.md](../ARCHITECTURE.md) §5.2).
 
 ## 6. Lessons for the two decisions, and for practitioners
 
@@ -358,9 +359,9 @@ wizard's "Open some time for booking" step
   a later cancellation will not reopen its time until `OPEN` is painted
   there again**, exactly as YouCanBookMe documents
   ([YCBM](https://ycbm.capacity.com/article/932811/setting-up-calendar-managed-availability)).
-  Until the coverage re-check lands, a deleted `OPEN` event also stays
-  bookable from
-  pages already open for up to `GRANT_TTL_SECS`, 30 minutes by default.
+  Until 2026-10-17 a deleted `OPEN` event also stayed bookable from
+  pages already open for up to `GRANT_TTL_SECS`, 30 minutes by default;
+  the booking path now re-checks coverage.
 - **Overlap blocks meant to be continuous; abutting blocks leave a seam
   no booking spans.** No other tool will have taught this.
 - **Paint timed `OPEN` events, not all-day ones.** RFC 7953 excludes

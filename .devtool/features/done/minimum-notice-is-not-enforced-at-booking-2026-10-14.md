@@ -1,15 +1,15 @@
 ---
 id: "minimum-notice-is-not-enforced-at-booking-2026-10-14"
-status: "todo"
+status: "done"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-15T13:59:27.000Z"
-completedAt: null
+modified: "2026-10-17T07:36:00.000Z"
+completedAt: "2026-10-17T07:36:00.000Z"
 labels: ["0.1.x", "bug"]
-order: "a4"
+order: "a6"
 ---
 # Minimum notice is not enforced at booking
 
@@ -70,3 +70,10 @@ proof, expect 409.
 - `ARCHITECTURE.md` §5.2 gains the notice re-check.
 - Checked against `PRIVACY.md` and `SECURITY.md`'s scope list, as
   `CLAUDE.md` requires for §5 edits; no change expected.
+
+Done 2026-10-17 (29b0159): `postBooking` refuses a slot start earlier
+than now plus `MIN_NOTICE_MINUTES` with 409 before the insert, strict
+like the listing's clamp; unit test in `routes.test.ts`; the page's
+conflict message now reads "Sorry, that time is no longer available.";
+`ARCHITECTURE.md` §5.2 names the re-check. `PRIVACY.md` and
+`SECURITY.md`'s scope list checked, no change.
