@@ -147,6 +147,9 @@ async function postBooking(
   } catch (e) {
     return rejected(e, cors);
   }
+  if (Date.parse(slotStart) < Date.now() + cfg.noticeMs) {
+    return problem(409, "Conflict", "The slot is within the minimum notice.", cors);
+  }
 
   const start = new Date(slotStart).toISOString();
   const end = new Date(Date.parse(start) + cfg.slotMs).toISOString();

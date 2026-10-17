@@ -1,7 +1,9 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import type { Env } from "../src/config";
+import { config, type Env } from "../src/config";
+import { issueCreateGrant } from "../src/grants";
 import handler from "../src/index";
+import { newSession } from "./session";
 
 const worker = exports.default;
 
@@ -66,6 +68,30 @@ describe("routing", () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get("Content-Type")).toBe("application/problem+json");
+  });
+});
+
+describe("minimum notice", () => {
+  it("refuses a listed slot that is now within the minimum notice", async () => {
+    const cfg = config(env);
+    const session = await newSession();
+    const slot = new Date(Date.now() + cfg.noticeMs - 60_000).toISOString();
+    const grant = await issueCreateGrant(cfg, session.thumbprint, [slot]);
+
+    const response = await handler.fetch(new Request("https://api.test/v1/bookings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${grant}`,
+        "X-Session-Proof": await session.proof(),
+      },
+      body: JSON.stringify({
+        slot_start: slot,
+        attendee: { name: "Alice", email: "e2e@parantaja.fi" },
+      }),
+    }), env);
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ detail: expect.stringContaining("notice") });
   });
 });
 

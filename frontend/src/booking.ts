@@ -94,7 +94,7 @@ export function showBookingForm(
       submit.textContent = "Book";
       const error = element("bf-error");
       error.textContent = err instanceof ConflictError
-        ? "Sorry, that time was just taken."
+        ? "Sorry, that time is no longer available."
         : `Booking failed: ${String(err)}`;
       error.style.display = "block";
       await refreshSlots();

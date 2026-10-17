@@ -227,6 +227,7 @@ The booking path re-checks the offer itself after its insert:
 the slot must still be covered by the availability calendar's `OPEN` events,
 their union containing it with no seam inside (§4),
 and nothing in either calendar may block it (§5.3).
+Before the insert, the booking path also refuses a slot start the minimum notice (§4) has since overtaken.
 
 The explicit enumeration of the slots is not the time-window wildcard.
 A wildcard (once considered) would leave the slot's phase (§4) unchecked,
