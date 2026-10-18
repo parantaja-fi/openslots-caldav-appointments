@@ -7,7 +7,8 @@
 st=0
 scripts/check-cards.sh || st=1
 if command -v lychee >/dev/null 2>&1; then
-  lychee --offline --include-fragments --no-progress . || st=1
+  lychee --offline --include-fragments --no-progress \
+    --hidden --root-dir "$PWD" . || st=1
 else
   echo "pre-push: lychee not installed, link check left to CI" >&2
 fi

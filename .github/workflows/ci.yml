@@ -126,7 +126,7 @@ jobs:
       - name: lychee
         run: |
           curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz | tar xz --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
-          ./lychee --offline --include-fragments --no-progress .
+          ./lychee --offline --include-fragments --no-progress --hidden --root-dir "$PWD" .
 
   # The email path end to end, and the only job that sends real mail. It needs
   # every other job first: each run spends two messages of a small monthly

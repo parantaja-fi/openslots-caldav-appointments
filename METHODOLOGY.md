@@ -48,7 +48,7 @@ Every link is verified mechanically: the `docs` job in
 [ci.yml](.github/workflows/ci.yml), and locally
 
 ```sh
-lychee --offline --include-fragments .
+lychee --offline --include-fragments --hidden --root-dir "$PWD" .
 ```
 
 which checks that relative links resolve and that their fragments —
@@ -66,7 +66,12 @@ see. `scripts/check-cards.sh`, run by the same hook and job, checks
 that every card's frontmatter id matches its filename and that every
 id cited in tracked Markdown names a card that exists — in
 `.devtool/features/` or its `done/`, which is why cards are referred
-to by id, never by path.
+to by id, never by path. A card's links into the repository are
+root-relative for the same reason: `/ARCHITECTURE.md#…` resolves
+alike before and after the card's move into `done/`. `--hidden` stops
+lychee skipping hidden directories, `.devtool/` among them, and
+`--root-dir` resolves a leading `/` at the checkout's root, as GitHub
+does at the repository's.
 
 ## 3. CLAUDE.md is instructions, not the record
 
