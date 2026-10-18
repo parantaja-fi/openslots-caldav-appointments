@@ -1,15 +1,15 @@
 ---
 id: "rotate-every-credential-at-the-020-release-2026-10-17"
-status: "todo"
+status: "backlog"
 priority: "critical"
 assignee: null
 epic: "Security"
 dueDate: null
 created: "2026-10-17T11:40:00.000Z"
-modified: "2026-10-17T11:40:00.000Z"
+modified: "2026-10-18T10:32:54.005Z"
 completedAt: null
 labels: ["0.2.0"]
-order: "a7"
+order: "a5"
 ---
 # Rotate every credential at the 0.2.0 release
 
