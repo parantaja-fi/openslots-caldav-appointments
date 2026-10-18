@@ -6,7 +6,7 @@ assignee: null
 epic: "Documentation"
 dueDate: null
 created: "2026-10-17T06:28:50.000Z"
-modified: "2026-10-17T09:53:57.000Z"
+modified: "2026-10-18T07:45:00.000Z"
 completedAt: null
 labels: ["0.1.x"]
 order: "a6"
@@ -41,6 +41,9 @@ well. §6 has the points, each from the precedents it cites:
   clock.
 - An all-day event left at its default Free no longer closes a day
   (since 2026-10-17): shorten the `OPEN` events or add a Busy event.
+  Google's default is Free on the wire, and its "Show me as" crosses
+  CalDAV, observed 2026-10-18
+  (`decide-events-marked-free-should-not-block-2026-10-14`).
 
 ## Acceptance
 

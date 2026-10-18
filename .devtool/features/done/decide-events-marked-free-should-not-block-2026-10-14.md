@@ -1,15 +1,15 @@
 ---
 id: "decide-events-marked-free-should-not-block-2026-10-14"
-status: "review"
+status: "done"
 priority: "high"
 assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-14T12:23:10.000Z"
-modified: "2026-10-17T06:28:50.000Z"
-completedAt: null
+modified: "2026-10-18T07:42:13.000Z"
+completedAt: "2026-10-18T07:42:13.000Z"
 labels: ["0.1.x"]
-order: "a0"
+order: "aC"
 ---
 # Events marked Free should not block
 
@@ -66,3 +66,17 @@ per occurrence; `blocks()` in `slots.ts` for `computeSlots` and
 an all-day event made in Google Calendar's own UI on the availability
 calendar, read over CalDAV on the Google profile. The practitioner
 guidance is `practitioner-guidance-for-open-events-2026-10-17`.
+
+Google observation, 2026-10-18: two all-day events made in Google
+Calendar's web UI on the availability calendar (`booking-calendar`,
+the google profile), read back over CalDAV by a `REPORT` with the
+service account. `FREE-TEST`, 28 October, "Show me as" left at its
+default: `DTSTART;VALUE=DATE:20261028`, `TRANSP:TRANSPARENT`.
+`BUSY-TEST`, 29 October, "Show me as" set to Busy:
+`DTSTART;VALUE=DATE:20261029`, `TRANSP:OPAQUE`. So Google's default
+for an all-day event is Free on the wire, as this card assumed, and
+the setting does cross CalDAV. `eventsIn` on the same profile read
+them as `transparent` true and false, each spanning its Helsinki day.
+Done; the ruling stays Provisional as the status line says.
+Practitioner-facing consequence on
+`practitioner-guidance-for-open-events-2026-10-17`.
