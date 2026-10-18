@@ -97,3 +97,32 @@ sometimes call the same person "the author".
   `start`); renames cross the wire.
 - Land branches by rebase or fast-forward; no merge commits.
 - Secrets in any session output: names only, never values.
+
+## The derived project
+
+Another repo, `../pooledevents-multical-embeddedview`,
+was bootstrapped from this repository on 2026-10-18.
+That project pools a set of calendars into one embedded view,
+its Worker reading CalDAV the same way as we do here.
+The code bases and Kanban boards are kept apart.
+However, some bugs may cross as cards, both ways.
+The other project's `SCOPE.md` records this arrangement.
+Another agent may be working in its checkout: never modify it and
+never `cd` into it; read it with `git -C ... show`.
+
+- A clear bug, related to the derived project,
+  found and verified here SHOULD go to
+  the board of the derived project, as a card,
+  in its format and conventions (its `ROADMAP.md`, "The board").
+  It MAY go with a proposed fix in the card when there is one.
+  It SHOULD NOT carry any paths into this repository.
+  Write it on a branch off its `main` through a temporary worktree,
+  run its `.githooks/pre-push` there, commit, and remove
+  the worktree. The owner of the other repo reviews and
+  fast-forwards the branch.
+  Create the worktree in your scratchpad, for example, as follows:
+    `git -C ../pooledevents-multical-embeddedview worktree add -b cards/<topic> <dir> main`
+  Once no longer needed, remove the worktree:
+    `git -C ../pooledevents-multical-embeddedview worktree remove <dir>`
+- Its bugs that bear on this code arrive here the same way,
+  on a branch off `main`.
