@@ -57,9 +57,12 @@ jobs:
       # The tracked wrangler.toml stays pointed at localhost for development;
       # the deploy configuration is assembled fresh on every run. Keep main,
       # compatibility_date and the rate limit in step with wrangler.toml.
-      # The Worker is named after the repository's owner, so that the
-      # upstream and a fork deploying into one Cloudflare account do not
-      # take over each other's Worker.
+      # The Worker is named after the repository, owner and name both, so
+      # that the upstream and a fork deploying into one Cloudflare account,
+      # even one under the upstream's own owner, do not take over each
+      # other's Worker. The name labels a workers.dev hostname: lowercase
+      # letters, digits and dashes, no dash at either end, at most 63
+      # characters; a longer one fails rather than being cut into a collision.
       - name: Assemble the Worker configuration
         working-directory: worker
         env:
@@ -74,8 +77,14 @@ jobs:
           DISPLAY_TIMEZONE: ${{ vars.DISPLAY_TIMEZONE }}
           SENDER_NAME: ${{ vars.SENDER_NAME }}
         run: |
+          name=$(printf %s "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]' |
+                 tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//')
+          if [ ${#name} -gt 63 ]; then
+            echo "The Worker name \"$name\" exceeds workers.dev's 63 characters; shorten the repository's name."
+            exit 1
+          fi
           cat > wrangler.deploy.toml <<EOF
-          name = "$(printf %s "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')-booking-worker"
+          name = "$name"
           main = "src/index.ts"
           compatibility_date = "2026-08-01"
 

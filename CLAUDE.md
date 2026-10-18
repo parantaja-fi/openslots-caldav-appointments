@@ -65,9 +65,9 @@ testing continues past it.
   serving the SPA from the Worker.
 - The hosted wizard and page (`parantaja-fi.github.io`) update only
   through the upstream's own `deploy.yml` dispatch — the same path
-  every fork uses. Workers are named `<owner>-booking-worker`, so
-  upstream and forks can share a Cloudflare account. The tracked
-  `wrangler.toml` stays pointed at localhost.
+  every fork uses. Workers are named `<owner>-<repo>`, so upstream and
+  forks, even same-owner ones, can share a Cloudflare account. The
+  tracked `wrangler.toml` stays pointed at localhost.
 - The gitignored `worker/wrangler.production.toml` was the August 2026
   test bed; its Worker is gone. It is not a deploy route.
 
