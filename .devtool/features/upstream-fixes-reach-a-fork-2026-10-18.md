@@ -6,7 +6,7 @@ assignee: null
 epic: "Maintenance"
 dueDate: null
 created: "2026-10-18T11:00:47.000Z"
-modified: "2026-10-18T19:05:11.000Z"
+modified: "2026-10-18T19:36:36.000Z"
 completedAt: null
 labels: ["0.1.x"]
 order: "a8Y"
@@ -76,9 +76,10 @@ remade at will. Landing the move before
 
 A sync whose upstream commits change `.github/workflows/` needs a token
 with the Workflows permission; GitHub refuses it otherwise, and
-`gh repo sync` matches that refusal. The wizard's token has none, and
-should not: the permission would let a stolen token rewrite a workflow
-into one that reads the fork's secrets. The upstream's workflows are
+`gh repo sync` matches that refusal. The wizard's token has none.
+Withholding the permission is least privilege, not a guard on the
+fork's secrets: the token's contents and Actions rights already reach
+those through the code `deploy.yml` runs. The upstream's workflows are
 expected to settle soon (the author, 2026-10-18), so such syncs should
 be rare. For one, the practitioner presses GitHub's own *Sync fork*
 button, which acts with the practitioner's own rights.

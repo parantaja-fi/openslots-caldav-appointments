@@ -152,13 +152,15 @@ static, open-source SPA — the same trust as running its CI.
 ## 6. Trust, soberly
 
 - **The PAT is the strongest credential the wizard touches.** Even
-  repo-scoped, it can rewrite workflows and thereby exfiltrate the
-  other secrets in that repo. Mitigations: fine-grained and scoped to
-  the fork alone (§3 — possible only because the fork is made first),
-  short expiry, revoked after setup (the wizard's last step says so).
-  The paranoid path stays open: do the GitHub steps by hand in
-  GitHub's own UI; the wizard degrades to verifier, which is exactly
-  `practitioner-spa.md`'s Stage 1.
+  repo-scoped and without the Workflows permission, it can change code
+  that `deploy.yml` runs with the other secrets in the environment,
+  dispatch the workflow, and so exfiltrate them. Mitigations:
+  fine-grained and scoped to the fork alone (§3 — possible only because
+  the fork is made first), short expiry, revoked after setup (the
+  wizard's last step says so). The paranoid path stays open: do the
+  GitHub steps by hand in GitHub's own UI; the wizard degrades to
+  verifier, which is exactly
+  [`practitioner-spa.md`'s Stage 1](practitioner-spa.md#7-staging).
 - **GitHub becomes a secret custodian** — CalDAV credentials and the
   Brevo key transit repo secrets on their way to Worker secrets. The
   narrower-trust alternative (paste secrets into the Cloudflare
