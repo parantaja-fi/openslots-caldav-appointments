@@ -5,6 +5,10 @@ Cloudflare Worker API + CalDAV as the sole persistence layer. No
 database, ever. The first release, 0.1.0, is out (2026-10-12);
 testing continues past it.
 
+In this repo, "the owner" generally refers to the human who owns
+this project and its repository; the project's documents may
+sometimes call the same person "the author".
+
 ## Document map
 
 - `SCOPE.md` — what is being built, for whom, what is out.
@@ -57,7 +61,7 @@ testing continues past it.
 
 ## Deployment surroundings
 
-- The author's practice site is GitHub Pages: staged at
+- The owner's practice site is GitHub Pages: staged at
   <https://staging.pnr.iki.fi>, deploying to <https://parantaja.fi>.
   The booking page will eventually integrate into it (`ROADMAP.md`
   0.2.0), so the page and the Worker are cross-origin by design:
@@ -65,14 +69,25 @@ testing continues past it.
   serving the SPA from the Worker.
 - The hosted wizard and page (`parantaja-fi.github.io`) update only
   through the upstream's own `deploy.yml` dispatch — the same path
-  every fork uses. Workers are named `<owner>-<repo>`, so upstream and
-  forks, even same-owner ones, can share a Cloudflare account. The
-  tracked `wrangler.toml` stays pointed at localhost.
+  every fork uses. A Worker is named after its repository's full name,
+  for example, `parantaja-fi/openslots-caldav-appointments` giving
+  `parantaja-fi-openslots-caldav-appointments`, so the upstream and its
+  forks, even within one GitHub account, can share a Cloudflare
+  account. The tracked `wrangler.toml` stays pointed at localhost.
 - The gitignored `worker/wrangler.production.toml` was the August 2026
   test bed; its Worker is gone. It is not a deploy route.
 
 ## Workflow
 
+- `METHODOLOGY.md` binds the owner's requests too. When a request
+  would break it, name the rule and what would break, and act only if
+  the owner, once told, still insists. For example, committing a card
+  that cites a card not yet committed breaks
+  [§2](METHODOLOGY.md#2-mechanisms-are-linked-and-links-are-checked).
+  Neither comply quietly nor route around the rule: rewording that
+  citation so the check passes is routing around it. Take such a
+  request as a consequence the owner did not foresee, not as a wish to
+  break the rule; pointing it out is the help wanted.
 - CI builds and typechecks all three packages — `worker/`, `frontend/`,
   `wizard/` (the spike's production build was silently broken for
   months because only `vite dev` ever ran).
