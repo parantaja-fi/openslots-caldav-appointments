@@ -12,9 +12,12 @@ per item, drawn by the VS Code extension Kanban Markdown and readable
 without it.
 
 - **Epic** — the area: Worker, Frontend, Wizard, Email, Calendars,
-  Security, Operations, Documentation; and one theme cutting across
-  them, Slot rule: which events count, how they are read, and what the
-  booking path re-checks. The board draws one swim lane per epic.
+  Security, Operations, Documentation; and two themes cutting across
+  them: Slot rule — which events count, how they are read, and what
+  the booking path re-checks; and Maintenance — the deployment after
+  its first green tick: the return visit, updates from the upstream,
+  and what breaks and how it is noticed. The board draws one swim lane
+  per epic.
 - **Labels** — the release, one of `0.1.x`, `0.2.0` and `later` (the
   pool releases are selected from); and `bug` or `decision` where
   apt. A `decision` card opens with an italic status line; the words
@@ -90,16 +93,17 @@ without it.
 ## 0.1.0
 
 M0–M6.4 done (M4 descoped along the way): the wizard's proxy
-acceptance passed. M6.5, reconfiguration, and M6.6, the external
+acceptance passed. M6.5, the maintenance mode, and M6.6, the external
 acceptance, follow the release — the latter deliberately.
 
 ## 0.1.x
 
-Fixes to 0.1.0, and the two milestones that close M6: M6.5,
-reconfiguration, and M6.6, the external acceptance by a practitioner
-who is not the author, whose card holds the original bar. What trips
-that practitioner becomes 0.1.x fixes. The work: the cards labelled
-`0.1.x`.
+Fixes to 0.1.0, and the two milestones that close M6: M6.5, the
+maintenance mode (the wizard's return visit, redesigned 2026-10-18 from
+reconfiguration alone), and M6.6, the external acceptance by a
+practitioner who is not the author, whose card holds the original bar.
+What trips that practitioner becomes 0.1.x fixes. The work: the cards
+labelled `0.1.x`.
 
 ## 0.2.0
 

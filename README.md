@@ -62,8 +62,8 @@ do it all by hand, if you decide not to trust the wizard.
 
 The current release is **0.1.0**, the first: the
 [ROADMAP.md](ROADMAP.md) milestones through M6.4 are met.
-Reconfiguration (M6.5), and a walk by someone other than the author
-(M6.6), deliberately follow the release.
+The maintenance mode (M6.5), and a walk by someone other than the
+author (M6.6), deliberately follow the release.
 
 CI builds and typechecks all three packages, runs the tests that need no
 backend — the wizard's included — and runs the live suite against a
