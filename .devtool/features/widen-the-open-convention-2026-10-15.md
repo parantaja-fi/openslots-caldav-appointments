@@ -6,7 +6,7 @@ assignee: null
 epic: "Slot rule"
 dueDate: null
 created: "2026-10-15T13:59:27.000Z"
-modified: "2026-10-17T05:46:55.000Z"
+modified: "2026-10-19T14:44:42.000Z"
 completedAt: null
 labels: ["later"]
 order: "aQ"
@@ -68,6 +68,14 @@ To settle, each as its own `decision` card when this card is worked:
 - The page: how the SPA offers several durations from one block.
 - Where the parameters live first: deploy-time variables
   (`ARCHITECTURE.md` §7), the wizard's manifest following.
+- Private events: Google gives a reader share a Private event as its
+  times only, without `SUMMARY`, `CATEGORIES`, `DESCRIPTION` or
+  `TRANSP`
+  ([study §8](/docs/resource-calendar-view-study.md#8-the-reader-share-at-both-levels)).
+  No marker, in the title or a category, reaches the Worker from an
+  `OPEN` event marked Private, nor can the health check name it.
+  Whether the widened convention does more than the guidance and
+  wizard check of `open-events-marked-private-give-no-slots-2026-10-19`.
 
 ## Acceptance
 
