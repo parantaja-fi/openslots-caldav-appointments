@@ -1,15 +1,15 @@
 ---
 id: "every-event-expands-its-time-zone-anew-2026-10-17"
-status: "backlog"
+status: "todo"
 priority: "high"
 assignee: null
 epic: "Calendars"
 dueDate: null
 created: "2026-10-17T12:45:50.000Z"
-modified: "2026-10-17T12:45:50.000Z"
+modified: "2026-10-19T14:28:14.346Z"
 completedAt: null
 labels: ["0.1.x", "bug"]
-order: "a5V"
+order: "a4V"
 ---
 # Every event expands its time zone anew
 

@@ -1,15 +1,15 @@
 ---
 id: "upstream-fixes-reach-a-fork-2026-10-18"
-status: "backlog"
+status: "todo"
 priority: "high"
 assignee: null
 epic: "Maintenance"
 dueDate: null
 created: "2026-10-18T11:00:47.000Z"
-modified: "2026-10-18T19:36:36.000Z"
+modified: "2026-10-19T15:04:05.919Z"
 completedAt: null
 labels: ["0.1.x"]
-order: "a8Y"
+order: "a4l"
 ---
 # Upstream fixes reach a fork
 

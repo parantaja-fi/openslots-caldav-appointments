@@ -1,15 +1,15 @@
 ---
 id: "decide-sign-in-instead-of-a-token-per-visit-2026-10-18"
-status: "backlog"
+status: "todo"
 priority: "high"
 assignee: null
 epic: "Maintenance"
 dueDate: null
 created: "2026-10-18T12:19:43.000Z"
-modified: "2026-10-18T18:28:38.000Z"
+modified: "2026-10-19T15:04:18.734Z"
 completedAt: null
 labels: ["0.1.x", "decision"]
-order: "a8b"
+order: "a4t"
 ---
 # Decide: sign-in instead of a token per visit
 
