@@ -57,9 +57,15 @@ deliberately not checked: offline keeps the check deterministic, and a
 dead external link is an editorial problem, not a build failure.
 
 The same check runs as a `pre-push` hook (`.githooks/pre-push`),
-enabled once per clone by `git config core.hooksPath .githooks`.
-Without lychee installed the hook waves the push through: CI remains
-the gate, the hook only shortens the loop.
+enabled once per clone by `git config core.hooksPath .githooks`. Like
+the job, it checks the commits pushed, not the working tree: each
+pushed ref's commit, in a temporary worktree. Only that tip is
+checked, as only the tip reaches the job; an earlier commit of the
+same push may fail unnoticed. The hook refuses a commit whose
+`scripts/check-cards.sh` differs from the working tree's. Run by hand,
+with neither arguments nor refs on its standard input, it checks the
+working tree instead. Without lychee installed the hook waves the push
+through: CI remains the gate, the hook only shortens the loop.
 
 The board's own links are the backticked card ids, which lychee cannot
 see. `scripts/check-cards.sh`, run by the same hook and job, checks

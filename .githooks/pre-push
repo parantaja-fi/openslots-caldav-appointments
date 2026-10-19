@@ -1,15 +1,56 @@
 #!/bin/sh
 # Every relative Markdown link and fragment resolves, and every card reference
-# names an existing card, before the push leaves the machine — the same checks
-# as ci.yml's docs job (METHODOLOGY.md §2).
+# names an existing card, in the commit each pushed ref points at — the checks
+# ci.yml's docs job runs on its checkout (METHODOLOGY.md §2). Run by hand, with
+# neither arguments nor refs, it checks the working tree instead.
 # Enabled per clone by: git config core.hooksPath .githooks
 # Without lychee installed its half is waved through; CI still checks.
-st=0
-scripts/check-cards.sh || st=1
-if command -v lychee >/dev/null 2>&1; then
-  lychee --offline --include-fragments --no-progress \
-    --hidden --root-dir "$PWD" . || st=1
-else
-  echo "pre-push: lychee not installed, link check left to CI" >&2
+
+# Both checks, over the current directory.
+check() {
+  rc=0
+  scripts/check-cards.sh || rc=1
+  if command -v lychee >/dev/null 2>&1; then
+    lychee --offline --include-fragments --no-progress \
+      --hidden --root-dir "$PWD" . || rc=1
+  else
+    echo "pre-push: lychee not installed, link check left to CI" >&2
+  fi
+  return $rc
+}
+
+# One "<local ref> <local object> <remote ref> <remote object>" line per ref
+# pushed; a deletion's local object is all zeros and carries nothing to check.
+# Git passes the remote's name and URL even when nothing is pushed.
+refs= pushed=
+if [ ! -t 0 ]; then
+  while read -r ref obj _ _; do
+    refs=1
+    case $obj in *[!0]*) pushed="$pushed $ref:$obj" ;; esac
+  done
 fi
+if [ -z "$refs" ] && [ $# -eq 0 ]; then
+  echo "warning: pre-push: checking the working tree" >&2
+  check
+  exit $?
+fi
+
+tmp=$(mktemp -d)
+trap 'git worktree remove --force "$tmp/wt" 2>/dev/null; rm -rf "$tmp"' EXIT
+trap 'exit 130' HUP INT TERM
+st=0
+# A ref name cannot contain a colon.
+for p in $pushed; do
+  c=${p##*:}
+  # The pushed commit's own check-cards.sh runs; it cds to its checkout.
+  git diff --quiet "$c" -- scripts/check-cards.sh || {
+    echo "pre-push: scripts/check-cards.sh in the working tree differs from ${p%:*}'s" >&2
+    exit 78 # EX_CONFIG
+  }
+  git worktree add --quiet --detach "$tmp/wt" "$c"
+  # Git exports GIT_DIR and its kin to hooks; Git in another worktree must not
+  # see them (githooks(5)).
+  (cd "$tmp/wt" && unset $(git rev-parse --local-env-vars) && check) || st=1
+  git worktree remove --force "$tmp/wt"
+done
 exit $st
